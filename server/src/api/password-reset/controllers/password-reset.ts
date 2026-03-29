@@ -4,17 +4,12 @@ import {
   resetPassword,
 } from '../services/password-reset';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared email validator
-// ─────────────────────────────────────────────────────────────────────────────
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default {
 
-  // ── POST /api/password-reset/request ───────────────────────────────────────
+  // POST /api/password-reset/request
   // Body: { email }
-  // Accepts an email, generates a secure token, and emails a reset link.
-  // Always returns the same generic message to prevent user enumeration.
   async request(ctx: any) {
     const { email } = ctx.request.body;
 
@@ -29,23 +24,34 @@ export default {
       const result = await requestPasswordReset(strapi, email.trim().toLowerCase());
 
       if (!result.success) {
-        // Only rate-limit errors reach here
-        ctx.status = 429;
-        ctx.body   = { error: { message: result.message } };
+        // Map each failure type to the right HTTP status
+        const status =
+          result.type === 'rate_limited' ? 429 :
+          result.type === 'not_found'    ? 404 :
+          result.type === 'google'       ? 422 : 400;
+
+        ctx.status = status;
+        ctx.body   = {
+          error: {
+            type:    result.type,
+            message: result.message,
+          },
+        };
         return;
       }
 
-      // Return the same generic message whether the email exists or not.
-      ctx.body = { message: result.message };
+      // success — email sent
+      ctx.body = {
+        type:    result.type,   // 'sent'
+        message: result.message,
+      };
     } catch (err) {
       strapi.log.error('[password-reset] request error:', err);
       ctx.internalServerError('Something went wrong. Please try again.');
     }
   },
 
-  // ── GET /api/password-reset/validate?code=TOKEN ────────────────────────────
-  // Allows the frontend to pre-validate a token when the page loads,
-  // so it can show a friendly error before the user types a new password.
+  // GET /api/password-reset/validate?code=TOKEN
   async validate(ctx: any) {
     const token = (ctx.query?.code as string) || '';
 
@@ -60,9 +66,8 @@ export default {
     ctx.body     = result;
   },
 
-  // ── POST /api/password-reset/reset ─────────────────────────────────────────
+  // POST /api/password-reset/reset
   // Body: { code, newPassword }
-  // The `code` is the plain token extracted from the ?code= query param.
   async reset(ctx: any) {
     const { code, newPassword } = ctx.request.body;
 
