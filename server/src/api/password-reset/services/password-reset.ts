@@ -11,7 +11,6 @@ const RATE_LIMIT_MAX  = 3;
 const RATE_LIMIT_MS   = 15 * 60 * 1000;
 const TOKEN_BYTES     = 32;
 
-// In-memory rate limit only (resets on redeploy — acceptable)
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 const generateSecureToken = (): string =>
@@ -26,7 +25,6 @@ export const checkRateLimit = (
   const now   = Date.now();
   const key   = email.toLowerCase();
   const entry = rateLimitStore.get(key);
-
   if (!entry || now > entry.resetAt) {
     rateLimitStore.set(key, { count: 1, resetAt: now + RATE_LIMIT_MS });
     return { limited: false };
@@ -45,11 +43,7 @@ export const requestPasswordReset = async (
 
   const rl = checkRateLimit(email);
   if (rl.limited) {
-    return {
-      success: false,
-      type:    'rate_limited',
-      message: `Too many requests. Please try again in ${rl.retryAfter} seconds.`,
-    };
+    return { success: false, type: 'rate_limited', message: `Too many requests. Please try again in ${rl.retryAfter} seconds.` };
   }
 
   const users = await strapi.entityService.findMany(
@@ -58,32 +52,25 @@ export const requestPasswordReset = async (
   );
 
   if (!users || users.length === 0) {
-    return {
-      success: false,
-      type:    'not_found',
-      message: 'No account found with this email address.',
-    };
+    return { success: false, type: 'not_found', message: 'No account found with this email address.' };
   }
 
   const user = users[0];
   if (user.provider && user.provider !== 'local') {
-    return {
-      success: false,
-      type:    'google',
-      message: 'This account uses Google sign-in. Please use the "Sign in with Google" button instead.',
-    };
+    return { success: false, type: 'google', message: 'This account uses Google sign-in. Please use the "Sign in with Google" button instead.' };
   }
 
-  // Generate token and store its hash + expiry in the user record
   const plainToken  = generateSecureToken();
   const hashedToken = hashToken(plainToken);
-  const expiresAt   = new Date(Date.now() + TOKEN_EXPIRY_MS).toISOString();
+  const expiresAt   = Date.now() + TOKEN_EXPIRY_MS;
 
-  // Store hash and expiry on the user using Strapi's built-in resetPasswordToken field
+  // Store as JSON string in resetPasswordToken field
+  const tokenData = JSON.stringify({ hash: hashedToken, expiresAt });
+
   await strapi.entityService.update(
     'plugin::users-permissions.user',
     user.id,
-    { data: { resetPasswordToken: `${hashedToken}|${expiresAt}` } },
+    { data: { resetPasswordToken: tokenData } },
   );
 
   const clientBaseUrl = process.env.CLIENT_URL || 'https://ai-fitness-tracker1.vercel.app';
@@ -93,7 +80,7 @@ export const requestPasswordReset = async (
     await strapi.plugins['email'].services.email.send({
       to:      user.email,
       subject: 'Reset your password',
-      text: `Reset your password here:\n\n${resetUrl}?code=${plainToken}\n\nExpires in 10 minutes. Can only be used once.`,
+      text: `Reset your password:\n\n${resetUrl}?code=${plainToken}\n\nExpires in 10 minutes. Can only be used once.`,
       html: `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -131,36 +118,39 @@ export const requestPasswordReset = async (
     strapi.log.error('[password-reset] Email delivery failed:', emailError);
   }
 
-  return {
-    success: true,
-    type:    'sent',
-    message: 'Password reset email sent successfully.',
-  };
+  return { success: true, type: 'sent', message: 'Password reset email sent successfully.' };
+};
+
+const findUserByToken = async (strapi: any, plainToken: string) => {
+  const hashedToken = hashToken(plainToken.trim());
+
+  // Get all users and find the one whose stored token matches
+  // We scan because Strapi doesn't support JSON field filtering
+  const users = await strapi.entityService.findMany(
+    'plugin::users-permissions.user',
+    { filters: { resetPasswordToken: { $notNull: true } }, limit: 100 },
+  );
+
+  for (const user of users) {
+    try {
+      const data = JSON.parse(user.resetPasswordToken);
+      if (data.hash === hashedToken) {
+        return { user, expiresAt: data.expiresAt };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
 };
 
 export const validateResetToken = async (
   strapi: any,
   token: string,
 ): Promise<{ valid: boolean; message: string }> => {
-  const hashedToken = hashToken(token.trim());
-
-  // Find user with this hashed token
-  const users = await strapi.entityService.findMany(
-    'plugin::users-permissions.user',
-    { filters: { resetPasswordToken: { $startsWith: hashedToken } }, limit: 1 },
-  );
-
-  if (!users || users.length === 0) {
-    return { valid: false, message: 'Invalid or expired link.' };
-  }
-
-  const stored = users[0].resetPasswordToken as string;
-  const [, expiresAt] = stored.split('|');
-
-  if (Date.now() > new Date(expiresAt).getTime()) {
-    return { valid: false, message: 'This link has expired. Please request a new one.' };
-  }
-
+  const result = await findUserByToken(strapi, token);
+  if (!result) return { valid: false, message: 'Invalid or expired link.' };
+  if (Date.now() > result.expiresAt) return { valid: false, message: 'This link has expired. Please request a new one.' };
   return { valid: true, message: 'Token is valid.' };
 };
 
@@ -170,31 +160,12 @@ export const resetPassword = async (
   newPassword: string,
 ): Promise<{ success: boolean; message: string }> => {
 
-  if (!token || token.trim().length === 0) {
-    return { success: false, message: 'Reset token is required.' };
-  }
-  if (!newPassword || newPassword.length < 8) {
-    return { success: false, message: 'Password must be at least 8 characters.' };
-  }
+  if (!token?.trim()) return { success: false, message: 'Reset token is required.' };
+  if (!newPassword || newPassword.length < 8) return { success: false, message: 'Password must be at least 8 characters.' };
 
-  const hashedToken = hashToken(token.trim());
-
-  const users = await strapi.entityService.findMany(
-    'plugin::users-permissions.user',
-    { filters: { resetPasswordToken: { $startsWith: hashedToken } }, limit: 1 },
-  );
-
-  if (!users || users.length === 0) {
-    return { success: false, message: 'Invalid or expired link.' };
-  }
-
-  const user   = users[0];
-  const stored = user.resetPasswordToken as string;
-  const [, expiresAt] = stored.split('|');
-
-  if (Date.now() > new Date(expiresAt).getTime()) {
-    return { success: false, message: 'This link has expired. Please request a new one.' };
-  }
+  const result = await findUserByToken(strapi, token);
+  if (!result) return { success: false, message: 'Invalid or expired link.' };
+  if (Date.now() > result.expiresAt) return { success: false, message: 'This link has expired. Please request a new one.' };
 
   const hashedPassword = await strapi
     .plugins['users-permissions']
@@ -202,7 +173,7 @@ export const resetPassword = async (
 
   await strapi.entityService.update(
     'plugin::users-permissions.user',
-    user.id,
+    result.user.id,
     { data: { password: hashedPassword, resetPasswordToken: null } },
   );
 
