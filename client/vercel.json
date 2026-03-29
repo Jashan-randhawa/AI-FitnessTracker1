@@ -1,8 +1,12 @@
-  {
-    "rewrites": [
-      {
-        "source": "/(.*)",
-        "destination": "/"
-      }
-    ]
-  }
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://brilliant-darling-d5497e96aa.strapiapp.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
+  ]
+}
