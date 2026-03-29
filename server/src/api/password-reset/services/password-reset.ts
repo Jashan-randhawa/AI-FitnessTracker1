@@ -1,59 +1,87 @@
 import crypto from 'crypto';
 
-// In-memory store for reset tokens
-// In production, replace this with a DB table or Redis
-// Structure: { [hashedToken]: { userId, expiresAt, attempts } }
+// ─────────────────────────────────────────────────────────────────────────────
+// In-memory stores (replace with DB / Redis in production for multi-instance)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Token store — keyed by hashed reset token.
+ * Storing the *hash* means a stolen DB dump cannot be replayed directly.
+ */
 const tokenStore = new Map<string, {
   userId:    number;
   expiresAt: number;
-  attempts:  number;
+  used:      boolean;
 }>();
 
-// Rate limit store: { [email]: { count, resetAt } }
+/** Rate-limit store — keyed by normalised email. */
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
-const OTP_EXPIRY_MS    = 10 * 60 * 1000; // 10 minutes
-const MAX_OTP_ATTEMPTS = 5;
+// ─────────────────────────────────────────────────────────────────────────────
+// Configuration
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TOKEN_EXPIRY_MS  = 10 * 60 * 1000; // 10 minutes
 const RATE_LIMIT_MAX   = 3;              // max requests per window
 const RATE_LIMIT_MS    = 15 * 60 * 1000; // 15-minute window
+const TOKEN_BYTES      = 32;             // 256-bit token → 64 hex chars
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
-const generateOTP = (): string =>
-  Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+/** Generate a cryptographically-secure, URL-safe token. */
+const generateSecureToken = (): string =>
+  crypto.randomBytes(TOKEN_BYTES).toString('hex');
 
+/** One-way hash used for storage (SHA-256 is fine for short-lived tokens). */
 const hashToken = (token: string): string =>
   crypto.createHash('sha256').update(token).digest('hex');
 
-// ── Rate limiting ───────────────────────────────────────────────────────────
+/** Remove stale tokens for a given userId (one active token per user). */
+const invalidatePreviousTokens = (userId: number): void => {
+  for (const [key, val] of tokenStore.entries()) {
+    if (val.userId === userId) tokenStore.delete(key);
+  }
+};
 
-export const checkRateLimit = (email: string): { limited: boolean; retryAfter?: number } => {
-  const now  = Date.now();
-  const key  = email.toLowerCase();
+// ─────────────────────────────────────────────────────────────────────────────
+// Rate limiting
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const checkRateLimit = (
+  email: string,
+): { limited: boolean; retryAfter?: number } => {
+  const now   = Date.now();
+  const key   = email.toLowerCase();
   const entry = rateLimitStore.get(key);
 
   if (!entry || now > entry.resetAt) {
-    // Fresh window
     rateLimitStore.set(key, { count: 1, resetAt: now + RATE_LIMIT_MS });
     return { limited: false };
   }
 
   if (entry.count >= RATE_LIMIT_MAX) {
-    return { limited: true, retryAfter: Math.ceil((entry.resetAt - now) / 1000) };
+    return {
+      limited:    true,
+      retryAfter: Math.ceil((entry.resetAt - now) / 1000),
+    };
   }
 
   entry.count++;
   return { limited: false };
 };
 
-// ── Request reset ───────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Request password reset  (Step 1)
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const requestPasswordReset = async (
   strapi: any,
-  email: string
-): Promise<{ success: boolean; message: string; otp?: string }> => {
+  email:  string,
+): Promise<{ success: boolean; message: string }> => {
 
-  // 1. Rate limit check
+  // ── 1. Rate-limit ──────────────────────────────────────────────────────────
   const rl = checkRateLimit(email);
   if (rl.limited) {
     return {
@@ -62,127 +90,233 @@ export const requestPasswordReset = async (
     };
   }
 
-  // 2. Look up user — do NOT reveal non-existence in the response message
-  //    (per security requirement #4). We return the same message either way.
+  // ── 2. Look up the user in the DB ──────────────────────────────────────────
   const users = await strapi.entityService.findMany(
     'plugin::users-permissions.user',
-    { filters: { email: email.toLowerCase() }, limit: 1 }
+    { filters: { email: email.toLowerCase() }, limit: 1 },
   );
 
+  // ── 3a. Email does NOT exist — return generic message (no enumeration) ──────
+  //    We still return success:true so the controller returns 200.
   if (!users || users.length === 0) {
-    // Security: same message as success so we don't leak email existence
     return {
       success: true,
-      message: 'If that email is registered, a reset code has been sent.',
+      message: 'If this email is registered, you will receive a password reset link.',
     };
   }
 
+  // ── 3b. Email EXISTS — generate token, save hash, send email ───────────────
   const user = users[0];
 
-  // 3. Generate OTP and store hashed version
-  const otp        = generateOTP();
-  const hashedOTP  = hashToken(otp);
-  const expiresAt  = Date.now() + OTP_EXPIRY_MS;
+  const plainToken  = generateSecureToken();  // sent to the user via email
+  const hashedToken = hashToken(plainToken);  // stored server-side
+  const expiresAt   = Date.now() + TOKEN_EXPIRY_MS;
 
-  // Clear any existing token for this user
-  for (const [key, val] of tokenStore.entries()) {
-    if (val.userId === user.id) tokenStore.delete(key);
-  }
+  // Invalidate any previous reset token for this user
+  invalidatePreviousTokens(user.id);
 
-  tokenStore.set(hashedOTP, { userId: user.id, expiresAt, attempts: 0 });
+  // Persist the hashed token
+  tokenStore.set(hashedToken, { userId: user.id, expiresAt, used: false });
 
-  // 4. Send email via Strapi's email plugin
+  // Build the reset URL injected into the Strapi email template
+  //   <%= URL %>?code=<%= TOKEN %>
+  const clientBaseUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  const resetUrl      = `${clientBaseUrl}/reset-password`;  // URL part
+  const token         = plainToken;                          // TOKEN part
+
   try {
     await strapi.plugins['email'].services.email.send({
       to:      user.email,
-      subject: 'Your Password Reset Code',
+      subject: 'Reset your password',
+
+      // ── Strapi-style plain-text template ──────────────────────────────────
+      //    Mirrors:  We heard that you lost your password. Sorry about that!
+      //              But don't worry! You can use the following link:
+      //              <%= URL %>?code=<%= TOKEN %>
+      text: `We heard that you lost your password. Sorry about that!
+
+But don't worry! You can use the following link to reset your password:
+
+${resetUrl}?code=${token}
+
+This link expires in 10 minutes and can only be used once.
+
+If you didn't request a password reset, you can safely ignore this email.
+
+Thanks.`,
+
+      // ── HTML version ──────────────────────────────────────────────────────
       html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0a0a0f;color:#f9fafb;border-radius:12px;">
-          <h2 style="color:#818cf8;margin-bottom:8px;">Reset Your Password</h2>
-          <p style="color:#9ca3af;margin-bottom:24px;">Use the code below to reset your password. It expires in <strong style="color:#f9fafb;">10 minutes</strong>.</p>
-          <div style="background:#1e1b4b;border:1px solid #3730a3;border-radius:10px;padding:24px;text-align:center;margin-bottom:24px;">
-            <span style="font-size:36px;font-weight:700;letter-spacing:10px;color:#a5b4fc;">${otp}</span>
-          </div>
-          <p style="color:#6b7280;font-size:13px;">If you didn't request a password reset, you can safely ignore this email.</p>
-          <p style="color:#6b7280;font-size:13px;">This code can only be used once and expires in 10 minutes.</p>
-        </div>
-      `,
-      text: `Your password reset code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this, ignore this email.`,
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reset Your Password</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: 'DM Sans', Arial, sans-serif; background: #0a0a0f; }
+    .wrapper { max-width: 520px; margin: 40px auto; padding: 0 16px; }
+    .card {
+      background: #111118;
+      border: 1px solid rgba(99,102,241,0.18);
+      border-radius: 16px;
+      padding: 40px 36px;
+    }
+    .logo { font-size: 13px; font-weight: 700; letter-spacing: 0.12em;
+            color: #6366f1; text-transform: uppercase; margin-bottom: 32px; }
+    h1 { font-size: 22px; font-weight: 700; color: #f9fafb; margin: 0 0 8px; }
+    p  { font-size: 14px; color: #9ca3af; line-height: 1.7; margin: 0 0 24px; }
+    .notice { font-size: 13px; color: #4b5563; border-top: 1px solid rgba(255,255,255,0.06);
+              padding-top: 20px; margin-top: 4px; }
+    .btn-wrap { text-align: center; margin: 28px 0; }
+    .btn {
+      display: inline-block;
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: #fff !important;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.01em;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.4);
+    }
+    .link-box {
+      background: rgba(99,102,241,0.07);
+      border: 1px solid rgba(99,102,241,0.18);
+      border-radius: 8px;
+      padding: 12px 16px;
+      word-break: break-all;
+      font-size: 12px;
+      color: #818cf8;
+      margin-bottom: 24px;
+    }
+    .expiry {
+      display: inline-block;
+      background: rgba(234,179,8,0.1);
+      border: 1px solid rgba(234,179,8,0.25);
+      border-radius: 6px;
+      padding: 2px 10px;
+      font-size: 12px;
+      color: #fbbf24;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="logo">🏋️ AI Fitness Tracker</div>
+
+      <h1>Reset your password</h1>
+      <p>
+        We heard that you lost your password. Sorry about that!<br />
+        But don't worry — click the button below to reset it.
+        <br /><br />
+        <span class="expiry">⏱ Expires in 10 minutes</span>
+      </p>
+
+      <div class="btn-wrap">
+        <a class="btn" href="${resetUrl}?code=${token}">Reset My Password</a>
+      </div>
+
+      <p style="font-size:12px;color:#4b5563;text-align:center;margin-bottom:16px;">
+        Or copy and paste this link into your browser:
+      </p>
+      <div class="link-box">${resetUrl}?code=${token}</div>
+
+      <div class="notice">
+        This link can only be used <strong style="color:#f9fafb;">once</strong> and expires in <strong style="color:#f9fafb;">10 minutes</strong>.<br />
+        If you didn't request a password reset, you can safely ignore this email — your account remains secure.
+      </div>
+    </div>
+  </div>
+</body>
+</html>`,
     });
   } catch (emailError) {
-    strapi.log.error('Password reset email failed:', emailError);
-    // Don't expose email errors to client
+    strapi.log.error('[password-reset] Email delivery failed:', emailError);
+    // Do not surface email errors to the client
   }
 
   return {
     success: true,
-    message: 'If that email is registered, a reset code has been sent.',
+    message: 'If this email is registered, you will receive a password reset link.',
   };
 };
 
-// ── Verify OTP + reset password ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Validate token  (optional Step 1.5 — lets the frontend pre-check the link)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const validateResetToken = (
+  token: string,
+): { valid: boolean; message: string } => {
+  const hashedToken = hashToken(token.trim());
+  const entry       = tokenStore.get(hashedToken);
+
+  if (!entry)               return { valid: false, message: 'Invalid or expired link.' };
+  if (entry.used)           return { valid: false, message: 'This link has already been used.' };
+  if (Date.now() > entry.expiresAt) {
+    tokenStore.delete(hashedToken);
+    return { valid: false, message: 'This link has expired. Please request a new one.' };
+  }
+
+  return { valid: true, message: 'Token is valid.' };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reset password  (Step 2 — after user clicks the link)
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const resetPassword = async (
-  strapi: any,
-  email:    string,
-  otp:      string,
-  newPassword: string
+  strapi:      any,
+  token:       string,
+  newPassword: string,
 ): Promise<{ success: boolean; message: string }> => {
 
-  // 1. Validate input lengths up front
-  if (!otp || otp.trim().length !== 6) {
-    return { success: false, message: 'Invalid code format.' };
+  // ── 1. Basic validation ────────────────────────────────────────────────────
+  if (!token || typeof token !== 'string' || token.trim().length === 0) {
+    return { success: false, message: 'Reset token is required.' };
   }
   if (!newPassword || newPassword.length < 8) {
     return { success: false, message: 'Password must be at least 8 characters.' };
   }
 
-  // 2. Look up user
-  const users = await strapi.entityService.findMany(
-    'plugin::users-permissions.user',
-    { filters: { email: email.toLowerCase() }, limit: 1 }
-  );
+  // ── 2. Look up the hashed token ────────────────────────────────────────────
+  const hashedToken = hashToken(token.trim());
+  const entry       = tokenStore.get(hashedToken);
 
-  if (!users || users.length === 0) {
-    return { success: false, message: 'Invalid or expired code.' };
+  if (!entry) {
+    return { success: false, message: 'Invalid or expired link.' };
   }
 
-  const user = users[0];
-
-  // 3. Find the token for this user
-  const hashedOTP = hashToken(otp.trim());
-  const entry     = tokenStore.get(hashedOTP);
-
-  if (!entry || entry.userId !== user.id) {
-    return { success: false, message: 'Invalid or expired code.' };
+  // ── 3. Check already used ──────────────────────────────────────────────────
+  if (entry.used) {
+    return { success: false, message: 'This link has already been used. Please request a new one.' };
   }
 
-  // 4. Check expiry
+  // ── 4. Check expiry ────────────────────────────────────────────────────────
   if (Date.now() > entry.expiresAt) {
-    tokenStore.delete(hashedOTP);
-    return { success: false, message: 'Invalid or expired code.' };
+    tokenStore.delete(hashedToken);
+    return { success: false, message: 'This link has expired. Please request a new one.' };
   }
 
-  // 5. Brute-force guard — max 5 wrong attempts per token
-  entry.attempts++;
-  if (entry.attempts > MAX_OTP_ATTEMPTS) {
-    tokenStore.delete(hashedOTP);
-    return { success: false, message: 'Too many attempts. Please request a new code.' };
-  }
-
-  // 6. Hash new password via Strapi's bcrypt util and update user
-  // Strapi's users-permissions plugin exposes a hashPassword helper
-  const hashedPassword = await strapi.plugins['users-permissions']
+  // ── 5. Hash new password via Strapi's bcrypt helper ───────────────────────
+  const hashedPassword = await strapi
+    .plugins['users-permissions']
     .services.user.hashPassword({ password: newPassword });
 
+  // ── 6. Update user record ─────────────────────────────────────────────────
   await strapi.entityService.update(
     'plugin::users-permissions.user',
-    user.id,
-    { data: { password: hashedPassword, resetPasswordToken: null } }
+    entry.userId,
+    { data: { password: hashedPassword, resetPasswordToken: null } },
   );
 
-  // 7. Invalidate token — one-time use
-  tokenStore.delete(hashedOTP);
+  // ── 7. Invalidate token (one-time use) ────────────────────────────────────
+  entry.used = true;
+  tokenStore.delete(hashedToken);
 
   return { success: true, message: 'Password updated successfully.' };
 };
