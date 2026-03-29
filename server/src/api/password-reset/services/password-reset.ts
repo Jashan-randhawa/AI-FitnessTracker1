@@ -122,7 +122,7 @@ export const requestPasswordReset = async (
   tokenStore.set(hashedToken, { userId: user.id, expiresAt, used: false });
 
   // 5. Build reset URL  (<%= URL %>?code=<%= TOKEN %>)
-  const clientBaseUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  const clientBaseUrl = process.env.CLIENT_URL || 'https://ai-fitness-tracker1.vercel.app';
   const resetUrl      = `${clientBaseUrl}/reset-password`;
   const token         = plainToken;
 
