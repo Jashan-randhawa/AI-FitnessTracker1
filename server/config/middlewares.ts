@@ -18,11 +18,24 @@ const config: Core.Config.Middlewares = [
   {
     name: 'strapi::cors',
     config: {
-      origin: [
-        /https:\/\/ai-fitness-tracker1.*\.vercel\.app$/,
-        'http://localhost:5173',
-        'http://localhost:3000',
-      ],
+      origin: (requestOrigin, callback) => {
+        // Allow non-browser / same-origin requests without an Origin header
+        if (!requestOrigin) {
+          return callback(null, true);
+        }
+
+        const allowedOrigins = new Set([
+          'http://localhost:5173',
+          'http://localhost:3000',
+          'https://ai-fitness-tracker1-hhwzrects.vercel.app',
+        ]);
+
+        const isPreviewDeployment = /^https:\/\/ai-fitness-tracker1(?:-[a-z0-9]+)?\.vercel\.app$/.test(
+          requestOrigin
+        );
+
+        return callback(null, allowedOrigins.has(requestOrigin) || isPreviewDeployment);
+      },
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
       headers: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
       keepHeaderOnError: true,
