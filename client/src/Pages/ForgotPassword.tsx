@@ -118,12 +118,28 @@ const ForgotPassword = () => {
     setLoading(true);
 
     try {
-      await api.post("/api/password-reset/request", { email: email.trim() });
+      console.log("[ForgotPassword] Sending request to:", api.defaults.baseURL + "/api/password-reset/request");
+      console.log("[ForgotPassword] Origin:", window.location.origin);
+      const response = await api.post("/api/password-reset/request", { email: email.trim() });
+      console.log("[ForgotPassword] Success:", response.status, response.data);
       // success — email sent
       toast.success("Reset link sent! Check your inbox.");
       setResendCooldown(60);
       setStep("sent");
     } catch (err: any) {
+      // ── Detailed CORS / network error logging ──────────────────────────────────────────
+      if (err.message === "Network Error" || !err.response) {
+        console.error("[ForgotPassword] ❌ CORS / Network error detected!");
+        console.error("  message     :", err.message);
+        console.error("  origin      :", window.location.origin);
+        console.error("  target URL  :", api.defaults.baseURL + "/api/password-reset/request");
+        console.error("  err.code    :", err.code);
+        console.error("  full error  :", err);
+        console.error("  ➜ Fix: Add '" + window.location.origin + "' to CORS origin list in server/config/middlewares.ts");
+      } else {
+        console.error("[ForgotPassword] API error:", err.response?.status, err.response?.data);
+      }
+
       const errorType = err.response?.data?.error?.type as AlertKind;
       const errorMsg  = err.response?.data?.error?.message || "Something went wrong.";
 
