@@ -167,10 +167,28 @@ export const resetPassword = async (
   if (!result) return { success: false, message: 'Invalid or expired link.' };
   if (Date.now() > result.expiresAt) return { success: false, message: 'This link has expired. Please request a new one.' };
 
-  const hashedPassword = await strapi
-    .plugins['users-permissions']
-    .services.user.hashPassword({ password: newPassword });
+  // Try Strapi v5 API first, fall back to v4
+  let hashedPassword: string;
+  try {
+    hashedPassword = await strapi
+      .plugin('users-permissions')
+      .service('user')
+      .hashPassword(newPassword);
+    console.log('[password-reset] hashed password using v5 API');
+  } catch (e1) {
+    try {
+      hashedPassword = await strapi
+        .plugins['users-permissions']
+        .services.user.hashPassword({ password: newPassword });
+      console.log('[password-reset] hashed password using v4 API');
+    } catch (e2) {
+      console.error('[password-reset] hashPassword failed v5:', e1);
+      console.error('[password-reset] hashPassword failed v4:', e2);
+      throw e2;
+    }
+  }
 
+  console.log('[password-reset] updating user password, userId:', result.user.id);
   await strapi.entityService.update(
     'plugin::users-permissions.user',
     result.user.id,
