@@ -61,7 +61,7 @@ export default {
       return;
     }
 
-    const result = validateResetToken(token);
+    const result = await validateResetToken(strapi, token);
     ctx.status   = result.valid ? 200 : 400;
     ctx.body     = result;
   },
