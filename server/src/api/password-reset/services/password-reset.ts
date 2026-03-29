@@ -105,8 +105,16 @@ export const requestPasswordReset = async (
     };
   }
 
-  // ── 3b. Email EXISTS — generate token, save hash, send email ───────────────
+  // ── 3b. Email EXISTS but registered via a social provider (e.g. Google) ─────
+  //    These accounts have no local password — reset makes no sense for them.
+  //    Return the generic message silently so we don't reveal the provider.
   const user = users[0];
+  if (user.provider && user.provider !== 'local') {
+    return {
+      success: true,
+      message: 'If this email is registered, you will receive a password reset link.',
+    };
+  }
 
   const plainToken  = generateSecureToken();  // sent to the user via email
   const hashedToken = hashToken(plainToken);  // stored server-side
