@@ -9,9 +9,9 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default {
 
   // POST /api/password-reset/request
-  // Body: { email }
   async request(ctx: any) {
     const { email } = ctx.request.body;
+    console.log('[password-reset] request called with email:', email);
 
     if (!email || typeof email !== 'string') {
       return ctx.badRequest('Email is required.');
@@ -22,31 +22,22 @@ export default {
 
     try {
       const result = await requestPasswordReset(strapi, email.trim().toLowerCase());
+      console.log('[password-reset] requestPasswordReset result:', result);
 
       if (!result.success) {
-        // Map each failure type to the right HTTP status
         const status =
           result.type === 'rate_limited' ? 429 :
           result.type === 'not_found'    ? 404 :
           result.type === 'google'       ? 422 : 400;
 
         ctx.status = status;
-        ctx.body   = {
-          error: {
-            type:    result.type,
-            message: result.message,
-          },
-        };
+        ctx.body   = { error: { type: result.type, message: result.message } };
         return;
       }
 
-      // success — email sent
-      ctx.body = {
-        type:    result.type,   // 'sent'
-        message: result.message,
-      };
+      ctx.body = { type: result.type, message: result.message };
     } catch (err) {
-      strapi.log.error('[password-reset] request error:', err);
+      console.error('[password-reset] request CRASHED:', err);
       ctx.internalServerError('Something went wrong. Please try again.');
     }
   },
@@ -54,6 +45,7 @@ export default {
   // GET /api/password-reset/validate?code=TOKEN
   async validate(ctx: any) {
     const token = (ctx.query?.code as string) || '';
+    console.log('[password-reset] validate called, token length:', token.length);
 
     if (!token) {
       ctx.status = 400;
@@ -61,15 +53,21 @@ export default {
       return;
     }
 
-    const result = await validateResetToken(strapi, token);
-    ctx.status   = result.valid ? 200 : 400;
-    ctx.body     = result;
+    try {
+      const result = await validateResetToken(strapi, token);
+      console.log('[password-reset] validateResetToken result:', result);
+      ctx.status = result.valid ? 200 : 400;
+      ctx.body   = result;
+    } catch (err) {
+      console.error('[password-reset] validate CRASHED:', err);
+      ctx.internalServerError('Something went wrong.');
+    }
   },
 
   // POST /api/password-reset/reset
-  // Body: { code, newPassword }
   async reset(ctx: any) {
     const { code, newPassword } = ctx.request.body;
+    console.log('[password-reset] reset called, code length:', code?.length, 'password length:', newPassword?.length);
 
     if (!code || !newPassword) {
       return ctx.badRequest('Reset code and new password are required.');
@@ -77,6 +75,7 @@ export default {
 
     try {
       const result = await resetPassword(strapi, code, newPassword);
+      console.log('[password-reset] resetPassword result:', result);
 
       if (!result.success) {
         ctx.status = 400;
@@ -86,7 +85,7 @@ export default {
 
       ctx.body = { message: result.message };
     } catch (err) {
-      strapi.log.error('[password-reset] reset error:', err);
+      console.error('[password-reset] reset CRASHED:', err);
       ctx.internalServerError('Something went wrong. Please try again.');
     }
   },
