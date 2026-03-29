@@ -19,8 +19,7 @@ const config: Core.Config.Middlewares = [
     name: 'strapi::cors',
     config: {
       origin: [
-        'https://ai-fitness-tracker1.vercel.app',
-        'https://ai-fitness-tracker1-1mos08aji.vercel.app',
+        /https:\/\/ai-fitness-tracker1.*\.vercel\.app$/,
         'http://localhost:5173',
         'http://localhost:3000',
       ],
