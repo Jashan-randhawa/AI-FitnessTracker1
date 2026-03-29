@@ -167,14 +167,11 @@ export const resetPassword = async (
   if (!result) return { success: false, message: 'Invalid or expired link.' };
   if (Date.now() > result.expiresAt) return { success: false, message: 'This link has expired. Please request a new one.' };
 
-  // Strapi 5 uses bcryptjs internally — hash directly
-  const bcrypt = require('bcryptjs');
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
-  console.log('[password-reset] hashed password using bcryptjs, userId:', result.user.id);
+  // Pass plain password — Strapi hashes it automatically via entityService
   await strapi.entityService.update(
     'plugin::users-permissions.user',
     result.user.id,
-    { data: { password: hashedPassword, resetPasswordToken: null } },
+    { data: { password: newPassword, resetPasswordToken: null } },
   );
 
   return { success: true, message: 'Password updated successfully.' };
