@@ -16,13 +16,15 @@ import Onboarding from "./Pages/Onboarding";
 import GoogleCallback from "./Pages/GoogleCallback";
 import ForgotPassword from "./Pages/ForgotPassword";
 import ResetPassword from "./Pages/ResetPassword";
+import { Analytics } from "@vercel/analytics/react";
 
 
 const App = () => {
   const { user, isUserFetched, onboardingCompleted } = useappcontext();
 
   return (
-    <Routes>
+    <>
+      <Routes>
       {/* Always accessible — must be outside auth checks */}
       <Route path="/google-callback"  element={<GoogleCallback />} />
       <Route path="/forgot-password"  element={<ForgotPassword />} />
@@ -53,7 +55,9 @@ const App = () => {
           )
         }
       />
-    </Routes>
+      </Routes>
+      <Analytics />
+    </>
   );
 };
 
