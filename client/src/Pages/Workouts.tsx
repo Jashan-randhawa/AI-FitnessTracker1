@@ -211,6 +211,15 @@ const LEVEL_BADGE: Record<string, string> = {
   "all levels": "bg-sky-500/20 text-sky-400 ring-1 ring-sky-500/40",
 };
 
+const FEATURED_IMAGES: Record<Category, string> = {
+  all: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80",
+  strength: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80",
+  cardio: "https://images.unsplash.com/photo-1483721310020-03333e577078?auto=format&fit=crop&w=1200&q=80",
+  yoga: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=80",
+  hiit: "https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80",
+  mobility: "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80",
+};
+
 // ── RapidAPI YouTube Search Hook ───────────────────────────
 function useYouTubeSearch(query: string, enabled: boolean) {
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
@@ -634,49 +643,108 @@ export default function Workouts() {
 
       {/* ── Hero Header ── */}
       <div className="relative z-10 px-6 pt-10 pb-8 max-w-6xl mx-auto">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                  <polygon points="5 3 19 12 5 21 5 3" />
-                </svg>
-              </div>
-              <span className="text-xs font-bold text-emerald-500 tracking-widest uppercase">Workout Library</span>
-            </div>
-            <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">
-              Workout <span className="text-emerald-500">Videos</span>
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              {RAPIDAPI_KEY ? "🟢 Live YouTube search enabled" : "Curated playlists from top creators"}
-            </p>
-          </div>
+        {(() => {
+          const featured = filtered[0] || PLAYLISTS[0];
+          return (
+            <div className="relative overflow-hidden rounded-3xl border border-white/20 dark:border-slate-700/40 bg-gradient-to-br from-white/80 via-emerald-100/40 to-cyan-100/50 dark:from-slate-900/80 dark:via-emerald-900/20 dark:to-cyan-900/20 shadow-[0_20px_70px_-35px_rgba(16,185,129,0.65)] dark:shadow-[0_20px_70px_-35px_rgba(16,185,129,0.35)]">
+              <div className="absolute -top-20 -left-16 w-56 h-56 rounded-full bg-emerald-400/25 blur-3xl" />
+              <div className="absolute -bottom-24 -right-12 w-64 h-64 rounded-full bg-cyan-500/20 blur-3xl" />
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-900/45 via-slate-900/25 to-slate-900/40 dark:from-slate-950/60 dark:via-slate-950/30 dark:to-slate-950/65" />
 
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="text-right hidden sm:block">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider">Showing</p>
-              <p className="text-2xl font-black text-emerald-500 leading-none">{filtered.length}</p>
+              <div className="relative p-5 sm:p-7 md:p-8 min-h-[240px] sm:min-h-[290px] flex flex-col md:flex-row gap-6 md:gap-8 md:items-center md:justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                      </svg>
+                    </div>
+                    <span className="text-xs font-bold text-emerald-300 tracking-widest uppercase">Workout Library</span>
+                  </div>
+
+                  <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                    Workout <span className="text-emerald-300">Videos</span>
+                  </h1>
+                  <p className="text-sm text-slate-200 mt-2">
+                    {RAPIDAPI_KEY ? "🟢 Live YouTube search enabled" : "Curated playlists from top creators"}
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/85 dark:bg-slate-900/75 text-slate-700 dark:text-slate-200 shadow-sm backdrop-blur">
+                      <span className="text-[10px] uppercase tracking-wider text-slate-500">Showing</span>
+                      <span className="text-sm font-black text-emerald-500">{filtered.length}</span>
+                    </span>
+                    <span className="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-emerald-500/15 ring-1 ring-emerald-300/35 text-emerald-100">
+                      Featured now
+                    </span>
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <button
+                      onClick={() => setSelectedPlaylist(featured)}
+                      className="px-5 py-2.5 rounded-xl text-sm font-bold bg-emerald-400 text-slate-900 hover:bg-emerald-300 transition-colors cursor-pointer shadow-lg shadow-emerald-500/30"
+                    >
+                      Start Featured Workout
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveCategory("all");
+                        setActiveLevel("all levels");
+                        setSearch("");
+                      }}
+                      className="px-5 py-2.5 rounded-xl text-sm font-bold bg-white/15 hover:bg-white/25 text-white ring-1 ring-white/40 backdrop-blur-sm transition-colors cursor-pointer"
+                    >
+                      Browse All
+                    </button>
+                  </div>
+                </div>
+
+                <div className="w-full md:max-w-sm">
+                  <div className="rounded-2xl border border-white/25 bg-white/10 dark:bg-slate-900/45 p-3 backdrop-blur-md shadow-[0_18px_40px_-20px_rgba(15,23,42,0.8)]">
+                    <div className={`relative rounded-xl overflow-hidden h-40 bg-gradient-to-br ${featured.thumbnailColor}`}>
+                      <img
+                        src={FEATURED_IMAGES[featured.category]}
+                        alt={featured.title}
+                        className="w-full h-full object-cover opacity-90"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
+                      <span className="absolute top-2 right-2 text-[11px] font-bold px-2 py-1 rounded-lg bg-black/55 text-white">
+                        {featured.videoCount * 5} min
+                      </span>
+                      <span className={`absolute bottom-2 left-2 px-2 py-1 rounded-lg text-[11px] font-semibold capitalize ${LEVEL_BADGE[featured.level]}`}>
+                        {featured.level}
+                      </span>
+                      <span className="absolute bottom-2 right-2 px-2 py-1 rounded-lg text-[11px] font-semibold bg-white/85 text-slate-800 capitalize">
+                        {featured.category}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm font-semibold text-white line-clamp-1">{featured.title}</p>
+                    <p className="text-xs text-slate-200">{featured.channel}</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={toggleTheme}
+                  className="absolute top-4 right-4 w-10 h-10 rounded-2xl flex items-center justify-center bg-white/85 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-600/60 text-slate-600 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-500 transition-all duration-200 cursor-pointer shadow-sm"
+                  aria-label="Toggle theme"
+                >
+                  {theme === "dark" ? (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
+                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                      <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
+                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                    </svg>
+                  ) : (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
-            <button
-              onClick={toggleTheme}
-              className="w-10 h-10 rounded-2xl flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-500 transition-all duration-200 cursor-pointer shadow-sm"
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                  <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                </svg>
-              ) : (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
+          );
+        })()}
       </div>
 
       {/* ── API Banner ── */}
