@@ -3,9 +3,6 @@ import { estimateCalories } from "../services/calorie-estimate";
 
 export default {
   async estimate(ctx: Context) {
-    const user = ctx.state.user;
-    if (!user) return ctx.unauthorized("You must be logged in.");
-
     const { activity, duration, weight } = ctx.request.body as {
       activity?: string;
       duration?: number;
@@ -19,8 +16,8 @@ export default {
       return ctx.badRequest("duration must be a positive number (minutes).");
     }
 
-    // Prefer request weight → user profile weight → default 70 kg
-    const weightKg = Number(weight) || Number(user.weight) || 70;
+    // weight from request body, fallback to 70 kg
+    const weightKg = Number(weight) > 0 ? Number(weight) : 70;
     const durationMin = Number(duration);
 
     try {
