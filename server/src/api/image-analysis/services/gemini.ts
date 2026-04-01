@@ -63,7 +63,7 @@ export const analyzeImage = async (filepath: string) => {
 
     // Race the Gemini call against a timeout to prevent indefinite hangs
     const analysisPromise = getAI().models.generateContent({
-      model: "gemini-1.5-flash", // Much faster than gemini-2.5-flash for vision tasks
+      model: "gemini-2.5-flash", // Fast, cost-efficient, and supports vision/multimodal
       contents,
       config,
     });
