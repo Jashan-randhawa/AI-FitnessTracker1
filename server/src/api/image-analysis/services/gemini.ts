@@ -30,6 +30,13 @@ const getMimeType = (filepath: string): string => {
   return map[ext] ?? "image/jpeg";
 };
 
+// Strip <think>...</think> blocks and markdown fences that thinking models emit
+const cleanResponse = (raw: string): string =>
+  raw
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/```json|```/g, "")
+    .trim();
+
 const ANALYZE_TIMEOUT_MS = 15000; // 15 seconds max
 
 export const analyzeImage = async (filepath: string) => {
@@ -45,40 +52,48 @@ export const analyzeImage = async (filepath: string) => {
         },
       },
       {
-        text: 'Identify the food in this image and return ONLY a JSON object with "name" (string, concise food name) and "calories" (number, estimated kcal for the visible portion). No explanation.',
+        text: 'Identify the food in this image and return ONLY a valid JSON object with "name" (string, concise food name) and "calories" (number, estimated kcal for the visible portion). No explanation, no markdown, no extra text.',
       },
     ];
 
-    const config = {
-      responseMimeType: "application/json",
-      responseJsonSchema: {
-        type: "object",
-        properties: {
-          name: { type: "string" },
-          calories: { type: "number" },
-        },
-        required: ["name", "calories"],
-      },
+    const config: any = {
+      // Disable thinking to avoid <think> tags polluting JSON output and adding latency
+      thinkingConfig: { thinkingBudget: 0 },
     };
 
     // Race the Gemini call against a timeout to prevent indefinite hangs
     const analysisPromise = getAI().models.generateContent({
-      model: "gemini-2.5-flash", // Fast, cost-efficient, and supports vision/multimodal
+      model: "gemini-2.5-flash",
       contents,
       config,
     });
 
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Image analysis timed out. Please try again.")), ANALYZE_TIMEOUT_MS)
+      setTimeout(
+        () => reject(new Error("Image analysis timed out. Please try again.")),
+        ANALYZE_TIMEOUT_MS
+      )
     );
 
     const response = await Promise.race([analysisPromise, timeoutPromise]);
 
-    const parsed = JSON.parse(response.text);
+    // Clean response before parsing — thinking models may add <think> tags or markdown fences
+    const cleaned = cleanResponse(response.text ?? "");
 
-    // Sanitize: ensure calories is a positive number
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      throw new Error(
+        "AI returned unreadable output. Please try again with a clearer photo."
+      );
+    }
+
+    // Sanitize: ensure name is a string and calories is a positive number
     if (!parsed.name || typeof parsed.calories !== "number" || parsed.calories <= 0) {
-      throw new Error("Could not identify food in the image. Please try a clearer photo.");
+      throw new Error(
+        "Could not identify food in the image. Please try a clearer photo."
+      );
     }
 
     return { name: String(parsed.name).trim(), calories: Math.round(parsed.calories) };
