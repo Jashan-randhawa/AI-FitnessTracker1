@@ -187,13 +187,14 @@ const login = async (credentials : Credentials) =>{
     useEffect(()=>{
         const token = localStorage.getItem("token");
         if(token){
-            (async()=>{
-                await fetchUser(token);
-                await fetchFoodLogs(token);
-                await fetchActivityLogs(token);
-            })()
+            // Run all three fetches in parallel — no reason to wait for user before fetching logs
+            Promise.all([
+                fetchUser(token),
+                fetchFoodLogs(token),
+                fetchActivityLogs(token),
+            ]);
         }
-},[])
+    },[])
 
     const value = {
         user,
