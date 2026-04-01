@@ -79,8 +79,10 @@ const AddActivityModal = ({
           suggestion: data.data.suggestion,
         });
       }
-    } catch {
-      // Silently fall back — user can enter calories manually
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || "AI estimate failed";
+      toast.error(`AI: ${msg}`);
+      console.error("calorie-estimate error:", err?.response?.data ?? err);
     } finally {
       setAiLoading(false);
     }
