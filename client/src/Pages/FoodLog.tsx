@@ -315,13 +315,19 @@ export default function FoodLog() {
  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (!file) return;
-  e.target.value = ""; // Reset input so same file can be uploaded again
+  e.target.value = ""; // Reset so same file can be re-uploaded
+
+  // Fail fast: reject oversized images before any network call
+  if (file.size > 10 * 1024 * 1024) {
+    toast.error("Image too large. Please use a photo under 10MB.");
+    return;
+  }
 
   const previewUrl = URL.createObjectURL(file);
   setSnapPreview(previewUrl);
   setIsAnalyzing(true);
 
-  // 1. Determine mealType by time of day
+  // Determine mealType by time of day
   const hour = new Date().getHours();
   let mealType: MealType = "snack";
   if (hour >= 0 && hour < 12)       mealType = "breakfast";
@@ -330,25 +336,21 @@ export default function FoodLog() {
   else                               mealType = "snack";
 
   try {
-    // 2. Prepare Multipart Form Data
     const formData = new FormData();
-    formData.append("image", file); // must match ctx.request.files?.image in controller
+    formData.append("image", file);
 
     const token = localStorage.getItem("token");
 
-    // 3. Call your backend endpoint (configured in image-analysis.ts)
-    // This offloads the API key and Gemini logic to the server
     const response = await api.post("/api/image-analysis", formData, {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "multipart/form-data",
       },
+      timeout: 20000, // 20s client-side guard — prevents infinite spinner
     });
 
-    // Controller returns { success: true, result: { name, calories } }
     const { name, calories } = response.data.result;
 
-    // 4. Save the analyzed data to your Strapi FoodLogs collection
     const { data: raw } = await api.post(
       "/api/foodlogs",
       {
@@ -356,7 +358,7 @@ export default function FoodLog() {
           name,
           calories,
           mealtype: mealType,
-          mealType: mealType, // Sending both for compatibility
+          mealType: mealType,
           date: new Date().toISOString(),
           aiGenerated: true,
         },
@@ -364,18 +366,21 @@ export default function FoodLog() {
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    // 5. Update local UI state
     handleAdd(normalizeStrapiEntry(raw));
     toast.success(`Logged: ${name} · ${calories} kcal`);
 
   } catch (error: any) {
     console.error("AI Food Snap error:", error);
-    toast.error(error?.response?.data?.error?.message || "Could not analyze image. Please add manually.");
+    const msg =
+      error?.code === "ECONNABORTED"
+        ? "Analysis timed out. Please try again."
+        : error?.response?.data?.error?.message || "Could not analyze image. Please add manually.";
+    toast.error(msg);
     openModal(mealType);
   } finally {
     setIsAnalyzing(false);
     setSnapPreview(null);
-    URL.revokeObjectURL(previewUrl);
+    URL.revokeObjectURL(previewUrl); // Always free blob URL
   }
 };
   const hasMeals = MEAL_ORDER.some((m) => byMeal[m].length > 0);
