@@ -5,7 +5,7 @@ export default {
       path: "/calorie-estimate",
       handler: "calorie-estimate.estimate",
       config: {
-        auth: { scope: ["authenticated"] },
+        auth: false,
       },
     },
   ],
