@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useappcontext } from "../Context/AppContext";
 import toast from "react-hot-toast";
 import api from "../configs/api";
@@ -39,29 +39,76 @@ const AddActivityModal = ({
   onClose: () => void;
   onAdd: (entry: { name: string; duration: number; caloriesBurned: number }) => Promise<void>;
 }) => {
+  const { user } = useappcontext();
   const [name, setName] = useState(defaultType !== "custom" ? defaultType : "");
   const [duration, setDuration] = useState("");
   const [calories, setCalories] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<{
+    met_value: number;
+    intensity: "low" | "medium" | "high";
+    suggestion: string;
+  } | null>(null);
+
+  // Debounce timer ref — fires AI estimate 600ms after the user stops typing
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const INTENSITY_STYLE: Record<string, string> = {
+    low:    "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+    high:   "bg-rose-500/15 text-rose-400 border-rose-500/30",
+  };
+
+  // Call /api/calorie-estimate and fill in calories from the AI response
+  const fetchAiEstimate = useCallback(async (activityName: string, durationMin: string) => {
+    if (!activityName.trim() || !durationMin || Number(durationMin) <= 0) return;
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const token = localStorage.getItem("token");
+      const { data } = await api.post(
+        "/api/calorie-estimate",
+        { activity: activityName, duration: Number(durationMin), weight: user?.weight },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (data.success && data.data) {
+        setCalories(String(data.data.calories_burned));
+        setAiResult({
+          met_value: data.data.met_value,
+          intensity: data.data.intensity,
+          suggestion: data.data.suggestion,
+        });
+      }
+    } catch {
+      // Silently fall back — user can enter calories manually
+    } finally {
+      setAiLoading(false);
+    }
+  }, [user?.weight]);
+
+  // Trigger AI estimate with debounce whenever name or duration changes
+  const scheduleEstimate = (nextName: string, nextDuration: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchAiEstimate(nextName, nextDuration), 600);
+  };
 
   const handleDurationChange = (val: string) => {
     setDuration(val);
-    const cfg = getConfig(name);
-    if (val && !calories) setCalories(String(Math.round(Number(val) * cfg.calsPerMin)));
+    setAiResult(null);
+    scheduleEstimate(name, val);
   };
 
   const handleNameChange = (val: string) => {
     setName(val);
-    if (duration) {
-      const cfg = getConfig(val);
-      setCalories(String(Math.round(Number(duration) * cfg.calsPerMin)));
-    }
+    setAiResult(null);
+    scheduleEstimate(val, duration);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !duration) {
       return toast("Please enter both activity name and duration");
-    };
+    }
     await onAdd({ name: name.trim(), duration: Number(duration), caloriesBurned: Number(calories) || 0 });
     onClose();
   };
@@ -73,7 +120,12 @@ const AddActivityModal = ({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full sm:max-w-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Log Activity</h2>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Log Activity</h2>
+            <p className="text-xs text-emerald-500 mt-0.5 flex items-center gap-1">
+              <span>✦</span> AI calorie estimation
+            </p>
+          </div>
           <button onClick={onClose} className="text-gray-400 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-colors text-xl leading-none cursor-pointer">✕</button>
         </div>
 
@@ -98,20 +150,71 @@ const AddActivityModal = ({
           })}
         </div>
 
-        <div className="space-y-3 mb-6">
-          <input className={`${inputCls} capitalize`} placeholder="Activity name" value={name} onChange={(e) => handleNameChange(e.target.value)} />
+        <div className="space-y-3 mb-4">
+          <input
+            className={`${inputCls} capitalize`}
+            placeholder="Activity name"
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
+          />
           <div className="grid grid-cols-2 gap-3">
-            <input type="number" className={inputCls} placeholder="Duration (min)" value={duration} onChange={(e) => handleDurationChange(e.target.value)} />
-            <input type="number" className={inputCls} placeholder="Calories burned" value={calories} onChange={(e) => setCalories(e.target.value)} />
+            <input
+              type="number"
+              className={inputCls}
+              placeholder="Duration (min)"
+              value={duration}
+              onChange={(e) => handleDurationChange(e.target.value)}
+            />
+            <div className="relative">
+              <input
+                type="number"
+                className={`${inputCls} pr-10`}
+                placeholder="Calories burned"
+                value={calories}
+                onChange={(e) => setCalories(e.target.value)}
+              />
+              {aiLoading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg className="animate-spin w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 000 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
+                  </svg>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
+        {/* AI Result Card */}
+        {aiResult && (
+          <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-emerald-500 flex items-center gap-1">
+                <span>✦</span> AI Estimate
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 dark:text-slate-400">
+                  MET {aiResult.met_value.toFixed(1)}
+                </span>
+                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${INTENSITY_STYLE[aiResult.intensity]}`}>
+                  {aiResult.intensity}
+                </span>
+              </div>
+            </div>
+            {aiResult.suggestion && (
+              <p className="text-xs text-gray-500 dark:text-slate-400 leading-relaxed">
+                💡 {aiResult.suggestion}
+              </p>
+            )}
+          </div>
+        )}
+
         <button
           onClick={handleSubmit}
-          disabled={!name.trim() || !duration}
+          disabled={!name.trim() || !duration || aiLoading}
           className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors duration-200 cursor-pointer"
         >
-          Log Activity
+          {aiLoading ? "Estimating…" : "Log Activity"}
         </button>
       </div>
     </div>
