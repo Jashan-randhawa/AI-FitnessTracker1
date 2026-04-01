@@ -62,6 +62,12 @@ const WeatherIcon = () => (
   </svg>
 );
 
+const WorkoutsIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="5 3 19 12 5 21 5 3" />
+  </svg>
+);
+
 const SunIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="4" />
@@ -97,6 +103,7 @@ const navItems: NavItem[] = [
   { path: "/blog", label: "Blog", icon: <BlogIcon /> },
   { path: "/ai", label: "AI Assistant", icon: <AIIcon /> },
   { path: "/weather", label: "Weather", icon: <WeatherIcon /> },
+  { path: "/workouts", label: "Workouts", icon: <WorkoutsIcon /> },
   { path: "/profile", label: "Profile", icon: <ProfileIcon /> },
 ];
 
