@@ -150,22 +150,11 @@ const CATEGORIES: { key: Category | "all"; label: string; emoji: string }[] = [
   { key: "mobility", label: "Mobility", emoji: "🌅" },
 ];
 
-const LEVELS = ["all levels", "beginner", "intermediate", "advanced"] as const;
-
 const LEVEL_BADGE: Record<string, string> = {
   beginner:     "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40",
   intermediate: "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40",
   advanced:     "bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/40",
   "all levels": "bg-sky-500/20 text-sky-400 ring-1 ring-sky-500/40",
-};
-
-const FEATURED_IMAGES: Record<Category, string> = {
-  all: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80",
-  strength: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80",
-  cardio: "https://images.unsplash.com/photo-1483721310020-03333e577078?auto=format&fit=crop&w=1200&q=80",
-  yoga: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=80",
-  hiit: "https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=80",
-  mobility: "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80",
 };
 
 // ── RapidAPI YouTube Search Hook ───────────────────────────
@@ -251,6 +240,32 @@ const AnimatedBackground = () => (
   </div>
 );
 
+// ── Video Player Modal ─────────────────────────────────────
+const VideoPlayerModal = ({ videoId, title, onClose }: { videoId: string; title: string; onClose: () => void; }) => (
+  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={onClose} />
+    <div className="relative z-10 w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl bg-slate-900 border border-slate-700/60">
+      <div className="flex items-center justify-between p-4 border-b border-slate-800">
+        <p className="text-sm font-semibold text-white truncate pr-4">{title}</p>
+        <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors shrink-0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <div className="relative" style={{ paddingBottom: "56.25%" }}>
+        <iframe
+          className="absolute inset-0 w-full h-full"
+          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
+          title={title}
+          allow="autoplay; encrypted-media"
+          allowFullScreen
+        />
+      </div>
+    </div>
+  </div>
+);
+
 // ── Playlist Modal ─────────────────────────────────────────
 const PlaylistModal = ({ playlist, onClose }: { playlist: Playlist; onClose: () => void }) => {
   const [playingVideo, setPlayingVideo] = useState<{ id: string; title: string } | null>(null);
@@ -259,121 +274,131 @@ const PlaylistModal = ({ playlist, onClose }: { playlist: Playlist; onClose: () 
   const ytUrl = `https://www.youtube.com/playlist?list=${playlist.youtubePlaylistId}`;
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-black/60 backdrop-blur-md"
-          onClick={onClose}
+    <>
+      {playingVideo && (
+        <VideoPlayerModal
+          videoId={playingVideo.id}
+          title={playingVideo.title}
+          onClose={() => setPlayingVideo(null)}
         />
+      )}
+      
+      <AnimatePresence>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            onClick={onClose}
+          />
 
-        <motion.div
-          initial={{ opacity: 0, y: 100, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 100, scale: 0.95 }}
-          transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
-          className="relative z-10 w-full sm:max-w-2xl max-h-[92vh] overflow-hidden rounded-t-3xl sm:rounded-3xl shadow-2xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/20 dark:border-slate-700/60 flex flex-col"
-        >
-          {/* Header */}
-          <div className={`relative h-48 bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-between px-8 shrink-0 overflow-hidden`}>
-            <div className="absolute inset-0 bg-black/10 mix-blend-overlay" />
-            <div className="relative z-10">
-              <span className={`inline-block text-[10px] font-bold px-3 py-1 rounded-full mb-3 backdrop-blur-md bg-black/20 text-white border border-white/20 uppercase tracking-wider`}>
-                {playlist.level}
-              </span>
-              <h2 className="text-3xl font-black text-white leading-tight drop-shadow-md">{playlist.title}</h2>
-              <p className="text-white/80 text-sm mt-1 font-medium">{playlist.channel}</p>
-            </div>
-            <motion.span 
-              initial={{ scale: 0, rotate: -45 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", delay: 0.2 }}
-              className="text-8xl opacity-80 z-10 drop-shadow-2xl"
-            >
-              {playlist.emoji}
-            </motion.span>
+          <motion.div
+            initial={{ opacity: 0, y: 100, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 100, scale: 0.95 }}
+            transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
+            className="relative z-10 w-full sm:max-w-2xl max-h-[92vh] overflow-hidden rounded-t-3xl sm:rounded-3xl shadow-2xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/20 dark:border-slate-700/60 flex flex-col"
+          >
+            {/* Header */}
+            <div className={`relative h-48 bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-between px-8 shrink-0 overflow-hidden`}>
+              <div className="absolute inset-0 bg-black/10 mix-blend-overlay" />
+              <div className="relative z-10">
+                <span className={`inline-block text-[10px] font-bold px-3 py-1 rounded-full mb-3 backdrop-blur-md bg-black/20 text-white border border-white/20 uppercase tracking-wider`}>
+                  {playlist.level}
+                </span>
+                <h2 className="text-3xl font-black text-white leading-tight drop-shadow-md">{playlist.title}</h2>
+                <p className="text-white/80 text-sm mt-1 font-medium">{playlist.channel}</p>
+              </div>
+              <motion.span 
+                initial={{ scale: 0, rotate: -45 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", delay: 0.2 }}
+                className="text-8xl opacity-80 z-10 drop-shadow-2xl"
+              >
+                {playlist.emoji}
+              </motion.span>
 
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center bg-black/20 backdrop-blur-md text-white hover:bg-black/40 transition-colors z-20"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Body */}
-          <div className="overflow-y-auto flex-1 p-6 space-y-6">
-            <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">{playlist.description}</p>
-            
-            <div className="flex gap-3">
-              {[ { label: `${playlist.videoCount} Videos`, icon: "▶" }, { label: playlist.category, icon: "🏷" } ].map((s) => (
-                <div key={s.label} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl px-4 py-2 text-xs text-slate-700 dark:text-slate-300 font-medium">
-                  <span className="opacity-60">{s.icon}</span>
-                  <span className="capitalize">{s.label}</span>
-                </div>
-              ))}
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center bg-black/20 backdrop-blur-md text-white hover:bg-black/40 transition-colors z-20"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             </div>
 
-            {hasKey ? (
-              <div className="space-y-4">
-                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Live Results · YouTube</h3>
-                 {loading ? (
-                    <div className="flex gap-2 justify-center py-8">
-                      {[0, 1, 2].map((i) => (
-                        <motion.div key={i} animate={{ y: [0, -10, 0] }} transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }} className="w-2 h-2 bg-emerald-500 rounded-full" />
+            {/* Body */}
+            <div className="overflow-y-auto flex-1 p-6 space-y-6">
+              <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">{playlist.description}</p>
+              
+              <div className="flex gap-3">
+                {[ { label: `${playlist.videoCount} Videos`, icon: "▶" }, { label: playlist.category, icon: "🏷" } ].map((s) => (
+                  <div key={s.label} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl px-4 py-2 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                    <span className="opacity-60">{s.icon}</span>
+                    <span className="capitalize">{s.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {hasKey ? (
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Live Results · YouTube</h3>
+                  {loading ? (
+                      <div className="flex gap-2 justify-center py-8">
+                        {[0, 1, 2].map((i) => (
+                          <motion.div key={i} animate={{ y: [0, -10, 0] }} transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }} className="w-2 h-2 bg-emerald-500 rounded-full" />
+                        ))}
+                      </div>
+                  ) : error ? (
+                      <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-500">{error}</div>
+                  ) : (
+                    <motion.div variants={{ show: { transition: { staggerChildren: 0.1 }}}} initial="hidden" animate="show" className="space-y-3">
+                      {videos.map((v) => (
+                        <motion.button
+                          variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 }}}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          key={v.id}
+                          onClick={() => setPlayingVideo({ id: v.videoId, title: v.title })}
+                          className="w-full flex gap-4 p-3 rounded-2xl bg-white dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 hover:shadow-xl hover:shadow-emerald-500/10 transition-all text-left group"
+                        >
+                          <div className="relative shrink-0 w-32 h-20 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-800">
+                            <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                            <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
+                          </div>
+                          <div className="flex-1 min-w-0 py-1">
+                            <p className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 group-hover:text-emerald-500 transition-colors">{v.title}</p>
+                            <p className="text-xs text-slate-500 mt-1">{v.channel}</p>
+                          </div>
+                        </motion.button>
                       ))}
-                    </div>
-                 ) : error ? (
-                    <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-500">{error}</div>
-                 ) : (
-                   <motion.div variants={{ show: { transition: { staggerChildren: 0.1 }}}} initial="hidden" animate="show" className="space-y-3">
-                     {videos.map((v) => (
-                       <motion.button
-                         variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 }}}
-                         whileHover={{ scale: 1.02 }}
-                         whileTap={{ scale: 0.98 }}
-                         key={v.id}
-                         onClick={() => setPlayingVideo({ id: v.videoId, title: v.title })}
-                         className="w-full flex gap-4 p-3 rounded-2xl bg-white dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 hover:shadow-xl hover:shadow-emerald-500/10 transition-all text-left group"
-                       >
-                         <div className="relative shrink-0 w-32 h-20 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-800">
-                           <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                           <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
-                         </div>
-                         <div className="flex-1 min-w-0 py-1">
-                           <p className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 group-hover:text-emerald-500 transition-colors">{v.title}</p>
-                           <p className="text-xs text-slate-500 mt-1">{v.channel}</p>
-                         </div>
-                       </motion.button>
-                     ))}
-                   </motion.div>
-                 )}
-              </div>
-            ) : (
-              <div className="p-6 rounded-2xl bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 text-center">
-                <p className="text-sm text-slate-600 dark:text-slate-300 font-semibold mb-2">🎬 Live video search disabled</p>
-                <p className="text-xs text-slate-500">Add your RapidAPI key to see real YouTube videos directly inside the app.</p>
-              </div>
-            )}
+                    </motion.div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-6 rounded-2xl bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 text-center">
+                  <p className="text-sm text-slate-600 dark:text-slate-300 font-semibold mb-2">🎬 Live video search disabled</p>
+                  <p className="text-xs text-slate-500">Add your RapidAPI key to see real YouTube videos directly inside the app.</p>
+                </div>
+              )}
 
-            <motion.a
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              href={ytUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-gradient-to-r from-red-500 to-rose-500 text-white font-bold text-sm shadow-xl shadow-red-500/20"
-            >
-              Open Full Playlist on YouTube
-            </motion.a>
-          </div>
-        </motion.div>
-      </div>
-    </AnimatePresence>
+              <motion.a
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                href={ytUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-gradient-to-r from-red-500 to-rose-500 text-white font-bold text-sm shadow-xl shadow-red-500/20"
+              >
+                Open Full Playlist on YouTube
+              </motion.a>
+            </div>
+          </motion.div>
+        </div>
+      </AnimatePresence>
+    </>
   );
 };
 
@@ -402,8 +427,14 @@ const PlaylistCard = ({ playlist, onPlay }: { playlist: Playlist; onPlay: () => 
           <svg width="20" height="20" viewBox="0 0 24 24" fill="#111" className="ml-1"><polygon points="5 3 19 12 5 21 5 3" /></svg>
         </div>
       </div>
-      <div className="absolute top-3 left-3 z-10"><span className={`text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wide bg-white/90 dark:bg-black/50 backdrop-blur-md ${LEVEL_BADGE[playlist.level].split(' ')[1]}`}>{playlist.level}</span></div>
-      <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-lg z-10">{playlist.videoCount} videos</div>
+      <div className="absolute top-3 left-3 z-10">
+        <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wide bg-white/90 dark:bg-black/50 backdrop-blur-md ${LEVEL_BADGE[playlist.level].split(' ')[1]}`}>
+          {playlist.level}
+        </span>
+      </div>
+      <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-lg z-10">
+        {playlist.videoCount} videos
+      </div>
     </div>
 
     <div className="p-5">
@@ -428,15 +459,13 @@ const SearchBar = ({ value, onChange }: { value: string; onChange: (v: string) =
 export default function Workouts() {
   const { theme, toggleTheme } = useTheme();
   const [activeCategory, setActiveCategory] = useState<Category | "all">("all");
-  const [activeLevel, setActiveLevel] = useState<string>("all levels");
   const [search, setSearch] = useState("");
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
 
   const filtered = PLAYLISTS.filter((p) => {
     const matchCat = activeCategory === "all" || p.category === activeCategory;
-    const matchLevel = activeLevel === "all levels" || p.level === activeLevel || p.level === "all levels";
     const matchSearch = !search.trim() || p.title.toLowerCase().includes(search.toLowerCase()) || p.channel.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchLevel && matchSearch;
+    return matchCat && matchSearch;
   });
 
   return (
@@ -525,7 +554,7 @@ export default function Workouts() {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={toggleTheme}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl text-slate-600 dark:text-slate-300 z-50"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl text-slate-600 dark:text-slate-300 z-50 cursor-pointer"
       >
         {theme === "dark" ? "☀️" : "🌙"}
       </motion.button>
