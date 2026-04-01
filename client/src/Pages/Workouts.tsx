@@ -1,8 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "../Context/Themecontext";
 
 // ── Types ──────────────────────────────────────────────────
 type Category = "all" | "strength" | "cardio" | "yoga" | "hiit" | "mobility";
+
+interface YouTubeVideo {
+  id: string;
+  title: string;
+  channel: string;
+  thumbnail: string;
+  duration?: string;
+  viewCount?: string;
+  publishedAt?: string;
+  videoId: string;
+}
 
 interface Playlist {
   id: string;
@@ -15,25 +26,14 @@ interface Playlist {
   emoji: string;
   youtubePlaylistId: string;
   thumbnailColor: string;
+  searchQuery: string; // Used for RapidAPI search
 }
 
-interface InvidiousVideo {
-  videoId: string;
-  title: string;
-  author: string;
-  lengthSeconds: number;
-  videoThumbnails: { url: string; quality: string }[];
-}
+// ── ENV ────────────────────────────────────────────────────
+// Add your RapidAPI key in .env as:  VITE_RAPIDAPI_KEY=your_key_here
+const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY || "";
 
-// ── Invidious public instances (fallback chain) ────────────
-const INVIDIOUS_INSTANCES = [
-  "https://invidious.io.lol",
-  "https://inv.nadeko.net",
-  "https://invidious.privacydev.net",
-  "https://yt.cdaut.de",
-];
-
-// ── Curated Free YouTube Playlists ────────────────────────
+// ── Curated Playlists ──────────────────────────────────────
 const PLAYLISTS: Playlist[] = [
   {
     id: "1",
@@ -46,11 +46,12 @@ const PLAYLISTS: Playlist[] = [
     emoji: "🏋️",
     youtubePlaylistId: "PLt4lS6MZ6JJoFQvfp2RlqDzOFGDJWbm4X",
     thumbnailColor: "from-rose-500 to-orange-500",
+    searchQuery: "beginner full body strength workout Heather Robertson",
   },
   {
     id: "2",
     title: "30-Day HIIT Challenge",
-    channel: "Sydney Cummings Houdyshell",
+    channel: "Sydney Cummings",
     category: "hiit",
     level: "intermediate",
     description: "High-intensity interval training to torch calories and boost your metabolism in 20–30 minutes.",
@@ -58,6 +59,7 @@ const PLAYLISTS: Playlist[] = [
     emoji: "🔥",
     youtubePlaylistId: "PLBe8zisRehFz7TF1LBXiqnqxeqQBjm_lS",
     thumbnailColor: "from-orange-500 to-yellow-500",
+    searchQuery: "30 day HIIT challenge Sydney Cummings",
   },
   {
     id: "3",
@@ -70,6 +72,7 @@ const PLAYLISTS: Playlist[] = [
     emoji: "🧘",
     youtubePlaylistId: "PLui6Eyny-UzwxbWCWDbTzEwsZnnROBTIL",
     thumbnailColor: "from-purple-500 to-pink-500",
+    searchQuery: "yoga for beginners Adriene",
   },
   {
     id: "4",
@@ -82,6 +85,7 @@ const PLAYLISTS: Playlist[] = [
     emoji: "💃",
     youtubePlaylistId: "PLYIBhSL8kELKdUUMkPo93VQKfgBZxlx42",
     thumbnailColor: "from-pink-500 to-rose-500",
+    searchQuery: "cardio dance workout POPSUGAR",
   },
   {
     id: "5",
@@ -94,6 +98,7 @@ const PLAYLISTS: Playlist[] = [
     emoji: "💪",
     youtubePlaylistId: "PL0eyrZgxdwhxNGMWROCAX26d2G6RWnWLw",
     thumbnailColor: "from-blue-600 to-indigo-600",
+    searchQuery: "advanced strength conditioning Marcus Filly",
   },
   {
     id: "6",
@@ -106,6 +111,7 @@ const PLAYLISTS: Playlist[] = [
     emoji: "🌅",
     youtubePlaylistId: "PLfMfAebXlJ4GDmW7yHFpyGeDBd1JFz3oF",
     thumbnailColor: "from-teal-500 to-emerald-500",
+    searchQuery: "morning mobility routine Tom Merrick",
   },
   {
     id: "7",
@@ -118,6 +124,7 @@ const PLAYLISTS: Playlist[] = [
     emoji: "⚡",
     youtubePlaylistId: "PLNFHkl7MCHjG75y0gO78y1E7Bp8AXUOLH",
     thumbnailColor: "from-yellow-500 to-orange-500",
+    searchQuery: "no equipment HIIT workout MadFit",
   },
   {
     id: "8",
@@ -130,6 +137,7 @@ const PLAYLISTS: Playlist[] = [
     emoji: "🌊",
     youtubePlaylistId: "PLui6Eyny-UzxHhBhQnFjFlST7h5-HqF23",
     thumbnailColor: "from-violet-500 to-purple-600",
+    searchQuery: "vinyasa yoga flow intermediate",
   },
   {
     id: "9",
@@ -142,6 +150,7 @@ const PLAYLISTS: Playlist[] = [
     emoji: "🏃",
     youtubePlaylistId: "PLrkBMnXkCHmQhHsxe1VGPV6vHCUBF83GE",
     thumbnailColor: "from-emerald-500 to-green-600",
+    searchQuery: "running for beginners couch to 5k",
   },
   {
     id: "10",
@@ -154,6 +163,7 @@ const PLAYLISTS: Playlist[] = [
     emoji: "🛌",
     youtubePlaylistId: "PL4RzC6-RO50-ILpg3ioGZxCEQl0fkf_lP",
     thumbnailColor: "from-sky-400 to-blue-500",
+    searchQuery: "full body stretch recovery Blogilates",
   },
   {
     id: "11",
@@ -166,6 +176,7 @@ const PLAYLISTS: Playlist[] = [
     emoji: "🎯",
     youtubePlaylistId: "PLt4lS6MZ6JJoiSRS7Ow1xfYRHaYGh4OzI",
     thumbnailColor: "from-red-500 to-rose-600",
+    searchQuery: "HIIT strength workout intermediate Heather Robertson",
   },
   {
     id: "12",
@@ -178,6 +189,7 @@ const PLAYLISTS: Playlist[] = [
     emoji: "🚴",
     youtubePlaylistId: "PLUkQFGUbQLFzjPmU5n8gUHYbJcOjkBflS",
     thumbnailColor: "from-cyan-500 to-blue-500",
+    searchQuery: "indoor cycling cardio workout GCN",
   },
 ];
 
@@ -192,81 +204,147 @@ const CATEGORIES: { key: Category | "all"; label: string; emoji: string }[] = [
 
 const LEVELS = ["all levels", "beginner", "intermediate", "advanced"] as const;
 
-const LEVEL_STYLE: Record<string, string> = {
-  beginner:     "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  intermediate: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
-  advanced:     "bg-rose-500/15 text-rose-400 border-rose-500/30",
-  "all levels": "bg-blue-500/15 text-blue-400 border-blue-500/30",
+const LEVEL_BADGE: Record<string, string> = {
+  beginner:     "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40",
+  intermediate: "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40",
+  advanced:     "bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/40",
+  "all levels": "bg-sky-500/20 text-sky-400 ring-1 ring-sky-500/40",
 };
 
-// ── Helpers ────────────────────────────────────────────────
-function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
+// ── RapidAPI YouTube Search Hook ───────────────────────────
+function useYouTubeSearch(query: string, enabled: boolean) {
+  const [videos, setVideos] = useState<YouTubeVideo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!enabled || !query || !RAPIDAPI_KEY) return;
+
+    setLoading(true);
+    setError(null);
+
+    const controller = new AbortController();
+
+    fetch(
+      `https://youtube138.p.rapidapi.com/search/?q=${encodeURIComponent(query)}&hl=en&gl=US`,
+      {
+        method: "GET",
+        headers: {
+          "x-rapidapi-key": RAPIDAPI_KEY,
+          "x-rapidapi-host": "youtube138.p.rapidapi.com",
+        },
+        signal: controller.signal,
+      }
+    )
+      .then((res) => {
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        // The youtube138 API returns data.contents array
+        const items: YouTubeVideo[] = (data.contents || [])
+          .filter((item: any) => item.type === "video" && item.video)
+          .slice(0, 8)
+          .map((item: any) => ({
+            id: item.video.videoId,
+            videoId: item.video.videoId,
+            title: item.video.title,
+            channel: item.video.author?.title || "Unknown",
+            thumbnail:
+              item.video.thumbnails?.[item.video.thumbnails.length - 1]?.url ||
+              `https://i.ytimg.com/vi/${item.video.videoId}/hqdefault.jpg`,
+            duration: item.video.lengthText || "",
+            viewCount: item.video.stats?.views
+              ? formatViews(item.video.stats.views)
+              : "",
+            publishedAt: item.video.publishedTimeText || "",
+          }));
+        setVideos(items);
+      })
+      .catch((err) => {
+        if (err.name !== "AbortError") setError(err.message);
+      })
+      .finally(() => setLoading(false));
+
+    return () => controller.abort();
+  }, [query, enabled]);
+
+  return { videos, loading, error };
 }
 
-async function fetchPlaylistVideos(
-  playlistId: string,
-  instance: string
-): Promise<InvidiousVideo[]> {
-  const url = `${instance}/api/v1/playlists/${playlistId}?fields=videos`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  return (data.videos ?? []).slice(0, 20) as InvidiousVideo[];
+function formatViews(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M views`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K views`;
+  return `${n} views`;
 }
 
-// ── Video Player Modal (Invidious embed) ──────────────────
+// ── Animated Background ────────────────────────────────────
+const AnimatedBackground = () => (
+  <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+    <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-500/5 dark:bg-emerald-500/8 rounded-full blur-3xl animate-pulse" />
+    <div className="absolute top-1/3 -left-20 w-80 h-80 bg-violet-500/5 dark:bg-violet-500/6 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
+    <div className="absolute bottom-20 right-1/4 w-64 h-64 bg-rose-500/5 dark:bg-rose-500/6 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "4s" }} />
+  </div>
+);
+
+// ── No-API Banner ──────────────────────────────────────────
+const NoApiBanner = ({ onDismiss }: { onDismiss: () => void }) => (
+  <div className="mx-6 mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+    <span className="text-xl shrink-0 mt-0.5">⚠️</span>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-semibold text-amber-400">RapidAPI key not configured</p>
+      <p className="text-xs text-amber-500/80 mt-0.5 leading-relaxed">
+        Add <code className="bg-amber-500/20 px-1 rounded">VITE_RAPIDAPI_KEY=your_key</code> to{" "}
+        <code className="bg-amber-500/20 px-1 rounded">client/.env</code> to enable live YouTube
+        video search. See setup guide below.
+      </p>
+    </div>
+    <button onClick={onDismiss} className="text-amber-500 hover:text-amber-300 transition-colors shrink-0 mt-0.5">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    </button>
+  </div>
+);
+
+// ── Video Player Modal ─────────────────────────────────────
 const VideoPlayerModal = ({
   videoId,
   title,
-  instance,
   onClose,
 }: {
   videoId: string;
   title: string;
-  instance: string;
   onClose: () => void;
-}) => {
-  const embedUrl = `${instance}/embed/${videoId}?autoplay=1`;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/85 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative z-10 w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl bg-slate-900 border border-slate-700">
+}) => (
+  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={onClose} />
+    <div className="relative z-10 w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl bg-slate-900 border border-slate-700/60">
+      <div className="flex items-center justify-between p-4 border-b border-slate-800">
+        <p className="text-sm font-semibold text-white truncate pr-4">{title}</p>
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/80 transition-colors cursor-pointer"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors shrink-0 cursor-pointer"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
-
-        <div className="aspect-video w-full bg-black">
-          <iframe
-            src={embedUrl}
-            className="w-full h-full"
-            allow="autoplay; fullscreen"
-            allowFullScreen
-            title={title}
-          />
-        </div>
-
-        <div className="px-4 py-3 flex items-center justify-between">
-          <p className="text-sm font-semibold text-white truncate pr-8">{title}</p>
-          <span className="text-[10px] text-slate-500 shrink-0">via Invidious</span>
-        </div>
+      </div>
+      <div className="relative" style={{ paddingBottom: "56.25%" }}>
+        <iframe
+          className="absolute inset-0 w-full h-full"
+          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
+          title={title}
+          allow="autoplay; encrypted-media"
+          allowFullScreen
+        />
       </div>
     </div>
-  );
-};
+  </div>
+);
 
-// ── Playlist Modal (video list) ────────────────────────────
+// ── Playlist Modal (with live YouTube search) ──────────────
 const PlaylistModal = ({
   playlist,
   onClose,
@@ -274,42 +352,11 @@ const PlaylistModal = ({
   playlist: Playlist;
   onClose: () => void;
 }) => {
-  const [videos, setVideos] = useState<InvidiousVideo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeInstance, setActiveInstance] = useState(INVIDIOUS_INSTANCES[0]);
   const [playingVideo, setPlayingVideo] = useState<{ id: string; title: string } | null>(null);
+  const hasKey = Boolean(RAPIDAPI_KEY);
+  const { videos, loading, error } = useYouTubeSearch(playlist.searchQuery, hasKey);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setError(null);
-
-      for (const instance of INVIDIOUS_INSTANCES) {
-        try {
-          const vids = await fetchPlaylistVideos(playlist.youtubePlaylistId, instance);
-          if (!cancelled) {
-            setVideos(vids);
-            setActiveInstance(instance);
-            setLoading(false);
-          }
-          return;
-        } catch {
-          // try next instance
-        }
-      }
-
-      if (!cancelled) {
-        setError("Could not load videos. All Invidious instances are currently unavailable.");
-        setLoading(false);
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, [playlist.youtubePlaylistId]);
+  const ytUrl = `https://www.youtube.com/playlist?list=${playlist.youtubePlaylistId}`;
 
   return (
     <>
@@ -317,126 +364,138 @@ const PlaylistModal = ({
         <VideoPlayerModal
           videoId={playingVideo.id}
           title={playingVideo.title}
-          instance={activeInstance}
           onClose={() => setPlayingVideo(null)}
         />
       )}
 
-      <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-        <div
-          className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-          onClick={onClose}
-        />
-        <div className="relative z-10 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl bg-slate-900 border border-slate-700 flex flex-col max-h-[90vh]">
-          {/* Header */}
-          <div className={`relative h-36 bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-center shrink-0`}>
-            <span className="text-7xl opacity-90 drop-shadow-lg">{playlist.emoji}</span>
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+
+        <div className="relative z-10 w-full sm:max-w-2xl max-h-[92vh] overflow-hidden rounded-t-3xl sm:rounded-2xl shadow-2xl bg-slate-900 border border-slate-700/60 flex flex-col">
+          {/* Drag handle (mobile) */}
+          <div className="flex justify-center pt-3 pb-1 sm:hidden">
+            <div className="w-10 h-1 rounded-full bg-slate-700" />
+          </div>
+
+          {/* Header banner */}
+          <div className={`relative h-40 bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-between px-6 shrink-0`}>
+            <div>
+              <span className={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full mb-2 ${LEVEL_BADGE[playlist.level]}`}>
+                {playlist.level.toUpperCase()}
+              </span>
+              <h2 className="text-xl font-black text-white leading-tight drop-shadow-sm">{playlist.title}</h2>
+              <p className="text-white/70 text-sm mt-0.5">{playlist.channel}</p>
+            </div>
+            <span className="text-7xl opacity-75">{playlist.emoji}</span>
+
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-black/30 transition-colors cursor-pointer"
+              className="absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center bg-black/30 text-white hover:bg-black/50 transition-colors cursor-pointer"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           </div>
 
-          {/* Playlist info */}
-          <div className="px-5 py-4 border-b border-slate-700/60 shrink-0">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-[17px] font-bold text-white leading-tight">{playlist.title}</h2>
-                <p className="text-sm text-slate-400 mt-0.5">{playlist.channel}</p>
-              </div>
-              <span className={`shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full border mt-0.5 ${LEVEL_STYLE[playlist.level]}`}>
-                {playlist.level}
-              </span>
+          {/* Body */}
+          <div className="overflow-y-auto flex-1 p-5 space-y-4">
+            <p className="text-slate-400 text-sm leading-relaxed">{playlist.description}</p>
+
+            {/* Stats */}
+            <div className="flex gap-3">
+              {[
+                { label: `${playlist.videoCount} Videos`, icon: "▶" },
+                { label: playlist.category, icon: "🏷" },
+              ].map((s) => (
+                <div key={s.label} className="flex items-center gap-1.5 bg-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 font-medium">
+                  <span className="opacity-60">{s.icon}</span>
+                  <span className="capitalize">{s.label}</span>
+                </div>
+              ))}
             </div>
-            <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">{playlist.description}</p>
-          </div>
 
-          {/* Video list */}
-          <div className="overflow-y-auto flex-1 divide-y divide-slate-700/40">
-            {loading && (
-              <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
-                <p className="text-sm text-slate-400">Loading videos…</p>
-              </div>
-            )}
-
-            {error && (
-              <div className="flex flex-col items-center justify-center py-16 gap-3 px-6 text-center">
-                <span className="text-3xl">⚠️</span>
-                <p className="text-sm text-slate-400">{error}</p>
-              </div>
-            )}
-
-            {!loading && !error && videos.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-16 gap-2">
-                <span className="text-3xl">📭</span>
-                <p className="text-sm text-slate-400">No videos found in this playlist.</p>
-              </div>
-            )}
-
-            {!loading && videos.map((video, i) => {
-              const thumb = video.videoThumbnails?.find(t => t.quality === "medium")?.url
-                ?? video.videoThumbnails?.[0]?.url;
-
-              return (
-                <button
-                  key={video.videoId}
-                  onClick={() => setPlayingVideo({ id: video.videoId, title: video.title })}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-800/60 transition-colors cursor-pointer text-left"
-                >
-                  {/* Thumbnail */}
-                  <div className="relative shrink-0 w-24 h-[54px] rounded-lg overflow-hidden bg-slate-700">
-                    {thumb ? (
-                      <img src={thumb} alt={video.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className={`w-full h-full bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-center`}>
-                        <span className="text-xl">{playlist.emoji}</span>
-                      </div>
-                    )}
-                    {/* Play overlay */}
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                      <div className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="#111" className="ml-0.5">
-                          <polygon points="5 3 19 12 5 21 5 3" />
-                        </svg>
-                      </div>
+            {/* Live videos section */}
+            {hasKey ? (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Live Results · YouTube</h3>
+                  {loading && (
+                    <div className="flex gap-1">
+                      {[0, 1, 2].map((i) => (
+                        <div key={i} className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                      ))}
                     </div>
-                    {/* Duration badge */}
-                    {video.lengthSeconds > 0 && (
-                      <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                        {formatDuration(video.lengthSeconds)}
-                      </span>
-                    )}
+                  )}
+                </div>
+
+                {error && (
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400">
+                    Error loading videos: {error}
                   </div>
+                )}
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-white line-clamp-2 leading-snug">
-                      <span className="text-slate-500 mr-1.5 font-normal">{i + 1}.</span>
-                      {video.title}
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-1 truncate">{video.author}</p>
+                {!loading && !error && videos.length > 0 && (
+                  <div className="space-y-2">
+                    {videos.map((v) => (
+                      <button
+                        key={v.id}
+                        onClick={() => setPlayingVideo({ id: v.videoId, title: v.title })}
+                        className="w-full flex gap-3 p-2.5 rounded-xl hover:bg-slate-800 transition-colors group text-left cursor-pointer"
+                      >
+                        <div className="relative shrink-0 w-28 h-16 rounded-lg overflow-hidden bg-slate-800">
+                          <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover" loading="lazy" />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="#111" className="ml-0.5">
+                                <polygon points="5 3 19 12 5 21 5 3" />
+                              </svg>
+                            </div>
+                          </div>
+                          {v.duration && (
+                            <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] font-bold px-1 rounded">
+                              {v.duration}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition-colors">
+                            {v.title}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-1 truncate">{v.channel}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {v.viewCount && <span className="text-[10px] text-slate-600">{v.viewCount}</span>}
+                            {v.publishedAt && <span className="text-[10px] text-slate-600">{v.publishedAt}</span>}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
                   </div>
+                )}
 
-                  {/* Play icon */}
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600 shrink-0">
-                    <polygon points="5 3 19 12 5 21 5 3" />
-                  </svg>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Footer */}
-          <div className="px-5 py-3 border-t border-slate-700/60 flex items-center justify-between shrink-0">
-            <span className="text-[11px] text-slate-600">Powered by Invidious · No YouTube needed</span>
-            {!loading && videos.length > 0 && (
-              <span className="text-[11px] text-slate-500">{videos.length} videos loaded</span>
+                {!loading && !error && videos.length === 0 && (
+                  <p className="text-center text-slate-600 text-xs py-4">No videos found for this search.</p>
+                )}
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/50 text-center">
+                <p className="text-sm text-slate-400 font-medium mb-1">🎬 Live video search disabled</p>
+                <p className="text-xs text-slate-600">Configure your RapidAPI key to see real YouTube videos here.</p>
+              </div>
             )}
+
+            {/* CTA */}
+            <a
+              href={ytUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white font-bold text-sm transition-all duration-200 shadow-lg shadow-red-600/25"
+            >
+              <svg width="17" height="12" viewBox="0 0 24 17" fill="white">
+                <path d="M23.5 2.7a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.6A3 3 0 0 0 .5 2.7 31 31 0 0 0 0 8.5a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 8.5a31 31 0 0 0-.5-5.8zM9.7 12V5l6.3 3.5L9.7 12z" />
+              </svg>
+              Open Full Playlist on YouTube
+            </a>
           </div>
         </div>
       </div>
@@ -448,59 +507,101 @@ const PlaylistModal = ({
 const PlaylistCard = ({
   playlist,
   onPlay,
+  index,
 }: {
   playlist: Playlist;
   onPlay: () => void;
+  index: number;
 }) => (
   <button
     onClick={onPlay}
-    className="group text-left w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+    className="group text-left w-full rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/20"
+    style={{ animationDelay: `${index * 50}ms` }}
   >
     {/* Thumbnail */}
-    <div className={`relative h-36 bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-center overflow-hidden`}>
-      <span className="text-6xl opacity-80 group-hover:scale-110 transition-transform duration-300">
+    <div className={`relative h-40 bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-center overflow-hidden`}>
+      {/* Shimmer overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
+
+      <span className="text-6xl opacity-80 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500 select-none z-10">
         {playlist.emoji}
       </span>
-      {/* Play overlay */}
-      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-200 flex items-center justify-center">
-        <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="#111" className="ml-1">
+
+      {/* Play button overlay */}
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center z-20">
+        <div className="w-14 h-14 rounded-full bg-white/95 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-xl scale-75 group-hover:scale-100">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#111" className="ml-1">
             <polygon points="5 3 19 12 5 21 5 3" />
           </svg>
         </div>
       </div>
-      {/* Video count badge */}
-      <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+
+      {/* Top badges */}
+      <div className="absolute top-3 left-3 z-10">
+        <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wide ${LEVEL_BADGE[playlist.level]}`}>
+          {playlist.level}
+        </span>
+      </div>
+      <div className="absolute bottom-3 right-3 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-md z-10">
         {playlist.videoCount} videos
       </div>
-      {/* Invidious badge */}
-      <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 rounded-md px-1.5 py-0.5">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="5 3 19 12 5 21 5 3" />
-        </svg>
-        <span className="text-emerald-400 text-[9px] font-semibold">In-app</span>
+
+      {/* Category pill */}
+      <div className="absolute bottom-3 left-3 bg-black/50 text-white/90 text-[10px] font-semibold px-2 py-0.5 rounded-md capitalize z-10">
+        {playlist.category}
       </div>
     </div>
 
     {/* Info */}
-    <div className="p-4">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-tight line-clamp-2">
-          {playlist.title}
-        </h3>
-        <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${LEVEL_STYLE[playlist.level]}`}>
-          {playlist.level}
+    <div className="p-4 bg-white dark:bg-slate-800/80 border-x border-b border-slate-100 dark:border-slate-700/50 rounded-b-2xl backdrop-blur-sm">
+      <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-tight line-clamp-1 group-hover:text-emerald-500 transition-colors duration-200 mb-1">
+        {playlist.title}
+      </h3>
+      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed mb-3">
+        {playlist.description}
+      </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <svg width="11" height="11" viewBox="0 0 24 17" fill="currentColor" className="text-red-500 shrink-0">
+            <path d="M23.5 2.7a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.6A3 3 0 0 0 .5 2.7 31 31 0 0 0 0 8.5a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 8.5a31 31 0 0 0-.5-5.8zM9.7 12V5l6.3 3.5L9.7 12z" />
+          </svg>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate font-medium">{playlist.channel}</span>
+        </div>
+        <span className="text-[10px] text-emerald-500 font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+          Watch <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
         </span>
-      </div>
-      <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 line-clamp-2">{playlist.description}</p>
-      <div className="flex items-center gap-1.5">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 shrink-0">
-          <polygon points="5 3 19 12 5 21 5 3" />
-        </svg>
-        <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{playlist.channel}</span>
       </div>
     </div>
   </button>
+);
+
+// ── Search Bar ─────────────────────────────────────────────
+const SearchBar = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+  <div className="relative group">
+    <svg
+      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors"
+      width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+    <input
+      type="text"
+      placeholder="Search workouts, channels…"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full pl-11 pr-4 py-3 text-sm rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-gray-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all backdrop-blur-sm"
+    />
+    {value && (
+      <button
+        onClick={() => onChange("")}
+        className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors cursor-pointer"
+      >
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    )}
+  </div>
 );
 
 // ── Main Page ──────────────────────────────────────────────
@@ -510,11 +611,13 @@ export default function Workouts() {
   const [activeLevel, setActiveLevel] = useState<string>("all levels");
   const [search, setSearch] = useState("");
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
+  const [showApiBanner, setShowApiBanner] = useState(!RAPIDAPI_KEY);
 
   const filtered = PLAYLISTS.filter((p) => {
-    const matchCat    = activeCategory === "all" || p.category === activeCategory;
-    const matchLevel  = activeLevel === "all levels" || p.level === activeLevel || p.level === "all levels";
-    const matchSearch = !search.trim() ||
+    const matchCat = activeCategory === "all" || p.category === activeCategory;
+    const matchLevel = activeLevel === "all levels" || p.level === activeLevel || p.level === "all levels";
+    const matchSearch =
+      !search.trim() ||
       p.title.toLowerCase().includes(search.toLowerCase()) ||
       p.channel.toLowerCase().includes(search.toLowerCase()) ||
       p.description.toLowerCase().includes(search.toLowerCase());
@@ -522,80 +625,85 @@ export default function Workouts() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200">
+    <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200">
+      <AnimatedBackground />
+
       {selectedPlaylist && (
-        <PlaylistModal
-          playlist={selectedPlaylist}
-          onClose={() => setSelectedPlaylist(null)}
-        />
+        <PlaylistModal playlist={selectedPlaylist} onClose={() => setSelectedPlaylist(null)} />
       )}
 
-      {/* ── Header ── */}
-      <div className="px-6 pt-10 pb-6 max-w-6xl mx-auto flex items-start justify-between border-b border-slate-200 dark:border-slate-800/60">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Workout Videos</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Curated fitness playlists — watch without leaving the app
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-xs text-slate-500">Playlists</p>
-            <p className="text-2xl font-bold text-emerald-400">{filtered.length}</p>
+      {/* ── Hero Header ── */}
+      <div className="relative z-10 px-6 pt-10 pb-8 max-w-6xl mx-auto">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+              </div>
+              <span className="text-xs font-bold text-emerald-500 tracking-widest uppercase">Workout Library</span>
+            </div>
+            <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">
+              Workout <span className="text-emerald-500">Videos</span>
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              {RAPIDAPI_KEY ? "🟢 Live YouTube search enabled" : "Curated playlists from top creators"}
+            </p>
           </div>
-          <button
-            onClick={toggleTheme}
-            className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-200 cursor-pointer"
-            aria-label="Toggle theme"
-          >
-            {theme === "dark" ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            )}
-          </button>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-right hidden sm:block">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider">Showing</p>
+              <p className="text-2xl font-black text-emerald-500 leading-none">{filtered.length}</p>
+            </div>
+            <button
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-2xl flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-500 transition-all duration-200 cursor-pointer shadow-sm"
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* ── Invidious notice ── */}
-      <div className="max-w-6xl mx-auto px-6 pt-4">
-        <div className="flex items-center gap-2 text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3.5 py-2">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          Videos play directly in-app via the <strong className="font-semibold">Invidious API</strong> — no YouTube visit required.
+      {/* ── API Banner ── */}
+      {showApiBanner && (
+        <div className="relative z-10 max-w-6xl mx-auto">
+          <NoApiBanner onDismiss={() => setShowApiBanner(false)} />
         </div>
-      </div>
+      )}
 
       {/* ── Filters ── */}
-      <div className="max-w-6xl mx-auto px-6 pt-4 pb-2 space-y-3">
-        {/* Search */}
-        <div className="relative">
-          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input
-            type="text"
-            placeholder="Search playlists or channels…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-gray-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 transition-colors"
-          />
-        </div>
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pb-6 space-y-4">
+        <SearchBar value={search} onChange={setSearch} />
 
-        {/* Category tabs */}
+        {/* Category chips */}
         <div className="flex gap-2 flex-wrap">
           {CATEGORIES.map(({ key, label, emoji }) => (
             <button
               key={key}
               onClick={() => setActiveCategory(key as Category | "all")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all duration-200 cursor-pointer ${
                 activeCategory === key
-                  ? "bg-emerald-500 text-black border-emerald-500"
-                  : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400 hover:text-gray-900 dark:hover:text-white"
+                  ? "bg-emerald-500 text-black border-emerald-500 shadow-lg shadow-emerald-500/30 scale-105"
+                  : "bg-white dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/50 hover:border-emerald-500/50 hover:text-emerald-500"
               }`}
             >
-              <span>{emoji}</span>{label}
+              <span>{emoji}</span>
+              {label}
             </button>
           ))}
         </div>
@@ -606,10 +714,10 @@ export default function Workouts() {
             <button
               key={level}
               onClick={() => setActiveLevel(level)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer capitalize ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer capitalize ${
                 activeLevel === level
-                  ? `${LEVEL_STYLE[level]} font-semibold`
-                  : "bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400"
+                  ? `${LEVEL_BADGE[level]} scale-105`
+                  : "bg-white dark:bg-slate-800/60 text-slate-400 border-slate-200 dark:border-slate-700/50 hover:border-slate-400"
               }`}
             >
               {level}
@@ -619,27 +727,30 @@ export default function Workouts() {
       </div>
 
       {/* ── Grid ── */}
-      <div className="max-w-6xl mx-auto px-6 pb-10 mt-4">
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pb-12">
         {filtered.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map((playlist) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {filtered.map((playlist, i) => (
               <PlaylistCard
                 key={playlist.id}
                 playlist={playlist}
+                index={i}
                 onPlay={() => setSelectedPlaylist(playlist)}
               />
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-24 text-center rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-4 bg-slate-100 dark:bg-slate-700/60">🎬</div>
-            <p className="text-slate-400 font-semibold">No playlists found</p>
-            <p className="text-slate-500 text-sm mt-1">Try adjusting your filters or search term</p>
+          <div className="flex flex-col items-center justify-center py-28 text-center rounded-3xl bg-white/60 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/50 backdrop-blur-sm">
+            <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl mb-5 bg-slate-100 dark:bg-slate-700/60 shadow-inner">
+              🎬
+            </div>
+            <p className="text-slate-400 font-bold text-lg">No workouts found</p>
+            <p className="text-slate-500 text-sm mt-1 max-w-xs">Try adjusting your filters or searching something different</p>
             <button
               onClick={() => { setActiveCategory("all"); setActiveLevel("all levels"); setSearch(""); }}
-              className="mt-4 px-4 py-2 text-sm font-semibold rounded-xl bg-emerald-500 text-black hover:bg-emerald-600 transition-colors cursor-pointer"
+              className="mt-5 px-5 py-2.5 text-sm font-bold rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 transition-colors cursor-pointer shadow-lg shadow-emerald-500/25"
             >
-              Clear filters
+              Clear all filters
             </button>
           </div>
         )}
