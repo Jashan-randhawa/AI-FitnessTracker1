@@ -8,6 +8,7 @@ import Blog from "./Pages/Blog";
 import BlogPost from "./Pages/BlogPost";
 import AIAssistant from "./Pages/AIAssistant";
 import Weather from "./Pages/Weather";
+import Workouts from "./Pages/Workouts";
 import { useappcontext } from "./Context/AppContext";
 import Login from "./Pages/Login";
 import Loading from "./components/Loading";
@@ -46,6 +47,7 @@ const App = () => {
                 <Route path="profile"     element={<Profile />} />
                 <Route path="ai"          element={<AIAssistant />} />
                 <Route path="weather"     element={<Weather />} />
+                <Route path="workouts"    element={<Workouts />} />
               </Route>
             </Routes>
           )
