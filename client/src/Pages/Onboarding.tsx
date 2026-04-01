@@ -670,12 +670,12 @@ const Onboarding = () => {
                       </div>
                       <div className="fit-track" onMouseDown={(e) => e.stopPropagation()}>
                         <div className="fit-track-bar">
-                          <div className="fit-fill" style={{ width: `${pct(form.calorieBurn, 100, 1200)}%` }} />
-                          <div className="fit-thumb" style={{ left: `${pct(form.calorieBurn, 100, 1200)}%` }} />
+                          <div className="fit-fill" style={{ width: `${pct(form.calorieBurn, 100, 2500)}%` }} />
+                          <div className="fit-thumb" style={{ left: `${pct(form.calorieBurn, 100, 2500)}%` }} />
                         </div>
                         <input
                           type="range" className="fit-range"
-                          min={100} max={1200} step={50}
+                          min={100} max={2500} step={50}
                           value={form.calorieBurn}
                           disabled={isSubmitting}
                           onChange={(e) => setForm({ ...form, calorieBurn: +e.target.value })}
