@@ -23,6 +23,7 @@ async function setAuthenticatedPermissions(strapi: Core.Strapi) {
     'api::activitylog.activitylog.delete',
     'api::image-analysis.image-analysis.analyze',
     'api::ai-assistant.ai-assistant.chat',
+    'api::calorie-estimate.calorie-estimate.estimate',
     'api::blog.blog.find',
     'api::blog.blog.findOne',
   ];
