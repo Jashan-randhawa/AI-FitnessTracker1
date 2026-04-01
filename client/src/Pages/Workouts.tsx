@@ -184,7 +184,7 @@ const LEVEL_STYLE: Record<string, string> = {
   "all levels": "bg-blue-500/15 text-blue-400 border-blue-500/30",
 };
 
-// ── Video Player Modal ─────────────────────────────────────
+// ── Launch Modal (no iframe — YouTube embeds block playlists) ─
 const VideoModal = ({
   playlist,
   onClose,
@@ -192,8 +192,7 @@ const VideoModal = ({
   playlist: Playlist;
   onClose: () => void;
 }) => {
-  // Search URL — opens YouTube playlist in embedded search
-  const embedUrl = `https://www.youtube.com/embed?listType=playlist&list=${playlist.youtubePlaylistId}&rel=0&modestbranding=1`;
+  const ytUrl = `https://www.youtube.com/playlist?list=${playlist.youtubePlaylistId}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -201,49 +200,68 @@ const VideoModal = ({
         className="absolute inset-0 bg-black/80 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl bg-slate-900 border border-slate-700">
-        {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-slate-700">
-          <div className="min-w-0 pr-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl">{playlist.emoji}</span>
-              <h2 className="text-lg font-bold text-white truncate">{playlist.title}</h2>
-            </div>
-            <p className="text-sm text-slate-400">{playlist.channel} · {playlist.videoCount} videos</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+      <div className="relative z-10 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl bg-slate-900 border border-slate-700">
+        {/* Close */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/80 transition-colors cursor-pointer"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+
+        {/* Cover banner */}
+        <div className={`relative h-44 bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-center`}>
+          <span className="text-8xl opacity-90 drop-shadow-lg">{playlist.emoji}</span>
+          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-black/50 rounded-md px-2 py-1">
+            <svg width="16" height="11" viewBox="0 0 24 17" fill="white">
+              <path d="M23.5 2.7a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.6A3 3 0 0 0 .5 2.7 31 31 0 0 0 0 8.5a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 8.5a31 31 0 0 0-.5-5.8zM9.7 12V5l6.3 3.5L9.7 12z"/>
             </svg>
-          </button>
+            <span className="text-white text-[11px] font-semibold">YouTube</span>
+          </div>
         </div>
 
-        {/* Embedded YouTube Playlist */}
-        <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-          <iframe
-            className="absolute inset-0 w-full h-full"
-            src={embedUrl}
-            title={playlist.title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
+        {/* Info */}
+        <div className="p-5">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <h2 className="text-[17px] font-bold text-white leading-tight">{playlist.title}</h2>
+            <span className={`shrink-0 mt-0.5 text-[10px] font-bold px-2.5 py-1 rounded-full border ${LEVEL_STYLE[playlist.level]}`}>
+              {playlist.level}
+            </span>
+          </div>
+          <p className="text-sm text-slate-400 mb-1 font-medium">{playlist.channel}</p>
+          <p className="text-[13px] text-slate-500 mb-5 leading-relaxed">{playlist.description}</p>
 
-        {/* Footer */}
-        <div className="px-5 py-3 flex items-center justify-between bg-slate-800/60">
-          <p className="text-xs text-slate-500">{playlist.description}</p>
+          {/* Stats row */}
+          <div className="flex items-center gap-4 mb-5 text-xs text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              {playlist.videoCount} videos
+            </span>
+            <span className="flex items-center gap-1.5 capitalize">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>
+              </svg>
+              {playlist.category}
+            </span>
+          </div>
+
+          {/* CTA */}
           <a
-            href={`https://www.youtube.com/playlist?list=${playlist.youtubePlaylistId}`}
+            href={ytUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 ml-4 flex items-center gap-1.5 text-xs font-semibold text-red-400 hover:text-red-300 transition-colors"
+            className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors duration-200 shadow-lg shadow-red-600/30"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
-            Open on YouTube
+            <svg width="18" height="13" viewBox="0 0 24 17" fill="white">
+              <path d="M23.5 2.7a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.6A3 3 0 0 0 .5 2.7 31 31 0 0 0 0 8.5a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 8.5a31 31 0 0 0-.5-5.8zM9.7 12V5l6.3 3.5L9.7 12z"/>
+            </svg>
+            Open Playlist on YouTube
           </a>
+          <p className="text-center text-[11px] text-slate-600 mt-2.5">Opens in a new tab · Free on YouTube</p>
         </div>
       </div>
     </div>
