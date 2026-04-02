@@ -54,6 +54,17 @@ A full-stack, AI-powered fitness and nutrition tracking web application. Log mea
 - Edit and delete activity entries
 - Filter by date
 
+### 🎬 Workout Video Library
+- Curated library of **12 workout playlists** across 6 categories: Strength, Cardio, HIIT, Yoga, and Mobility
+- Filter playlists by **category** and **difficulty level** (Beginner, Intermediate, Advanced, All Levels)
+- **Search** across playlist titles, channel names, and descriptions
+- **Hero banner** highlighting a featured playlist with a live animated preview
+- **Live YouTube video search** — when a RapidAPI key is configured, each playlist modal loads real YouTube results via the YouTube138 API
+- **In-app video player** — watch videos directly in an embedded modal without leaving the app
+- Each playlist links to the full YouTube playlist for extended viewing
+- Animated playlist cards with sparkle effects, shimmer banners, and smooth transitions
+- Graceful fallback UI when no RapidAPI key is provided
+
 ### 📰 Blog & Health News
 - Read curated fitness and wellness blog posts (managed via Strapi CMS)
 - Live health news headlines powered by NewsAPI
@@ -127,6 +138,7 @@ AI-FitnessTracker1/
 │   │   │   ├── FoodLog.tsx              # Meal logging with AI calorie estimation
 │   │   │   ├── ActivityLog.tsx          # Workout logging
 │   │   │   ├── AIAssistant.tsx          # FitBot chat interface
+│   │   │   ├── Workouts.tsx             # Workout video library with YouTube integration
 │   │   │   ├── Blog.tsx                 # Blog listing + live news
 │   │   │   ├── BlogPost.tsx             # Individual blog post view
 │   │   │   ├── Weather.tsx              # Weather forecast & AQI
@@ -363,6 +375,7 @@ The app will be available at `http://localhost:5173`.
 | Variable | Required | Description |
 |---|---|---|
 | `VITE_STRAPI_API_URL` | ✅ | Base URL of the Strapi backend |
+| `VITE_RAPIDAPI_KEY` | ⚠️ Optional | RapidAPI key for live YouTube video search in the Workout Library |
 
 ---
 
@@ -374,6 +387,7 @@ The app will be available at `http://localhost:5173`.
 | `GOOGLE_CLIENT_ID` | Google OAuth | [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth | Same as above |
 | `NEWS_API_KEY` | NewsAPI | [newsapi.org/register](https://newsapi.org/register) |
+| `VITE_RAPIDAPI_KEY` | YouTube138 (optional) | [rapidapi.com](https://rapidapi.com/hub) → search "YouTube138" — enables live video search in the Workout Library |
 
 > **Weather** is powered by [Open-Meteo](https://open-meteo.com/) — free and **no API key required**.
 
