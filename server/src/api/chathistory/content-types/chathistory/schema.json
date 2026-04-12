@@ -1,0 +1,19 @@
+{
+  "kind": "collectionType",
+  "collectionName": "chathistories",
+  "info": {
+    "singularName": "chathistory",
+    "pluralName": "chathistories",
+    "displayName": "Chat History"
+  },
+  "options": { "draftAndPublish": false },
+  "attributes": {
+    "summary": { "type": "text" },
+    "messages": { "type": "json" },
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}

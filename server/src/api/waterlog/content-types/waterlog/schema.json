@@ -1,0 +1,20 @@
+{
+  "kind": "collectionType",
+  "collectionName": "waterlogs",
+  "info": {
+    "singularName": "waterlog",
+    "pluralName": "waterlogs",
+    "displayName": "Water Log"
+  },
+  "options": { "draftAndPublish": false },
+  "attributes": {
+    "amount": { "type": "integer", "required": true },
+    "date": { "type": "datetime" },
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "waterlogs"
+    }
+  }
+}
