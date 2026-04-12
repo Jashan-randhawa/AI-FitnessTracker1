@@ -79,7 +79,7 @@ export default function CalendarHeatmap({ logs, colorClass = "bg-emerald-400", l
           const logged = !!dayMap[day.toString()];
           const opacity = getOpacity(day);
           const isToday = isCurrentMonth && day === todayDate;
-          const dateStr = new Date(year, month, day).toISOString().slice(0, 10);
+          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
           return (
             <button
