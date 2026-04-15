@@ -6,7 +6,8 @@ import { useTheme } from "../Context/Themecontext";
 type NavItem = {
   label: string;
   icon: ReactElement;
-  path: string;
+  path?: string;
+  externalUrl?: string;
 };
 
 const HomeIcon = () => (
@@ -68,6 +69,15 @@ const WorkoutsIcon = () => (
   </svg>
 );
 
+const SpotifyIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M7 10.5c3-1 7-0.8 10 0.7" />
+    <path d="M8 13c2.3-0.7 5.4-0.5 7.7 0.6" />
+    <path d="M9 15.4c1.5-0.4 3.4-0.3 4.9 0.4" />
+  </svg>
+);
+
 const SunIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="4" />
@@ -104,6 +114,7 @@ const navItems: NavItem[] = [
   { path: "/ai", label: "AI Assistant", icon: <AIIcon /> },
   { path: "/weather", label: "Weather", icon: <WeatherIcon /> },
   { path: "/workouts", label: "Workouts", icon: <WorkoutsIcon /> },
+  { label: "Spotify", icon: <SpotifyIcon />, externalUrl: "https://open.spotify.com" },
   { path: "/planner", label: "Meal Planner", icon: <span>📅</span> },
   { path: "/activity-planner", label: "Activity Planner", icon: <span>🏃</span> },
   { path: "/profile", label: "Profile", icon: <ProfileIcon /> },
@@ -119,7 +130,8 @@ const NavContent = ({
   const { theme, toggleTheme } = useTheme();
   const isLight = theme.toString() === "light";
 
-  const isActive = (path: string) => {
+  const isActive = (path?: string) => {
+    if (!path) return false;
     if (path === "/") return location.pathname === "/";
     return location.pathname.startsWith(path);
   };
@@ -141,19 +153,35 @@ const NavContent = ({
       {/* Nav */}
       <nav className="flex-1 flex flex-col gap-0.5 px-3">
         {navItems.map((item) => {
-          const active = isActive(item.path);
-          return (
-            <button
-              key={item.label}
-              onClick={() => onNavigate(item.path)}
-              className={`
+          const active = !item.externalUrl && isActive(item.path);
+          const baseClass = `
                 flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-left text-sm
                 border-l-2 -ml-0.5 transition-all duration-200 cursor-pointer
                 ${active
                   ? "border-l-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium"
                   : "border-l-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white font-normal"
                 }
-              `}
+              `;
+          if (item.externalUrl) {
+            return (
+              <a
+                key={item.label}
+                href={item.externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={baseClass}
+              >
+                <span>{item.icon}</span>
+                {item.label}
+              </a>
+            );
+          }
+
+          return (
+            <button
+              key={item.label}
+              onClick={() => item.path && onNavigate(item.path)}
+              className={baseClass}
             >
               <span className={active ? "text-emerald-500" : ""}>{item.icon}</span>
               {item.label}
