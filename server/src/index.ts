@@ -32,6 +32,7 @@ async function setAuthenticatedPermissions(strapi: Core.Strapi) {
     'api::image-analysis.image-analysis.analyze',
     'api::ai-assistant.ai-assistant.chat',
     'api::calorie-estimate.calorie-estimate.estimate',
+    'api::food-estimate.food-estimate.estimate',
     'api::blog.blog.find',
     'api::blog.blog.findOne',
     // Water log
