@@ -105,6 +105,7 @@ const navItems: NavItem[] = [
   { path: "/weather", label: "Weather", icon: <WeatherIcon /> },
   { path: "/workouts", label: "Workouts", icon: <WorkoutsIcon /> },
   { path: "/planner", label: "Meal Planner", icon: <span>📅</span> },
+  { path: "/activity-planner", label: "Activity Planner", icon: <span>🏃</span> },
   { path: "/profile", label: "Profile", icon: <ProfileIcon /> },
 ];
 
