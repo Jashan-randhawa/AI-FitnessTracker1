@@ -17,6 +17,7 @@ const generateCodeChallenge = async (verifier: string) => {
 
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
 const REDIRECT_URI = window.location.origin + "/spotify";
+const SPOTIFY_FORBIDDEN_ERROR = "SPOTIFY_FORBIDDEN";
 
 // Only free-tier scopes — no playback control scopes
 const SCOPES = [
@@ -105,6 +106,12 @@ const spotifyFetch = async (path: string) => {
     localStorage.removeItem("spotify_expires");
     return null;
   }
+  if (res.status === 403) {
+    localStorage.removeItem("spotify_token");
+    localStorage.removeItem("spotify_refresh");
+    localStorage.removeItem("spotify_expires");
+    throw new Error(SPOTIFY_FORBIDDEN_ERROR);
+  }
   if (!res.ok) return null;
   return res.json();
 };
@@ -171,23 +178,30 @@ const Spotify = () => {
   const [topArtists, setTopArtists] = useState<SpotifyArtistFull[]>([]);
   const [activeTab, setActiveTab] = useState<"recent" | "top" | "artists" | "playlists">("top");
   const [noClientId] = useState(!CLIENT_ID);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setAuthError(null);
     try {
-      const [userData, recentData, playlistData, topTracksData, topArtistsData] = await Promise.all([
-        spotifyFetch("/me"),
+      const userData = await spotifyFetch("/me");
+      if (userData) setUser(userData);
+      else { setIsLoggedIn(false); setLoading(false); return; }
+      const [recentData, playlistData, topTracksData, topArtistsData] = await Promise.all([
         spotifyFetch("/me/player/recently-played?limit=20"),
         spotifyFetch("/me/playlists?limit=20"),
         spotifyFetch("/me/top/tracks?limit=20&time_range=short_term"),
         spotifyFetch("/me/top/artists?limit=20&time_range=short_term"),
       ]);
-      if (userData) setUser(userData);
-      else { setIsLoggedIn(false); setLoading(false); return; }
       if (recentData?.items) setRecent(recentData.items);
       if (playlistData?.items) setPlaylists(playlistData.items);
       if (topTracksData?.items) setTopTracks(topTracksData.items);
       if (topArtistsData?.items) setTopArtists(topArtistsData.items);
+    } catch (err) {
+      if (err instanceof Error && err.message === SPOTIFY_FORBIDDEN_ERROR) {
+        setIsLoggedIn(false);
+        setAuthError("Spotify denied access (403). Reconnect your account, and if your Spotify app is in Development mode, add your Spotify account as a test user in the Spotify Dashboard.");
+      }
     } finally {
       setLoading(false);
     }
@@ -272,6 +286,9 @@ const Spotify = () => {
             {exchanging ? "Connecting…" : "Connect with Spotify"}
           </button>
           <p className="mt-4 text-xs text-slate-400 dark:text-slate-600">Works with free &amp; Premium accounts.</p>
+          {authError && (
+            <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">{authError}</p>
+          )}
         </div>
       </div>
     );
