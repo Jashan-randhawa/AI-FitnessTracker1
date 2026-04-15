@@ -476,6 +476,7 @@ ssl: env.bool('DATABASE_SSL', false),
    ```
    VITE_STRAPI_API_URL=https://your-strapi-backend.com/
    ```
+   The frontend must call your deployed Strapi backend URL (Render/Railway/Strapi Cloud/etc.), not the Vercel frontend domain.
 4. The `client/vercel.json` is already configured to handle SPA routing:
    ```json
    { "rewrites": [{ "source": "/(.*)", "destination": "/" }] }
