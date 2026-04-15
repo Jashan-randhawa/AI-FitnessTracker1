@@ -6,7 +6,7 @@ import { useTheme } from "../Context/Themecontext";
 type NavItem = {
   label: string;
   icon: ReactElement;
-  path: string;
+  path?: string;
   externalUrl?: string;
 };
 
@@ -114,7 +114,7 @@ const navItems: NavItem[] = [
   { path: "/ai", label: "AI Assistant", icon: <AIIcon /> },
   { path: "/weather", label: "Weather", icon: <WeatherIcon /> },
   { path: "/workouts", label: "Workouts", icon: <WorkoutsIcon /> },
-  { path: "#", label: "Spotify", icon: <SpotifyIcon />, externalUrl: "https://open.spotify.com" },
+  { label: "Spotify", icon: <SpotifyIcon />, externalUrl: "https://open.spotify.com" },
   { path: "/planner", label: "Meal Planner", icon: <span>📅</span> },
   { path: "/activity-planner", label: "Activity Planner", icon: <span>🏃</span> },
   { path: "/profile", label: "Profile", icon: <ProfileIcon /> },
@@ -130,7 +130,8 @@ const NavContent = ({
   const { theme, toggleTheme } = useTheme();
   const isLight = theme.toString() === "light";
 
-  const isActive = (path: string) => {
+  const isActive = (path?: string) => {
+    if (!path) return false;
     if (path === "/") return location.pathname === "/";
     return location.pathname.startsWith(path);
   };
@@ -161,7 +162,7 @@ const NavContent = ({
                   window.open(item.externalUrl, "_blank", "noopener,noreferrer");
                   return;
                 }
-                onNavigate(item.path);
+                if (item.path) onNavigate(item.path);
               }}
               className={`
                 flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-left text-sm
