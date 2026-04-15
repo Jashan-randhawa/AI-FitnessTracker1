@@ -44,18 +44,65 @@ const AddFoodModal = ({
   setShowForm: (show: boolean) => void;
   onAdd: (entry: any) => void;
 }) => {
-  const [formData, setFormData] = useState({
-    name: "", calories: 0, mealType: defaultMeal,
-    protein: 0, carbs: 0, fat: 0,
-  });
-  const [loading, setLoading] = useState(false);
+  const [name, setName]         = useState("");
+  const [calories, setCalories] = useState("");
+  const [protein, setProtein]   = useState("");
+  const [carbs, setCarbs]       = useState("");
+  const [fat, setFat]           = useState("");
+  const [mealType, setMealType] = useState<MealType>(defaultMeal);
+  const [loading, setLoading]   = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<{ protein: number; carbs: number; fat: number } | null>(null);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const inputCls = "w-full rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 focus:outline-none focus:border-emerald-500 transition-colors";
 
+  // Auto-estimate via /api/food-estimate as user types (debounced 700ms)
+  const fetchAiEstimate = useCallback(async (foodName: string) => {
+    if (!foodName.trim()) return;
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await api.post(
+        "/api/food-estimate",
+        { name: foodName.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const result = response.data.result;
+      if (result?.calories === undefined || result?.calories === null)
+        throw new Error("Invalid estimate response from server");
+
+      setCalories(String(result.calories));
+      setProtein(String(result.protein ?? 0));
+      setCarbs(String(result.carbs ?? 0));
+      setFat(String(result.fat ?? 0));
+      setAiResult({ protein: result.protein ?? 0, carbs: result.carbs ?? 0, fat: result.fat ?? 0 });
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.error?.message ||
+        (error instanceof Error ? error.message : "Could not estimate nutrition");
+      toast.error(message);
+    } finally {
+      setAiLoading(false);
+    }
+  }, []);
+
+  const scheduleEstimate = (foodName: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setAiResult(null);
+    debounceRef.current = setTimeout(() => fetchAiEstimate(foodName), 700);
+  };
+
+  const handleNameChange = (val: string) => {
+    setName(val);
+    scheduleEstimate(val);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.calories)
+    if (!name.trim() || !calories)
       return toast.error("Please provide both name and calories");
     setLoading(true);
     try {
@@ -64,67 +111,24 @@ const AddFoodModal = ({
         "/api/foodlogs",
         {
           data: {
-            name: formData.name.trim(),
-            calories: formData.calories,
-            protein: formData.protein || null,
-            carbs: formData.carbs || null,
-            fat: formData.fat || null,
-            mealtype: formData.mealType,
+            name: name.trim(),
+            calories: Number(calories),
+            protein: Number(protein) || null,
+            carbs: Number(carbs) || null,
+            fat: Number(fat) || null,
+            mealtype: mealType,
             date: new Date().toISOString(),
           },
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       onAdd(normalizeStrapiEntry(raw));
-      setFormData({ name: "", calories: 0, mealType: defaultMeal, protein: 0, carbs: 0, fat: 0 });
       setShowForm(false);
       toast.success("Entry added!");
     } catch (error: any) {
       toast.error(error?.response?.data?.error?.message || "Failed to add food log");
     } finally {
       setLoading(false);
-    }
-  };
-
-  // ── AI Estimate: routed through Strapi backend ─────────
-  // Your Strapi backend reads process.env.OPENROUTER_API_KEY and calls OpenRouter.
-  // POST /api/food-estimate  →  { name: string } → { name, calories, protein, carbs, fat }
-  const handleAIEstimate = async () => {
-    const trimmedName = formData.name.trim();
-    if (!trimmedName) return toast.error("Enter a food name first");
-
-    setAiLoading(true);
-    try {
-      const token = localStorage.getItem("token");
-
-      const response = await api.post(
-        "/api/food-estimate",
-        { name: trimmedName },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      // Expect your Strapi controller to return { result: { name, calories, protein, carbs, fat } }
-      const { name, calories, protein, carbs, fat } = response.data.result;
-
-      if (calories === undefined || calories === null)
-        throw new Error("Invalid estimate response from server");
-
-      setFormData((prev) => ({
-        ...prev,
-        name: name || trimmedName,
-        calories: Number(calories) || 0,
-        protein: Number(protein) || 0,
-        carbs: Number(carbs) || 0,
-        fat: Number(fat) || 0,
-      }));
-      toast.success("Calories and macros estimated");
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.error?.message ||
-        (error instanceof Error ? error.message : "Could not estimate nutrition");
-      toast.error(message);
-    } finally {
-      setAiLoading(false);
     }
   };
 
@@ -135,7 +139,12 @@ const AddFoodModal = ({
         className="relative z-10 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Add Food Entry</h2>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Add Food Entry</h2>
+            <p className="text-xs text-emerald-500 mt-0.5 flex items-center gap-1">
+              <span>✦</span> AI nutrition estimation
+            </p>
+          </div>
           <button type="button" onClick={() => setShowForm(false)}
             className="text-slate-400 hover:text-white transition-colors text-xl leading-none cursor-pointer">✕</button>
         </div>
@@ -146,9 +155,9 @@ const AddFoodModal = ({
             const cfg = MEAL_CONFIG[m];
             return (
               <button type="button" key={m}
-                onClick={() => setFormData((p) => ({ ...p, mealType: m }))}
+                onClick={() => setMealType(m)}
                 className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
-                  formData.mealType === m ? `${cfg.bg} border-current ${cfg.color}` : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400 bg-slate-100 dark:bg-slate-700/50"
+                  mealType === m ? `${cfg.bg} border-current ${cfg.color}` : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400 bg-slate-100 dark:bg-slate-700/50"
                 }`}
               >
                 <span className="text-base">{cfg.icon}</span>{cfg.label}
@@ -157,70 +166,87 @@ const AddFoodModal = ({
           })}
         </div>
 
-        {/* Main inputs */}
+        {/* Food name — triggers AI on typing */}
         <div className="space-y-3 mb-4">
           <input
             className={inputCls}
             placeholder="Food name (e.g. Grilled Chicken)"
-            value={formData.name}
-            onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
             autoFocus
           />
-          <button
-            type="button"
-            onClick={handleAIEstimate}
-            disabled={!formData.name.trim() || aiLoading || loading}
-            className="w-full py-2.5 text-sm font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-black bg-emerald-400 hover:bg-emerald-500"
-          >
-            {aiLoading ? (
-              <>
-                <div role="status" aria-label="Estimating nutrition" className="w-4 h-4 rounded-full animate-spin border-2 border-black/30 border-t-black" />
-                <span aria-live="polite">Estimating…</span>
-              </>
-            ) : (
-              <>✨ Evaluate calories & macros with AI</>
-            )}
-          </button>
-          <input
-            type="number" min="0"
-            className={inputCls}
-            placeholder="Calories (kcal) *"
-            value={formData.calories || ""}
-            onChange={(e) => setFormData((p) => ({ ...p, calories: Number(e.target.value) }))}
-          />
-        </div>
 
-        {/* Macros section */}
-        <div className="mb-5">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
-            Macros <span className="font-normal normal-case">(optional)</span>
-          </p>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { key: "protein", label: "Protein (g)", color: "focus:border-blue-500" },
-              { key: "carbs",   label: "Carbs (g)",   color: "focus:border-amber-500" },
-              { key: "fat",     label: "Fat (g)",     color: "focus:border-pink-500"  },
-            ].map(({ key, label, color }) => (
-              <div key={key} className="flex flex-col gap-1">
-                <label className="text-[10px] text-slate-400 font-medium">{label}</label>
-                <input
-                  type="number" min="0" step="0.1"
-                  className={`w-full rounded-xl px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-slate-400 bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 focus:outline-none ${color} transition-colors`}
-                  placeholder="0"
-                  value={(formData as any)[key] || ""}
-                  onChange={(e) => setFormData((p) => ({ ...p, [key]: Number(e.target.value) }))}
-                />
-              </div>
-            ))}
+          {/* Calories with spinner */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="relative">
+              <input
+                type="number" min="0"
+                className={`${inputCls} pr-10`}
+                placeholder="Calories (kcal) *"
+                value={calories}
+                onChange={(e) => setCalories(e.target.value)}
+              />
+              {aiLoading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg className="animate-spin w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 000 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            <input
+              type="number" min="0" step="0.1"
+              className={inputCls}
+              placeholder="Protein (g)"
+              value={protein}
+              onChange={(e) => setProtein(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="number" min="0" step="0.1"
+              className={inputCls}
+              placeholder="Carbs (g)"
+              value={carbs}
+              onChange={(e) => setCarbs(e.target.value)}
+            />
+            <input
+              type="number" min="0" step="0.1"
+              className={inputCls}
+              placeholder="Fat (g)"
+              value={fat}
+              onChange={(e) => setFat(e.target.value)}
+            />
           </div>
         </div>
 
+        {/* AI Result Card */}
+        {aiResult && (
+          <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+            <span className="text-xs font-semibold text-emerald-500 flex items-center gap-1">
+              <span>✦</span> AI Estimate
+            </span>
+            <div className="flex gap-4 text-xs text-gray-500 dark:text-slate-400">
+              <span className="text-blue-500 font-medium">P: {aiResult.protein}g</span>
+              <span className="text-amber-500 font-medium">C: {aiResult.carbs}g</span>
+              <span className="text-pink-500 font-medium">F: {aiResult.fat}g</span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              💡 Edit any value above if needed before saving.
+            </p>
+          </div>
+        )}
+
         <button type="submit"
-          disabled={!formData.name.trim() || !formData.calories || loading}
+          disabled={!name.trim() || !calories || loading || aiLoading}
           className="w-full py-3 font-bold rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-black bg-emerald-500 hover:bg-emerald-600"
         >
           {loading
             ? <div className="w-4 h-4 rounded-full animate-spin border-2 border-black/30 border-t-black" />
+            : aiLoading
+            ? "Estimating…"
             : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>Add Entry</>
           }
         </button>
