@@ -5,7 +5,7 @@ export default {
       path: "/food-estimate",
       handler: "food-estimate.estimate",
       config: {
-        auth: false,
+        auth: {},
       },
     },
   ],
