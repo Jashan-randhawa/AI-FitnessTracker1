@@ -114,7 +114,7 @@ const navItems: NavItem[] = [
   { path: "/ai", label: "AI Assistant", icon: <AIIcon /> },
   { path: "/weather", label: "Weather", icon: <WeatherIcon /> },
   { path: "/workouts", label: "Workouts", icon: <WorkoutsIcon /> },
-  { label: "Spotify", icon: <SpotifyIcon />, externalUrl: "https://open.spotify.com" },
+  { path: "/spotify", label: "Spotify", icon: <SpotifyIcon /> },
   { path: "/planner", label: "Meal Planner", icon: <span>📅</span> },
   { path: "/activity-planner", label: "Activity Planner", icon: <span>🏃</span> },
   { path: "/profile", label: "Profile", icon: <ProfileIcon /> },
