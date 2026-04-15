@@ -88,7 +88,7 @@ const AddFoodModal = ({
 
   // ── AI Estimate: routed through Strapi backend ─────────
   // Your Strapi backend reads process.env.OPENROUTER_API_KEY and calls OpenRouter.
-  // POST /api/nutrition-estimate  →  { name: string } → { name, calories, protein, carbs, fat }
+  // POST /api/food-estimate  →  { name: string } → { name, calories, protein, carbs, fat }
   const handleAIEstimate = async () => {
     const trimmedName = formData.name.trim();
     if (!trimmedName) return toast.error("Enter a food name first");
@@ -98,7 +98,7 @@ const AddFoodModal = ({
       const token = localStorage.getItem("token");
 
       const response = await api.post(
-        "/api/nutrition-estimate",
+        "/api/food-estimate",
         { name: trimmedName },
         { headers: { Authorization: `Bearer ${token}` } }
       );
