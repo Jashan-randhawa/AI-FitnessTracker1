@@ -1,161 +1,47 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 
-// ─── PKCE Helpers ──────────────────────────────────────────────────────────────
-const generateCodeVerifier = (length = 128) => {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
-  const arr = new Uint8Array(length);
-  crypto.getRandomValues(arr);
-  return Array.from(arr, (b) => chars[b % chars.length]).join("");
-};
+// ─── Config ────────────────────────────────────────────────────────────────────
+const API_KEY = import.meta.env.VITE_LASTFM_API_KEY || "";
+const BASE = "https://ws.audioscrobbler.com/2.0/";
 
-const generateCodeChallenge = async (verifier: string) => {
-  const enc = new TextEncoder().encode(verifier);
-  const hash = await crypto.subtle.digest("SHA-256", enc);
-  return btoa(String.fromCharCode(...new Uint8Array(hash)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-};
-
-const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
-const REDIRECT_URI = window.location.origin + "/spotify";
-const SPOTIFY_FORBIDDEN_ERROR = "SPOTIFY_FORBIDDEN";
-
-// Only free-tier scopes — no playback control scopes
-const SCOPES = [
-  "user-read-recently-played",
-  "user-top-read",
-  "playlist-read-private",
-  "user-read-email",
-  "user-read-private",
-].join(" ");
-
-const spotifyLogin = async () => {
-  const verifier = generateCodeVerifier();
-  const challenge = await generateCodeChallenge(verifier);
-  localStorage.setItem("spotify_verifier", verifier);
-  const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    response_type: "code",
-    redirect_uri: REDIRECT_URI,
-    code_challenge_method: "S256",
-    code_challenge: challenge,
-    scope: SCOPES,
-  });
-  window.location.href = "https://accounts.spotify.com/authorize?" + params.toString();
-};
-
-const exchangeToken = async (code: string) => {
-  const verifier = localStorage.getItem("spotify_verifier") || "";
-  const res = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: CLIENT_ID,
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: REDIRECT_URI,
-      code_verifier: verifier,
-    }),
-  });
-  const data = await res.json();
-  if (data.access_token) {
-    localStorage.setItem("spotify_token", data.access_token);
-    localStorage.setItem("spotify_refresh", data.refresh_token || "");
-    localStorage.setItem("spotify_expires", String(Date.now() + data.expires_in * 1000));
-  }
-  return data;
-};
-
-const refreshAccessToken = async () => {
-  const refreshToken = localStorage.getItem("spotify_refresh");
-  if (!refreshToken) return null;
-  const res = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: CLIENT_ID,
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    }),
-  });
-  const data = await res.json();
-  if (data.access_token) {
-    localStorage.setItem("spotify_token", data.access_token);
-    localStorage.setItem("spotify_expires", String(Date.now() + data.expires_in * 1000));
-  }
-  return data.access_token || null;
-};
-
-const getToken = async () => {
-  const token = localStorage.getItem("spotify_token");
-  const expires = Number(localStorage.getItem("spotify_expires") || 0);
-  if (!token) return null;
-  if (Date.now() < expires - 60000) return token;
-  return refreshAccessToken();
-};
-
-const spotifyFetch = async (path: string) => {
-  const token = await getToken();
-  if (!token) return null;
-  const res = await fetch("https://api.spotify.com/v1" + path, {
-    headers: { Authorization: "Bearer " + token },
-  });
-  if (res.status === 204) return null;
-  if (res.status === 401) {
-    localStorage.removeItem("spotify_token");
-    localStorage.removeItem("spotify_refresh");
-    localStorage.removeItem("spotify_expires");
-    return null;
-  }
-  if (res.status === 403) {
-    localStorage.removeItem("spotify_token");
-    localStorage.removeItem("spotify_refresh");
-    localStorage.removeItem("spotify_expires");
-    throw new Error(SPOTIFY_FORBIDDEN_ERROR);
-  }
-  if (!res.ok) return null;
+const lfm = async (params: Record<string, string>) => {
+  const url = new URLSearchParams({ ...params, api_key: API_KEY, format: "json" });
+  const res = await fetch(`${BASE}?${url.toString()}`);
+  if (!res.ok) throw new Error(`Last.fm error ${res.status}`);
   return res.json();
 };
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
-interface SpotifyImage { url: string; }
-interface SpotifyArtist { name: string; }
-interface SpotifyAlbum { name: string; images: SpotifyImage[]; }
-interface SpotifyTrack {
-  id: string;
+interface LfmImage { "#text": string; size: string; }
+interface LfmTrack {
   name: string;
-  artists: SpotifyArtist[];
-  album: SpotifyAlbum;
-  duration_ms: number;
-  uri: string;
-  external_urls: { spotify: string };
+  artist: { name: string } | string;
+  image?: LfmImage[];
+  url: string;
+  playcount?: string;
+  "@attr"?: { nowplaying?: string };
+  date?: { "#text": string };
 }
-interface RecentTrack { track: SpotifyTrack; played_at: string; }
-interface SpotifyUser {
-  display_name: string;
-  images: SpotifyImage[];
-  followers: { total: number };
-  external_urls: { spotify: string };
-}
-interface Playlist {
-  id: string;
-  name: string;
-  images: SpotifyImage[];
-  tracks: { total: number };
-  external_urls: { spotify: string };
-}
-interface SpotifyArtistFull {
-  id: string;
-  name: string;
-  images: SpotifyImage[];
-  genres: string[];
-  external_urls: { spotify: string };
+interface LfmArtist { name: string; playcount: string; image?: LfmImage[]; url: string; }
+interface LfmAlbum { name: string; artist: string; playcount: string; image?: LfmImage[]; url: string; }
+interface LfmUser {
+  name: string; realname: string; image: LfmImage[];
+  playcount: string; artist_count: string; album_count: string; url: string;
 }
 
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+const getImg = (images?: LfmImage[], size = "small") =>
+  images?.find((i) => i.size === size)?.["#text"] ||
+  images?.find((i) => i["#text"])?.["#text"] || "";
+
+const artistName = (artist: { name: string } | string) =>
+  typeof artist === "string" ? artist : artist.name;
+
 // ─── Icons ─────────────────────────────────────────────────────────────────────
-const SpotifyIcon = ({ size = 24 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-    <circle cx="12" cy="12" r="12" fill="#1DB954" />
-    <path d="M17.9 10.9C14.7 9 9.35 8.8 6.3 9.75c-.5.15-1-.15-1.15-.6-.15-.5.15-1 .6-1.15 3.55-1.05 9.4-.85 13.1 1.35.45.25.6.85.35 1.3-.25.35-.85.5-1.3.25zm-.1 2.8c-.25.35-.75.5-1.1.25-2.7-1.65-6.8-2.15-9.95-1.15-.4.1-.85-.1-.95-.5-.1-.4.1-.85.5-.95 3.65-1.1 8.15-.55 11.25 1.35.3.15.45.65.25 1zm-1.25 2.75c-.2.3-.6.4-.9.2-2.35-1.45-5.3-1.75-8.8-.95-.35.1-.65-.15-.75-.45-.1-.35.15-.65.45-.75 3.8-.85 7.1-.5 9.7 1.1.3.15.4.55.3.85z" fill="white" />
+const LastFmIcon = ({ size = 24 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="12" fill="#D51007" />
+    <text x="12" y="16" textAnchor="middle" fontSize="9" fontWeight="bold" fill="white" fontFamily="Arial,sans-serif">lfm</text>
   </svg>
 );
 
@@ -166,335 +52,300 @@ const ExternalLinkIcon = () => (
   </svg>
 );
 
-// ─── Main Component ─────────────────────────────────────────────────────────────
-const Spotify = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [exchanging, setExchanging] = useState(false);
-  const [user, setUser] = useState<SpotifyUser | null>(null);
-  const [recent, setRecent] = useState<RecentTrack[]>([]);
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([]);
-  const [topArtists, setTopArtists] = useState<SpotifyArtistFull[]>([]);
-  const [activeTab, setActiveTab] = useState<"recent" | "top" | "artists" | "playlists">("top");
-  const [noClientId] = useState(!CLIENT_ID);
-  const [authError, setAuthError] = useState<string | null>(null);
+// ─── Sub-components ────────────────────────────────────────────────────────────
+const ACCENT = "#D51007";
 
-  const loadData = useCallback(async () => {
+const StatCard = ({ label, value }: { label: string; value: string | number }) => (
+  <div className="bg-slate-100 dark:bg-slate-800/60 rounded-xl p-3 text-center">
+    <p className="text-lg font-bold text-gray-900 dark:text-white">{Number(value).toLocaleString()}</p>
+    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{label}</p>
+  </div>
+);
+
+const ImgBox = ({ src, alt, round = false }: { src: string; alt: string; round?: boolean }) =>
+  src ? (
+    <img src={src} alt={alt} className={`w-10 h-10 object-cover flex-shrink-0 ${round ? "rounded-full" : "rounded-lg"}`} />
+  ) : (
+    <div className={`w-10 h-10 flex-shrink-0 bg-slate-200 dark:bg-slate-700 ${round ? "rounded-full" : "rounded-lg"}`} />
+  );
+
+const TrackRow = ({ track, rank, subtitle }: { track: LfmTrack; rank?: number; subtitle?: string }) => {
+  const isNow = track["@attr"]?.nowplaying === "true";
+  return (
+    <a href={track.url} target="_blank" rel="noreferrer"
+      className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors group">
+      {rank !== undefined && <span className="text-xs font-bold text-slate-400 w-5 text-center flex-shrink-0">{rank}</span>}
+      <ImgBox src={getImg(track.image)} alt={track.name} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{track.name}</p>
+          {isNow && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0" style={{ background: `${ACCENT}22`, color: ACCENT }}>▶ now</span>}
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{artistName(track.artist)}</p>
+      </div>
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {subtitle && <span className="text-xs text-slate-400">{subtitle}</span>}
+        {track.playcount && !subtitle && <span className="text-xs text-slate-400">{Number(track.playcount).toLocaleString()}×</span>}
+        <span className="text-slate-300 dark:text-slate-600 group-hover:text-[#D51007] transition-colors"><ExternalLinkIcon /></span>
+      </div>
+    </a>
+  );
+};
+
+const ArtistRow = ({ artist, rank }: { artist: LfmArtist; rank: number }) => (
+  <a href={artist.url} target="_blank" rel="noreferrer"
+    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors group">
+    <span className="text-xs font-bold text-slate-400 w-5 text-center flex-shrink-0">{rank}</span>
+    <ImgBox src={getImg(artist.image)} alt={artist.name} round />
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{artist.name}</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">{Number(artist.playcount).toLocaleString()} plays</p>
+    </div>
+    <span className="text-slate-300 dark:text-slate-600 group-hover:text-[#D51007] transition-colors"><ExternalLinkIcon /></span>
+  </a>
+);
+
+const AlbumRow = ({ album, rank }: { album: LfmAlbum; rank: number }) => (
+  <a href={album.url} target="_blank" rel="noreferrer"
+    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors group">
+    <span className="text-xs font-bold text-slate-400 w-5 text-center flex-shrink-0">{rank}</span>
+    <ImgBox src={getImg(album.image)} alt={album.name} />
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{album.name}</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{album.artist}</p>
+    </div>
+    <span className="text-xs text-slate-400 flex-shrink-0">{Number(album.playcount).toLocaleString()}×</span>
+    <span className="text-slate-300 dark:text-slate-600 group-hover:text-[#D51007] transition-colors"><ExternalLinkIcon /></span>
+  </a>
+);
+
+const EmptyState = ({ text }: { text: string }) => (
+  <div className="text-center py-12"><p className="text-sm text-slate-400">{text}</p></div>
+);
+
+// ─── Main Component ─────────────────────────────────────────────────────────────
+type Tab = "top-tracks" | "top-artists" | "top-albums" | "recent";
+type Period = "7day" | "1month" | "3month" | "6month" | "12month" | "overall";
+const PERIODS: [Period, string][] = [
+  ["7day", "7 Days"], ["1month", "1 Month"], ["3month", "3 Months"],
+  ["6month", "6 Months"], ["12month", "12 Months"], ["overall", "All Time"],
+];
+
+const LastFm = () => {
+  const [username, setUsername] = useState(() => localStorage.getItem("lastfm_user") || "");
+  const [inputVal, setInputVal] = useState("");
+  const [user, setUser] = useState<LfmUser | null>(null);
+  const [recentTracks, setRecentTracks] = useState<LfmTrack[]>([]);
+  const [topTracks, setTopTracks] = useState<LfmTrack[]>([]);
+  const [topArtists, setTopArtists] = useState<LfmArtist[]>([]);
+  const [topAlbums, setTopAlbums] = useState<LfmAlbum[]>([]);
+  const [activeTab, setActiveTab] = useState<Tab>("top-tracks");
+  const [period, setPeriod] = useState<Period>("1month");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const noApiKey = !API_KEY;
+
+  const loadData = async (u: string, p: Period) => {
     setLoading(true);
-    setAuthError(null);
+    setError(null);
     try {
-      const userData = await spotifyFetch("/me");
-      if (userData) setUser(userData);
-      else { setIsLoggedIn(false); setLoading(false); return; }
-      const [recentData, playlistData, topTracksData, topArtistsData] = await Promise.all([
-        spotifyFetch("/me/player/recently-played?limit=20"),
-        spotifyFetch("/me/playlists?limit=20"),
-        spotifyFetch("/me/top/tracks?limit=20&time_range=short_term"),
-        spotifyFetch("/me/top/artists?limit=20&time_range=short_term"),
+      const [userInfo, recent, tracks, artists, albums] = await Promise.all([
+        lfm({ method: "user.getInfo", user: u }),
+        lfm({ method: "user.getRecentTracks", user: u, limit: "20" }),
+        lfm({ method: "user.getTopTracks", user: u, period: p, limit: "20" }),
+        lfm({ method: "user.getTopArtists", user: u, period: p, limit: "20" }),
+        lfm({ method: "user.getTopAlbums", user: u, period: p, limit: "20" }),
       ]);
-      if (recentData?.items) setRecent(recentData.items);
-      if (playlistData?.items) setPlaylists(playlistData.items);
-      if (topTracksData?.items) setTopTracks(topTracksData.items);
-      if (topArtistsData?.items) setTopArtists(topArtistsData.items);
-    } catch (err) {
-      if (err instanceof Error && err.message === SPOTIFY_FORBIDDEN_ERROR) {
-        setIsLoggedIn(false);
-        setAuthError("Spotify denied access (403). Reconnect your account, and if your Spotify app is in Development mode, add your Spotify account as a test user in the Spotify Dashboard.");
-      }
+      setUser(userInfo.user);
+      setRecentTracks(recent.recenttracks?.track || []);
+      setTopTracks(tracks.toptracks?.track || []);
+      setTopArtists(artists.topartists?.artist || []);
+      setTopAlbums(albums.topalbums?.album || []);
+    } catch {
+      setError("Could not load Last.fm data. Check your username and API key.");
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-    if (code && !exchanging) {
-      setExchanging(true);
-      exchangeToken(code).then((data) => {
-        window.history.replaceState({}, "", "/spotify");
-        if (data.access_token) {
-          setIsLoggedIn(true);
-          loadData();
-        } else {
-          setLoading(false);
-        }
-      }).finally(() => setExchanging(false));
-    } else {
-      const token = localStorage.getItem("spotify_token");
-      const expires = Number(localStorage.getItem("spotify_expires") || 0);
-      if (token && (Date.now() < expires - 60000 || localStorage.getItem("spotify_refresh"))) {
-        setIsLoggedIn(true);
-        loadData();
-      } else {
-        setLoading(false);
-      }
-    }
-  }, []);
-
-  const logout = () => {
-    localStorage.removeItem("spotify_token");
-    localStorage.removeItem("spotify_refresh");
-    localStorage.removeItem("spotify_expires");
-    localStorage.removeItem("spotify_verifier");
-    setIsLoggedIn(false);
-    setUser(null);
-    setRecent([]);
-    setPlaylists([]);
-    setTopTracks([]);
-    setTopArtists([]);
   };
 
-  if (noClientId) {
-    return (
-      <div className="page-container flex items-center justify-center min-h-screen">
-        <div className="text-center px-6 max-w-sm">
-          <SpotifyIcon size={56} />
-          <h2 className="mt-5 text-xl font-bold text-gray-900 dark:text-white">Setup Required</h2>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Add your Spotify Client ID to Vercel environment variables and redeploy.
-          </p>
-          <div className="mt-5 text-left bg-slate-100 dark:bg-slate-800 rounded-xl p-4 text-xs font-mono text-slate-600 dark:text-slate-300">
-            <p className="text-slate-400 dark:text-slate-500"># Vercel → Settings → Environment Variables</p>
-            <p className="mt-1">VITE_SPOTIFY_CLIENT_ID=your_client_id</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (username && API_KEY) loadData(username, period);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username, period]);
 
-  if (!isLoggedIn && !loading) {
-    return (
-      <div className="page-container flex items-center justify-center min-h-screen relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#1DB954]/10 rounded-full blur-[120px]" />
+  const handleConnect = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = inputVal.trim();
+    if (!trimmed) return;
+    localStorage.setItem("lastfm_user", trimmed);
+    setUsername(trimmed);
+    setInputVal("");
+  };
+
+  const handleDisconnect = () => {
+    localStorage.removeItem("lastfm_user");
+    setUsername(""); setUser(null);
+    setRecentTracks([]); setTopTracks([]); setTopArtists([]); setTopAlbums([]);
+  };
+
+  // ── No API Key ──
+  if (noApiKey) return (
+    <div className="page-container flex items-center justify-center min-h-screen px-6">
+      <div className="max-w-sm w-full text-center space-y-4">
+        <LastFmIcon size={48} />
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Last.fm API Key Missing</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Add your key to <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-xs">client/.env</code>
+        </p>
+        <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 text-left text-xs font-mono text-slate-600 dark:text-slate-300">
+          VITE_LASTFM_API_KEY=your_key_here
         </div>
-        <div className="relative z-10 text-center px-6 max-w-xs w-full">
-          <div className="flex justify-center mb-6"><SpotifyIcon size={72} /></div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Spotify</h1>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            See your top tracks, artists, recent listening history and playlists — all in one place.
-          </p>
-          <button
-            onClick={spotifyLogin}
-            disabled={exchanging}
-            className="mt-8 w-full flex items-center justify-center gap-3 py-3.5 px-6 rounded-full font-semibold text-sm text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
-            style={{ background: "#1DB954" }}
-          >
-            <SpotifyIcon size={20} />
-            {exchanging ? "Connecting…" : "Connect with Spotify"}
+        <a href="https://www.last.fm/api/account/create" target="_blank" rel="noreferrer"
+          className="inline-flex items-center gap-1 text-sm font-medium hover:underline" style={{ color: ACCENT }}>
+          Get a free API key <ExternalLinkIcon />
+        </a>
+      </div>
+    </div>
+  );
+
+  // ── Not connected ──
+  if (!username) return (
+    <div className="page-container flex items-center justify-center min-h-screen px-6">
+      <div className="max-w-sm w-full space-y-6">
+        <div className="text-center space-y-2">
+          <LastFmIcon size={48} />
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Connect Last.fm</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Enter your Last.fm username to see your stats</p>
+        </div>
+        <form onSubmit={handleConnect} className="space-y-3">
+          <input type="text" value={inputVal} onChange={(e) => setInputVal(e.target.value)}
+            placeholder="Your Last.fm username"
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#D51007]/30" />
+          <button type="submit" disabled={!inputVal.trim()}
+            className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-40"
+            style={{ background: ACCENT }}>
+            Connect
           </button>
-          <p className="mt-4 text-xs text-slate-400 dark:text-slate-600">Works with free &amp; Premium accounts.</p>
-          {authError && (
-            <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">{authError}</p>
-          )}
-        </div>
+        </form>
+        <p className="text-center text-xs text-slate-400">
+          No account?{" "}
+          <a href="https://www.last.fm/join" target="_blank" rel="noreferrer" className="hover:underline" style={{ color: ACCENT }}>Sign up free</a>
+        </p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (loading) {
-    return (
-      <div className="page-container flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-3">
-          <SpotifyIcon size={40} />
-          <div className="w-5 h-5 border-2 border-[#1DB954] border-t-transparent rounded-full animate-spin" />
-        </div>
+  // ── First load ──
+  if (loading && !user) return (
+    <div className="page-container flex items-center justify-center min-h-screen">
+      <div className="flex flex-col items-center gap-3">
+        <LastFmIcon size={40} />
+        <div className="w-5 h-5 border-2 border-[#D51007] border-t-transparent rounded-full animate-spin" />
       </div>
-    );
-  }
+    </div>
+  );
+
+  // ── Error ──
+  if (error && !user) return (
+    <div className="page-container flex items-center justify-center min-h-screen px-6">
+      <div className="max-w-sm w-full text-center space-y-4">
+        <LastFmIcon size={40} />
+        <p className="text-sm text-red-500">{error}</p>
+        <button onClick={handleDisconnect} className="text-sm text-slate-500 hover:text-red-500 transition-colors underline">
+          Try a different username
+        </button>
+      </div>
+    </div>
+  );
+
+  const userImg = getImg(user?.image, "medium");
 
   return (
     <div className="page-container">
       {/* Header */}
       <div className="page-header flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <SpotifyIcon size={28} />
+          {userImg
+            ? <img src={userImg} alt={user?.name} className="w-9 h-9 rounded-full object-cover" />
+            : <LastFmIcon size={32} />}
           <div>
-            <h1 className="text-lg font-bold text-gray-900 dark:text-white">Spotify</h1>
-            {user && (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {user.display_name} · {user.followers?.total?.toLocaleString()} followers
-              </p>
-            )}
+            <h1 className="text-lg font-bold text-gray-900 dark:text-white">{user?.realname || user?.name}</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{Number(user?.playcount).toLocaleString()} scrobbles</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {user?.external_urls?.spotify && (
-            <a
-              href={user.external_urls.spotify}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-[#1DB954] flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-[#1DB954]/10 transition-colors"
-            >
-              Open Spotify <ExternalLinkIcon />
+          {user?.url && (
+            <a href={user.url} target="_blank" rel="noreferrer"
+              className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors hover:bg-[#D51007]/10"
+              style={{ color: ACCENT }}>
+              Last.fm <ExternalLinkIcon />
             </a>
           )}
-          <button
-            onClick={logout}
-            className="text-xs text-slate-400 hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
-          >
+          <button onClick={handleDisconnect}
+            className="text-xs text-slate-400 hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10">
             Disconnect
           </button>
         </div>
       </div>
 
-      {/* Stats strip */}
+      {/* Stats */}
       <div className="mx-4 mt-4 grid grid-cols-3 gap-3">
-        <StatCard label="Top Tracks" value={topTracks.length} />
-        <StatCard label="Top Artists" value={topArtists.length} />
-        <StatCard label="Playlists" value={playlists.length} />
+        <StatCard label="Scrobbles" value={user?.playcount || 0} />
+        <StatCard label="Artists" value={user?.artist_count || 0} />
+        <StatCard label="Albums" value={user?.album_count || 0} />
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 px-4 mt-5 mb-3">
-        {(["top", "artists", "recent", "playlists"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
-              activeTab === tab
-                ? "bg-[#1DB954]/10 text-[#1DB954]"
-                : "text-slate-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+      {/* Period selector */}
+      <div className="flex gap-1 px-4 mt-4 overflow-x-auto pb-1 no-scrollbar">
+        {PERIODS.map(([p, label]) => (
+          <button key={p} onClick={() => setPeriod(p)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              period === p ? "text-white" : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
-          >
-            {tab === "top" ? "Top Tracks" : tab === "artists" ? "Artists" : tab === "recent" ? "Recent" : "Playlists"}
+            style={period === p ? { background: ACCENT } : {}}>
+            {label}
           </button>
         ))}
       </div>
 
-      {/* Tab Content */}
-      <div className="px-4 pb-8 space-y-1">
-        {activeTab === "top" && topTracks.map((track, i) => (
-          <TrackRow key={track.id} track={track} rank={i + 1} />
+      {/* Tabs */}
+      <div className="flex gap-1 px-4 mt-3 mb-3">
+        {([["top-tracks", "Top Tracks"], ["top-artists", "Artists"], ["top-albums", "Albums"], ["recent", "Recent"]] as [Tab, string][]).map(([tab, label]) => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+              activeTab === tab ? "bg-[#D51007]/10 text-[#D51007]"
+                : "text-slate-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}>
+            {label}
+          </button>
         ))}
-        {activeTab === "top" && topTracks.length === 0 && <EmptyState text="No top tracks yet — listen more on Spotify!" />}
-
-        {activeTab === "artists" && topArtists.map((artist, i) => (
-          <ArtistRow key={artist.id} artist={artist} rank={i + 1} />
-        ))}
-        {activeTab === "artists" && topArtists.length === 0 && <EmptyState text="No top artists yet" />}
-
-        {activeTab === "recent" && recent.map((item, i) => (
-          <TrackRow
-            key={`${item.track.id}-${i}`}
-            track={item.track}
-            subtitle={new Date(item.played_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          />
-        ))}
-        {activeTab === "recent" && recent.length === 0 && <EmptyState text="No recent tracks found" />}
-
-        {activeTab === "playlists" && playlists.map((pl) => (
-          <PlaylistRow key={pl.id} playlist={pl} />
-        ))}
-        {activeTab === "playlists" && playlists.length === 0 && <EmptyState text="No playlists found" />}
       </div>
+
+      {/* Loading spinner */}
+      {loading && <div className="flex justify-center py-4"><div className="w-4 h-4 border-2 border-[#D51007] border-t-transparent rounded-full animate-spin" /></div>}
+
+      {/* Content */}
+      {!loading && (
+        <div className="px-4 pb-8 space-y-1">
+          {activeTab === "top-tracks" && (topTracks.length > 0
+            ? topTracks.map((t, i) => <TrackRow key={`${t.name}-${i}`} track={t} rank={i + 1} />)
+            : <EmptyState text="No top tracks for this period" />)}
+
+          {activeTab === "top-artists" && (topArtists.length > 0
+            ? topArtists.map((a, i) => <ArtistRow key={a.name} artist={a} rank={i + 1} />)
+            : <EmptyState text="No top artists for this period" />)}
+
+          {activeTab === "top-albums" && (topAlbums.length > 0
+            ? topAlbums.map((a, i) => <AlbumRow key={`${a.name}-${i}`} album={a} rank={i + 1} />)
+            : <EmptyState text="No top albums for this period" />)}
+
+          {activeTab === "recent" && (recentTracks.length > 0
+            ? recentTracks.map((t, i) => <TrackRow key={`${t.name}-${i}`} track={t} subtitle={t.date?.["#text"]} />)
+            : <EmptyState text="No recent tracks found" />)}
+        </div>
+      )}
     </div>
   );
 };
 
-// ─── Sub-components ────────────────────────────────────────────────────────────
-const StatCard = ({ label, value }: { label: string; value: number }) => (
-  <div className="bg-slate-100 dark:bg-slate-800/60 rounded-xl p-3 text-center">
-    <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
-    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{label}</p>
-  </div>
-);
-
-const TrackRow = ({
-  track,
-  rank,
-  subtitle,
-}: {
-  track: SpotifyTrack;
-  rank?: number;
-  subtitle?: string;
-}) => (
-  <a
-    href={track.external_urls?.spotify}
-    target="_blank"
-    rel="noreferrer"
-    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors duration-150 group"
-  >
-    {rank !== undefined && (
-      <span className="text-xs font-bold text-slate-400 w-5 text-center flex-shrink-0">{rank}</span>
-    )}
-    <img
-      src={track.album.images[track.album.images.length - 1]?.url}
-      alt={track.album.name}
-      className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-    />
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{track.name}</p>
-      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-        {track.artists.map((a) => a.name).join(", ")}
-      </p>
-    </div>
-    <div className="flex items-center gap-1.5 flex-shrink-0">
-      {subtitle && <span className="text-xs text-slate-400">{subtitle}</span>}
-      <span className="text-slate-300 dark:text-slate-600 group-hover:text-[#1DB954] transition-colors">
-        <ExternalLinkIcon />
-      </span>
-    </div>
-  </a>
-);
-
-const ArtistRow = ({ artist, rank }: { artist: SpotifyArtistFull; rank: number }) => (
-  <a
-    href={artist.external_urls?.spotify}
-    target="_blank"
-    rel="noreferrer"
-    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors duration-150 group"
-  >
-    <span className="text-xs font-bold text-slate-400 w-5 text-center flex-shrink-0">{rank}</span>
-    {artist.images[0] ? (
-      <img
-        src={artist.images[artist.images.length - 1]?.url}
-        alt={artist.name}
-        className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-      />
-    ) : (
-      <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0" />
-    )}
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{artist.name}</p>
-      <p className="text-xs text-slate-500 dark:text-slate-400 truncate capitalize">
-        {artist.genres.slice(0, 2).join(", ") || "Artist"}
-      </p>
-    </div>
-    <span className="text-slate-300 dark:text-slate-600 group-hover:text-[#1DB954] transition-colors">
-      <ExternalLinkIcon />
-    </span>
-  </a>
-);
-
-const PlaylistRow = ({ playlist }: { playlist: Playlist }) => (
-  <a
-    href={playlist.external_urls?.spotify}
-    target="_blank"
-    rel="noreferrer"
-    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors duration-150 group"
-  >
-    {playlist.images[0] ? (
-      <img src={playlist.images[0].url} alt={playlist.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-    ) : (
-      <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-700 flex-shrink-0" />
-    )}
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{playlist.name}</p>
-      <p className="text-xs text-slate-500 dark:text-slate-400">{playlist.tracks.total} tracks</p>
-    </div>
-    <span className="text-slate-300 dark:text-slate-600 group-hover:text-[#1DB954] transition-colors">
-      <ExternalLinkIcon />
-    </span>
-  </a>
-);
-
-const EmptyState = ({ text }: { text: string }) => (
-  <div className="text-center py-12">
-    <p className="text-sm text-slate-400">{text}</p>
-  </div>
-);
-
-export default Spotify;
+export default LastFm;
