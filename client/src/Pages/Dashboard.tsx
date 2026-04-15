@@ -635,6 +635,7 @@ export default function Dashboard() {
               { label: "Log Workout",   icon: "💪", path: "/activity",  color: "bg-orange-500/10 border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-400" },
               { label: "Ask FitBot",    icon: "🤖", path: "/ai",        color: "bg-violet-500/10 border-violet-200 dark:border-violet-500/30 text-violet-700 dark:text-violet-400" },
               { label: "Meal Planner",  icon: "📅", path: "/planner",   color: "bg-pink-500/10 border-pink-200 dark:border-pink-500/30 text-pink-700 dark:text-pink-400" },
+              { label: "Activity Planner", icon: "🏃", path: "/activity-planner", color: "bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-400" },
             ].map(({ label, icon, path, color }) => (
               <button
                 key={label}
