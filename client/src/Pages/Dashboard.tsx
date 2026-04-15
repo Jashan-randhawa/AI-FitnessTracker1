@@ -474,7 +474,7 @@ export default function Dashboard() {
         {/* ── Circular rings: calories consumed + burned ── */}
         <div className={`${cardCls} transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "0ms" }}>
           <h3 className="text-sm font-bold mb-4">Today's Goals</h3>
-          <div className="flex justify-around">
+          <div className="flex flex-wrap justify-center gap-4 md:flex-nowrap md:justify-around">
             <RingProgress value={totalCaloriesToday} max={calorieLimit} color="#10b981" size={120} label="Calories In" sublabel="consumed" />
             <RingProgress value={totalCaloriesBurnedToday} max={calorieBurnGoal} color="#f97316" size={120} label="Calories Out" sublabel="burned" />
             <RingProgress value={totalActivityMinutes} max={60} color="#8b5cf6" size={120} label="Active Time" sublabel="minutes" />
