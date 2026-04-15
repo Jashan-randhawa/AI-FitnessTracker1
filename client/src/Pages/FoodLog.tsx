@@ -36,6 +36,37 @@ const resolveMealType = (entry: any): MealType => {
   return MEAL_ORDER.includes(m) ? m : "snack";
 };
 
+// ── AI Evaluation Result Panel ─────────────────────────────
+interface AIEvaluation {
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  healthScore: number; // 1-10
+  scoreLabel: string;
+  insight: string;
+  tip: string;
+  badges: string[];
+}
+
+const ScoreRing = ({ score }: { score: number }) => {
+  const pct = score / 10;
+  const r = 22;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * pct;
+  const color = score >= 7 ? "#34d399" : score >= 4 ? "#fbbf24" : "#f87171";
+  return (
+    <svg width="60" height="60" viewBox="0 0 60 60" className="shrink-0">
+      <circle cx="30" cy="30" r={r} fill="none" stroke="currentColor" strokeWidth="5" className="text-slate-200 dark:text-slate-700" />
+      <circle cx="30" cy="30" r={r} fill="none" stroke={color} strokeWidth="5"
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+        transform="rotate(-90 30 30)" style={{ transition: "stroke-dasharray 0.6s ease" }} />
+      <text x="30" y="35" textAnchor="middle" fontSize="13" fontWeight="700" fill={color}>{score}</text>
+    </svg>
+  );
+};
+
 // ── Add Food Modal ─────────────────────────────────────────
 const AddFoodModal = ({
   defaultMeal, setShowForm, onAdd,
@@ -50,6 +81,7 @@ const AddFoodModal = ({
   });
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiEval, setAiEval] = useState<AIEvaluation | null>(null);
 
   const inputCls = "w-full rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 focus:outline-none focus:border-emerald-500 transition-colors";
 
@@ -77,6 +109,7 @@ const AddFoodModal = ({
       );
       onAdd(normalizeStrapiEntry(raw));
       setFormData({ name: "", calories: 0, mealType: defaultMeal, protein: 0, carbs: 0, fat: 0 });
+      setAiEval(null);
       setShowForm(false);
       toast.success("Entry added!");
     } catch (error: any) {
@@ -91,35 +124,80 @@ const AddFoodModal = ({
     if (!trimmedName) return toast.error("Enter a food name first");
 
     setAiLoading(true);
+    setAiEval(null);
     try {
-      const token = localStorage.getItem("token");
-      const response = await api.post(
-        "/api/food-estimate",
-        { name: trimmedName },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const prompt = `You are a nutrition expert. Analyze this food entry and return ONLY valid JSON (no markdown, no explanation):
 
-      const { name, calories, protein, carbs, fat } = response.data.result ?? {};
-      if (calories === undefined || calories === null) throw new Error("Invalid estimate response");
+Food: "${trimmedName}"
+${formData.calories ? `User-entered calories: ${formData.calories} kcal` : ""}
+${formData.protein ? `User-entered protein: ${formData.protein}g` : ""}
+${formData.carbs ? `User-entered carbs: ${formData.carbs}g` : ""}
+${formData.fat ? `User-entered fat: ${formData.fat}g` : ""}
 
+Return JSON with these exact keys:
+{
+  "name": "cleaned food name",
+  "calories": number (kcal for typical serving),
+  "protein": number (grams),
+  "carbs": number (grams),
+  "fat": number (grams),
+  "healthScore": number (1-10, where 10=extremely nutritious/whole food, 1=highly processed/unhealthy),
+  "scoreLabel": "short label like 'Excellent', 'Good', 'Fair', 'Poor'",
+  "insight": "1 sentence about this food's nutritional profile",
+  "tip": "1 short actionable tip to make this meal healthier or pair it well",
+  "badges": ["array", "of", "1-3", "short", "tags"] (e.g. "High Protein", "Low Fat", "Whole Food", "Processed", "High Fiber", "Good Fats")
+}`;
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+
+      if (!response.ok) throw new Error(`API error ${response.status}`);
+      const data = await response.json();
+      const text = (data.content?.[0]?.text ?? "").replace(/```json|```/g, "").trim();
+      const parsed: AIEvaluation = JSON.parse(text);
+
+      if (!parsed.calories || !parsed.name) throw new Error("Invalid AI response");
+
+      setAiEval(parsed);
       setFormData((prev) => ({
         ...prev,
-        name: name || trimmedName,
-        calories: Number(calories) || 0,
-        protein: Number(protein) || 0,
-        carbs: Number(carbs) || 0,
-        fat: Number(fat) || 0,
+        name: parsed.name || trimmedName,
+        calories: Number(parsed.calories) || prev.calories,
+        protein: Number(parsed.protein) || prev.protein,
+        carbs: Number(parsed.carbs) || prev.carbs,
+        fat: Number(parsed.fat) || prev.fat,
       }));
-      toast.success("Calories and macros estimated");
-    } catch (error: unknown) {
-      const message =
-        typeof error === "object" &&
-        error !== null &&
-        "response" in error &&
-        typeof (error as { response?: unknown }).response === "object"
-          ? ((error as { response?: { data?: { error?: string } } }).response?.data?.error ?? null)
-          : null;
-      toast.error(message || "Could not estimate nutrition");
+      toast.success("AI evaluation complete!");
+    } catch (error: any) {
+      // Fallback to backend if Anthropic API fails
+      try {
+        const token = localStorage.getItem("token");
+        const res = await api.post(
+          "/api/food-estimate",
+          { name: trimmedName },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const { name, calories, protein, carbs, fat } = res.data.result ?? {};
+        if (calories === undefined) throw new Error("Invalid estimate");
+        setFormData((prev) => ({
+          ...prev,
+          name: name || trimmedName,
+          calories: Number(calories) || 0,
+          protein: Number(protein) || 0,
+          carbs: Number(carbs) || 0,
+          fat: Number(fat) || 0,
+        }));
+        toast.success("Calories and macros estimated");
+      } catch {
+        toast.error("Could not estimate nutrition. Please fill in manually.");
+      }
     } finally {
       setAiLoading(false);
     }
@@ -160,7 +238,7 @@ const AddFoodModal = ({
             className={inputCls}
             placeholder="Food name (e.g. Grilled Chicken)"
             value={formData.name}
-            onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+            onChange={(e) => { setFormData((p) => ({ ...p, name: e.target.value })); setAiEval(null); }}
             autoFocus
           />
           <button
@@ -172,12 +250,52 @@ const AddFoodModal = ({
             {aiLoading ? (
               <>
                 <div role="status" aria-label="Estimating nutrition" className="w-4 h-4 rounded-full animate-spin border-2 border-black/30 border-t-black" />
-                <span aria-live="polite">Estimating…</span>
+                <span aria-live="polite">Analyzing with AI…</span>
               </>
             ) : (
               <>✨ Evaluate calories & macros with AI</>
             )}
           </button>
+
+          {/* ── AI Evaluation Panel ── */}
+          {aiEval && !aiLoading && (
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10 p-4 space-y-3 animate-in fade-in">
+              {/* Score row */}
+              <div className="flex items-center gap-4">
+                <ScoreRing score={aiEval.healthScore} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">{aiEval.scoreLabel}</span>
+                    {aiEval.badges.map((b) => (
+                      <span key={b} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-400/15 text-emerald-600 dark:text-emerald-400 border border-emerald-400/25">{b}</span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{aiEval.insight}</p>
+                </div>
+              </div>
+              {/* Tip */}
+              <div className="flex items-start gap-2 bg-amber-400/10 border border-amber-400/20 rounded-xl px-3 py-2.5">
+                <span className="text-base shrink-0">💡</span>
+                <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">{aiEval.tip}</p>
+              </div>
+              {/* Macro pills */}
+              <div className="grid grid-cols-4 gap-1.5 text-center">
+                {[
+                  { label: "Calories", val: `${aiEval.calories}`, unit: "kcal", color: "text-orange-500" },
+                  { label: "Protein",  val: `${aiEval.protein}`,  unit: "g",    color: "text-blue-500"   },
+                  { label: "Carbs",    val: `${aiEval.carbs}`,    unit: "g",    color: "text-amber-500"  },
+                  { label: "Fat",      val: `${aiEval.fat}`,      unit: "g",    color: "text-pink-500"   },
+                ].map(({ label, val, unit, color }) => (
+                  <div key={label} className="rounded-xl bg-white dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 p-2">
+                    <p className={`text-sm font-bold ${color}`}>{val}</p>
+                    <p className="text-[9px] text-slate-500">{unit}</p>
+                    <p className="text-[9px] text-slate-400">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <input
             type="number" min="0"
             className={inputCls}
