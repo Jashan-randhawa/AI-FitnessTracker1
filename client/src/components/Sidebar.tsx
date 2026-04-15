@@ -154,24 +154,34 @@ const NavContent = ({
       <nav className="flex-1 flex flex-col gap-0.5 px-3">
         {navItems.map((item) => {
           const active = !item.externalUrl && isActive(item.path);
-          return (
-            <button
-              key={item.label}
-              onClick={() => {
-                if (item.externalUrl) {
-                  window.open(item.externalUrl, "_blank", "noopener,noreferrer");
-                  return;
-                }
-                if (item.path) onNavigate(item.path);
-              }}
-              className={`
+          const baseClass = `
                 flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-left text-sm
                 border-l-2 -ml-0.5 transition-all duration-200 cursor-pointer
                 ${active
                   ? "border-l-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium"
                   : "border-l-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white font-normal"
                 }
-              `}
+              `;
+          if (item.externalUrl) {
+            return (
+              <a
+                key={item.label}
+                href={item.externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={baseClass}
+              >
+                <span>{item.icon}</span>
+                {item.label}
+              </a>
+            );
+          }
+
+          return (
+            <button
+              key={item.label}
+              onClick={() => item.path && onNavigate(item.path)}
+              className={baseClass}
             >
               <span className={active ? "text-emerald-500" : ""}>{item.icon}</span>
               {item.label}
