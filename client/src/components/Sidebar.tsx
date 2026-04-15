@@ -192,7 +192,7 @@ const Sidebar = () => {
       </aside>
 
       {/* ── Mobile Topbar (< lg) ── */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 transition-colors duration-200">
+      <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-14 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 transition-colors duration-200">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 bg-emerald-500 rounded-lg flex items-center justify-center shadow-md shadow-emerald-500/30">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="white" strokeWidth="0">
