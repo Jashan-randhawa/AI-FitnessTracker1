@@ -3,9 +3,6 @@ import { estimateFood } from "../services/food-estimate";
 
 export default {
   async estimate(ctx: Context) {
-    const user = ctx.state.user;
-    if (!user) return ctx.unauthorized("You must be logged in");
-
     const { name } = ctx.request.body as { name?: string };
     if (!name || typeof name !== "string" || !name.trim()) {
       return ctx.badRequest("Food name is required.");
