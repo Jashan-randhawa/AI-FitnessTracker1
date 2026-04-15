@@ -15,8 +15,12 @@ export default {
       const result = await estimateFood(name.trim());
       ctx.body = { success: true, result };
     } catch (error: any) {
-      ctx.status = 500;
-      ctx.body = { success: false, error: error.message || "Failed to estimate food nutrition." };
+      const message = error?.message || "Failed to estimate food nutrition.";
+      const isProviderIssue =
+        message.includes("No AI provider available") ||
+        message.includes("API key not set");
+      ctx.status = isProviderIssue ? 503 : 500;
+      ctx.body = { success: false, error: message };
     }
   },
 };

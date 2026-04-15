@@ -1,7 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 
+const getProviderKeys = () => ({
+  geminiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.Gemini_API_Key,
+  openRouterKey: process.env.OPENROUTER_API_KEY,
+});
+
 const getGemini = () => {
-  const apiKey = process.env.GOOGLE_API_KEY || process.env.Gemini_API_Key;
+  const { geminiKey: apiKey } = getProviderKeys();
   if (!apiKey) throw new Error("Gemini API key not set.");
   return new GoogleGenAI({ apiKey });
 };
@@ -33,6 +38,22 @@ export interface FoodEstimateResult {
   fat: number;
 }
 
+interface ParsedFoodEstimate {
+  name?: unknown;
+  calories?: unknown;
+  protein?: unknown;
+  carbs?: unknown;
+  fat?: unknown;
+}
+
+interface OpenRouterChatResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+}
+
 const cleanResponse = (raw: string): string =>
   raw.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```json|```/g, "").trim();
 
@@ -44,9 +65,9 @@ const toNonNegativeNumber = (value: unknown): number => {
 
 const parseResult = (raw: string, fallbackName: string): FoodEstimateResult => {
   const cleaned = cleanResponse(raw);
-  let parsed: any;
+  let parsed: ParsedFoodEstimate;
   try {
-    parsed = JSON.parse(cleaned);
+    parsed = JSON.parse(cleaned) as ParsedFoodEstimate;
   } catch {
     throw new Error("AI returned invalid nutrition format.");
   }
@@ -91,14 +112,13 @@ const estimateWithOpenRouter = async (foodText: string): Promise<FoodEstimateRes
     throw new Error(`OpenRouter estimate failed: ${err}`);
   }
 
-  const data = (await response.json()) as any;
+  const data = (await response.json()) as OpenRouterChatResponse;
   const text = data.choices?.[0]?.message?.content ?? "";
   return parseResult(text, foodText);
 };
 
 export const estimateFood = async (foodText: string): Promise<FoodEstimateResult> => {
-  const geminiKey = process.env.GOOGLE_API_KEY || process.env.Gemini_API_Key;
-  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  const { geminiKey, openRouterKey } = getProviderKeys();
 
   if (geminiKey) {
     try {
@@ -110,8 +130,10 @@ export const estimateFood = async (foodText: string): Promise<FoodEstimateResult
       });
       console.log("[AI] Gemini food estimate succeeded.");
       return parseResult(response.text ?? "", foodText);
-    } catch (err: any) {
-      const isQuota = err?.status === 429 || err?.message?.includes("429") || err?.message?.includes("quota");
+    } catch (err: unknown) {
+      const status = typeof err === "object" && err !== null && "status" in err ? (err as { status?: number }).status : undefined;
+      const message = typeof err === "object" && err !== null && "message" in err ? String((err as { message?: unknown }).message ?? "") : "";
+      const isQuota = status === 429 || message.includes("429") || message.includes("quota");
       if (isQuota && openRouterKey) {
         console.warn("[AI] Gemini quota exceeded, falling back to OpenRouter...");
       } else {
@@ -125,5 +147,5 @@ export const estimateFood = async (foodText: string): Promise<FoodEstimateResult
     return await estimateWithOpenRouter(foodText);
   }
 
-  throw new Error("No AI provider available. Please set Gemini_API_Key or OPENROUTER_API_KEY.");
+  throw new Error("No AI provider available. Please set GOOGLE_API_KEY (Gemini key) or OPENROUTER_API_KEY.");
 };

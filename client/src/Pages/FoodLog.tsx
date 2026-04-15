@@ -100,7 +100,7 @@ const AddFoodModal = ({
       );
 
       const { name, calories, protein, carbs, fat } = response.data.result ?? {};
-      if (!calories) throw new Error("Invalid estimate response");
+      if (calories === undefined || calories === null) throw new Error("Invalid estimate response");
 
       setFormData((prev) => ({
         ...prev,
@@ -111,8 +111,15 @@ const AddFoodModal = ({
         fat: Number(fat) || 0,
       }));
       toast.success("Calories and macros estimated");
-    } catch (error: any) {
-      toast.error(error?.response?.data?.error || "Could not estimate nutrition");
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: unknown }).response === "object"
+          ? ((error as { response?: { data?: { error?: string } } }).response?.data?.error ?? null)
+          : null;
+      toast.error(message || "Could not estimate nutrition");
     } finally {
       setAiLoading(false);
     }
@@ -163,7 +170,10 @@ const AddFoodModal = ({
             className="w-full py-2.5 text-sm font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-black bg-emerald-400 hover:bg-emerald-500"
           >
             {aiLoading ? (
-              <><div className="w-4 h-4 rounded-full animate-spin border-2 border-black/30 border-t-black" />Estimating…</>
+              <>
+                <div role="status" aria-label="Estimating nutrition" className="w-4 h-4 rounded-full animate-spin border-2 border-black/30 border-t-black" />
+                <span aria-live="polite">Estimating…</span>
+              </>
             ) : (
               <>✨ Evaluate calories & macros with AI</>
             )}
