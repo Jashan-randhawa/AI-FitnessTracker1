@@ -49,6 +49,7 @@ const AddFoodModal = ({
     protein: 0, carbs: 0, fat: 0,
   });
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const inputCls = "w-full rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 focus:outline-none focus:border-emerald-500 transition-colors";
 
@@ -82,6 +83,45 @@ const AddFoodModal = ({
       toast.error(error?.response?.data?.error?.message || "Failed to add food log");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAIEstimate = async () => {
+    const trimmedName = formData.name.trim();
+    if (!trimmedName) return toast.error("Enter a food name first");
+
+    setAiLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await api.post(
+        "/api/food-estimate",
+        { name: trimmedName },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const { name, calories, protein, carbs, fat } = response.data.result ?? {};
+      if (calories === undefined || calories === null) throw new Error("Invalid estimate response");
+
+      setFormData((prev) => ({
+        ...prev,
+        name: name || trimmedName,
+        calories: Number(calories) || 0,
+        protein: Number(protein) || 0,
+        carbs: Number(carbs) || 0,
+        fat: Number(fat) || 0,
+      }));
+      toast.success("Calories and macros estimated");
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: unknown }).response === "object"
+          ? ((error as { response?: { data?: { error?: string } } }).response?.data?.error ?? null)
+          : null;
+      toast.error(message || "Could not estimate nutrition");
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -123,6 +163,21 @@ const AddFoodModal = ({
             onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
             autoFocus
           />
+          <button
+            type="button"
+            onClick={handleAIEstimate}
+            disabled={!formData.name.trim() || aiLoading || loading}
+            className="w-full py-2.5 text-sm font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-black bg-emerald-400 hover:bg-emerald-500"
+          >
+            {aiLoading ? (
+              <>
+                <div role="status" aria-label="Estimating nutrition" className="w-4 h-4 rounded-full animate-spin border-2 border-black/30 border-t-black" />
+                <span aria-live="polite">Estimating…</span>
+              </>
+            ) : (
+              <>✨ Evaluate calories & macros with AI</>
+            )}
+          </button>
           <input
             type="number" min="0"
             className={inputCls}
