@@ -390,14 +390,14 @@ const Weather = () => {
   }, [loadWeather]);
 
   if (loading) return (
-    <div className={`flex flex-col items-center justify-center h-screen pt-14 lg:pt-0 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
+    <div className={`flex flex-col items-center justify-center h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
       <div className="text-5xl mb-4 animate-bounce">🌤️</div>
       <p className="text-slate-500 dark:text-slate-400 text-sm">Fetching weather from Azure Maps…</p>
     </div>
   );
 
   if (error || !weather) return (
-    <div className={`flex flex-col items-center justify-center h-screen pt-14 lg:pt-0 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
+    <div className={`flex flex-col items-center justify-center h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
       <div className="text-5xl mb-4">😕</div>
       <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">{error || "Something went wrong."}</p>
       <button
@@ -414,7 +414,7 @@ const Weather = () => {
   const aqiLevel = aqi ? getAQILevel(aqi.usAqi) : null;
 
   return (
-    <div className={`min-h-screen pt-14 lg:pt-0 ${isDark ? "bg-slate-900" : "bg-slate-50"} transition-colors duration-200`}>
+    <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"} transition-colors duration-200`}>
 
       {/* ── Hero / Current ── */}
       <div className={`bg-gradient-to-br ${bg} px-6 py-10 relative overflow-hidden`}>
