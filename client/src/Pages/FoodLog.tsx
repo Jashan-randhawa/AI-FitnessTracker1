@@ -86,47 +86,28 @@ const AddFoodModal = ({
     }
   };
 
+  // ── AI Estimate: routed through Strapi backend ─────────
+  // Your Strapi backend reads process.env.OPENROUTER_API_KEY and calls OpenRouter.
+  // POST /api/nutrition-estimate  →  { name: string } → { name, calories, protein, carbs, fat }
   const handleAIEstimate = async () => {
     const trimmedName = formData.name.trim();
     if (!trimmedName) return toast.error("Enter a food name first");
 
     setAiLoading(true);
     try {
-      const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || "";
+      const token = localStorage.getItem("token");
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-          "HTTP-Referer": window.location.origin,
-          "X-Title": "FitTrack Food Estimate",
-        },
-        body: JSON.stringify({
-          model: "openrouter/auto",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a nutrition estimation assistant. Given a food entry text, estimate nutrition for one realistic serving. Return ONLY valid JSON with exact keys: {\"name\": string, \"calories\": number, \"protein\": number, \"carbs\": number, \"fat\": number}. Rules: Keep numbers realistic and non-negative. calories should be total kcal for the serving. protein, carbs, fat should be grams. If portion is unclear, assume a common serving size. No markdown, no explanations, no extra keys.",
-            },
-            { role: "user", content: `Food entry: ${trimmedName}` },
-          ],
-        }),
-      });
+      const response = await api.post(
+        "/api/nutrition-estimate",
+        { name: trimmedName },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`OpenRouter API error ${response.status}: ${errText}`);
-      }
+      // Expect your Strapi controller to return { result: { name, calories, protein, carbs, fat } }
+      const { name, calories, protein, carbs, fat } = response.data.result;
 
-      const data = await response.json();
-      const raw: string = data?.choices?.[0]?.message?.content ?? "";
-      const cleaned = raw.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(cleaned);
-
-      const { name, calories, protein, carbs, fat } = parsed;
-      if (calories === undefined || calories === null) throw new Error("Invalid estimate response");
+      if (calories === undefined || calories === null)
+        throw new Error("Invalid estimate response from server");
 
       setFormData((prev) => ({
         ...prev,
@@ -137,10 +118,11 @@ const AddFoodModal = ({
         fat: Number(fat) || 0,
       }));
       toast.success("Calories and macros estimated");
-    } catch (error: unknown) {
+    } catch (error: any) {
       const message =
-        error instanceof Error ? error.message : "Could not estimate nutrition";
-      toast.error(message || "Could not estimate nutrition");
+        error?.response?.data?.error?.message ||
+        (error instanceof Error ? error.message : "Could not estimate nutrition");
+      toast.error(message);
     } finally {
       setAiLoading(false);
     }
@@ -248,7 +230,6 @@ const AddFoodModal = ({
 };
 
 // ── Food Item Card ─────────────────────────────────────────
-// Shows: item name · calories · meal type badge
 const FoodItemCard = ({ entry, onDelete }: {
   entry: any;
   onDelete: (id: string) => void;
@@ -266,7 +247,6 @@ const FoodItemCard = ({ entry, onDelete }: {
     <div
       className={`rounded-2xl p-4 transition-all duration-150 border ${confirmId === entry.id ? "bg-rose-950/30 dark:bg-rose-950/40 border-rose-500/30" : "bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/50"}`}
     >
-      {/* Top row: name + delete */}
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-2 min-w-0">
           {entry.aiGenerated && (
@@ -292,7 +272,6 @@ const FoodItemCard = ({ entry, onDelete }: {
         )}
       </div>
 
-      {/* Bottom row: calories + meal type badge */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <span className="text-lg">🔥</span>
@@ -303,7 +282,6 @@ const FoodItemCard = ({ entry, onDelete }: {
           {cfg.icon} {cfg.label}
         </span>
       </div>
-      {/* Macros row — only shown when at least one macro is logged */}
       {(entry.protein || entry.carbs || entry.fat) ? (
         <div className="flex gap-3 mt-1">
           {entry.protein ? <span className="text-[11px] text-blue-500 font-medium">P: {Math.round(entry.protein)}g</span> : null}
@@ -323,10 +301,8 @@ const MealSection = ({ mealType, entries, onDelete }: {
   const cfg = MEAL_CONFIG[mealType];
   const total = entries.reduce((s, e) => s + (e.calories ?? 0), 0);
 
-
   return (
     <div className="rounded-2xl overflow-hidden bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50">
-      {/* Section header */}
       <div className="flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 ${cfg.iconBg} rounded-xl flex items-center justify-center text-lg`}>{cfg.icon}</div>
@@ -338,7 +314,6 @@ const MealSection = ({ mealType, entries, onDelete }: {
         <span className="text-sm font-bold text-gray-900 dark:text-white">{total} kcal</span>
       </div>
 
-      {/* Food item cards */}
       <div className="px-4 pb-4 space-y-2">
         {entries.map((entry) => (
           <FoodItemCard
@@ -370,7 +345,7 @@ const AISnapLoadingOverlay = ({ imagePreview }: { imagePreview: string }) => (
   </div>
 );
 
-// ── Camera Modal (getUserMedia — works on desktop & mobile) ─
+// ── Camera Modal ───────────────────────────────────────────
 const CameraModal = ({ onCapture, onClose }: { onCapture: (file: File) => void; onClose: () => void }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -415,13 +390,11 @@ const CameraModal = ({ onCapture, onClose }: { onCapture: (file: File) => void; 
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { stopStream(); onClose(); }} />
       <div className="relative z-10 w-full max-w-sm mx-4 rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-700">
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-slate-900/80">
           <p className="text-sm font-semibold text-white">Take a Photo</p>
           <button type="button" onClick={() => { stopStream(); onClose(); }} className="text-slate-400 hover:text-white transition-colors cursor-pointer text-lg leading-none">✕</button>
         </div>
 
-        {/* Video / Error */}
         <div className="relative bg-black aspect-[4/3] flex items-center justify-center">
           {error ? (
             <p className="text-slate-400 text-sm text-center px-6">{error}</p>
@@ -433,7 +406,6 @@ const CameraModal = ({ onCapture, onClose }: { onCapture: (file: File) => void; 
           )}
         </div>
 
-        {/* Snap button */}
         <div className="flex items-center justify-center py-5 bg-slate-900/80">
           <button
             type="button"
@@ -493,7 +465,6 @@ export default function FoodLog() {
   const handleAdd = (entry: any) => {
     if (!entry) return;
     const normalized = { ...entry, date: resolveDate(entry) };
-    // Normalize mealtype → mealType
     if (normalized.mealtype && !normalized.mealType) normalized.mealType = normalized.mealtype;
     setAllFoodLogs((prev: any[]) => {
       if (prev.some((l) => l.id === normalized.id)) return prev;
@@ -502,7 +473,6 @@ export default function FoodLog() {
   };
 
   const handleDelete = async (id: string) => {
-    // Optimistic update — remove from UI immediately, restore on failure
     setAllFoodLogs((prev: any[]) => prev.filter((l) => l.id !== id));
     try {
       const token = localStorage.getItem("token");
@@ -511,7 +481,6 @@ export default function FoodLog() {
       });
       toast.success("Entry deleted");
     } catch (error: any) {
-      // Restore the entry by re-fetching logs on failure
       const token = localStorage.getItem("token");
       if (token) {
         const { data } = await api.get("/api/foodlogs", { headers: { Authorization: `Bearer ${token}` } });
@@ -522,79 +491,71 @@ export default function FoodLog() {
     }
   };
 
- const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  e.target.value = ""; // Reset input so same file can be uploaded again
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
 
-  const previewUrl = URL.createObjectURL(file);
-  setSnapPreview(previewUrl);
-  setIsAnalyzing(true);
+    const previewUrl = URL.createObjectURL(file);
+    setSnapPreview(previewUrl);
+    setIsAnalyzing(true);
 
-  // 1. Determine mealType by time of day
-  const hour = new Date().getHours();
-  let mealType: MealType = "snack";
-  if (hour >= 0 && hour < 12)       mealType = "breakfast";
-  else if (hour >= 12 && hour < 16) mealType = "lunch";
-  else if (hour >= 16 && hour < 21) mealType = "dinner";
-  else                               mealType = "snack";
+    const hour = new Date().getHours();
+    let mealType: MealType = "snack";
+    if (hour >= 0 && hour < 12)       mealType = "breakfast";
+    else if (hour >= 12 && hour < 16) mealType = "lunch";
+    else if (hour >= 16 && hour < 21) mealType = "dinner";
+    else                               mealType = "snack";
 
-  try {
-    // 2. Prepare Multipart Form Data
-    const formData = new FormData();
-    formData.append("image", file); // must match ctx.request.files?.image in controller
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
 
-    const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
-    // 3. Call your backend endpoint (configured in image-analysis.ts)
-    // This offloads the API key and Gemini logic to the server
-    const response = await api.post("/api/image-analysis", formData, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "multipart/form-data",
-      },
-    });
-
-    // Controller returns { success: true, result: { name, calories, protein, carbs, fat } }
-    const { name, calories, protein, carbs, fat } = response.data.result;
-
-    // 4. Save the analyzed data to your Strapi FoodLogs collection
-    const { data: raw } = await api.post(
-      "/api/foodlogs",
-      {
-        data: {
-          name,
-          calories,
-          protein: protein ?? 0,
-          carbs: carbs ?? 0,
-          fat: fat ?? 0,
-          mealtype: mealType,
-          mealType: mealType, // Sending both for compatibility
-          date: new Date().toISOString(),
-          aiGenerated: true,
+      const response = await api.post("/api/image-analysis", formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
         },
-      },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+      });
 
-    // 5. Update local UI state
-    handleAdd(normalizeStrapiEntry(raw));
-    toast.success(`Logged: ${name} · ${calories} kcal`);
+      const { name, calories, protein, carbs, fat } = response.data.result;
 
-  } catch (error: any) {
-    console.error("AI Food Snap error:", error);
-    toast.error(error?.response?.data?.error?.message || "Could not analyze image. Please add manually.");
-    openModal(mealType);
-  } finally {
-    setIsAnalyzing(false);
-    setSnapPreview(null);
-    URL.revokeObjectURL(previewUrl);
-  }
-};
+      const { data: raw } = await api.post(
+        "/api/foodlogs",
+        {
+          data: {
+            name,
+            calories,
+            protein: protein ?? 0,
+            carbs: carbs ?? 0,
+            fat: fat ?? 0,
+            mealtype: mealType,
+            mealType: mealType,
+            date: new Date().toISOString(),
+            aiGenerated: true,
+          },
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      handleAdd(normalizeStrapiEntry(raw));
+      toast.success(`Logged: ${name} · ${calories} kcal`);
+
+    } catch (error: any) {
+      console.error("AI Food Snap error:", error);
+      toast.error(error?.response?.data?.error?.message || "Could not analyze image. Please add manually.");
+      openModal(mealType);
+    } finally {
+      setIsAnalyzing(false);
+      setSnapPreview(null);
+      URL.revokeObjectURL(previewUrl);
+    }
+  };
 
   const handleCameraCapture = (file: File) => {
     setShowCamera(false);
-    // Reuse handleImageChange logic by constructing a synthetic event-like call
     const dataTransfer = new DataTransfer();
     dataTransfer.items.add(file);
     const fakeInput = document.createElement("input");
@@ -720,12 +681,10 @@ export default function FoodLog() {
             )}
           </button>
 
-          {/* Centered dialog modal */}
           {showSnapMenu && !isAnalyzing && (
             <div className="fixed inset-0 z-50 flex items-center justify-center">
               <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowSnapMenu(false)} />
               <div className="relative z-10 w-full max-w-xs mx-4 rounded-2xl shadow-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden">
-                {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
                   <div>
                     <p className="font-bold text-gray-900 dark:text-white">AI Food Snap ✨</p>
@@ -734,9 +693,7 @@ export default function FoodLog() {
                   <button type="button" onClick={() => setShowSnapMenu(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer text-lg leading-none">✕</button>
                 </div>
 
-                {/* Options */}
                 <div className="p-4 flex flex-col gap-3">
-                  {/* Upload from gallery */}
                   <button
                     type="button"
                     onClick={() => { setShowSnapMenu(false); inputRef.current?.click(); }}
@@ -751,7 +708,6 @@ export default function FoodLog() {
                     </div>
                   </button>
 
-                  {/* Take photo */}
                   <button
                     type="button"
                     onClick={() => { setShowSnapMenu(false); openCamera(); }}
@@ -770,7 +726,6 @@ export default function FoodLog() {
             </div>
           )}
 
-          {/* Hidden input for gallery */}
           <input onChange={handleImageChange} type="file" accept="image/*" hidden ref={inputRef} />
         </div>
 
