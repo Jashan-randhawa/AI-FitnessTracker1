@@ -54,13 +54,29 @@ interface RecentTrack {
 }
 
 // ─── API Helper ───────────────────────────────────────────────────────────────
-const spotifyFetch = async (url: string, token: string) => {
+const spotifyFetch = async (url: string, token: string, retries = 2): Promise<any> => {
   const res = await fetch(`https://api.spotify.com/v1${url}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (res.status === 401) throw new Error("UNAUTHORIZED");
+  if (res.status === 403) throw new Error("FORBIDDEN");
+  if (res.status === 429) {
+    if (retries === 0) throw new Error("RATE_LIMITED");
+    const retryAfter = parseInt(res.headers.get("Retry-After") || "2", 10);
+    await new Promise(r => setTimeout(r, retryAfter * 1000));
+    return spotifyFetch(url, token, retries - 1);
+  }
   if (!res.ok) throw new Error(`Spotify error ${res.status}`);
   return res.json();
+};
+
+// Safe fetch — returns null instead of throwing for non-auth errors
+const safeFetch = async (url: string, token: string) => {
+  try { return await spotifyFetch(url, token); }
+  catch (e: any) {
+    if (e.message === "UNAUTHORIZED") throw e;
+    return null;
+  }
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -271,24 +287,39 @@ const Spotify = () => {
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    Promise.all([
-      spotifyFetch("/me", token),
-      spotifyFetch("/me/top/tracks?limit=20&time_range=medium_term", token),
-      spotifyFetch("/me/player/recently-played?limit=20", token),
-      spotifyFetch("/me/playlists?limit=20", token),
-    ]).then(([u, top, recent, pl]) => {
-      setUser(u);
-      setTopTracks(top.items || []);
-      setRecentTracks(recent.items || []);
-      setPlaylists(pl.items || []);
-    }).catch((e) => {
-      if (e.message === "UNAUTHORIZED") {
-        sessionStorage.removeItem("sp_token");
-        setToken("");
-      } else {
-        setError("Failed to load your Spotify data.");
+    (async () => {
+      try {
+        // Sequential fetching to avoid rate limits — user profile first
+        const u = await safeFetch("/me", token);
+        if (!u) {
+          setError("Could not load your profile. Make sure your account is added as a test user in the Spotify Developer Dashboard, or request Quota Extension for your app.");
+          setLoading(false);
+          return;
+        }
+        setUser(u);
+
+        await new Promise(r => setTimeout(r, 300));
+        const top = await safeFetch("/me/top/tracks?limit=20&time_range=medium_term", token);
+        setTopTracks(top?.items || []);
+
+        await new Promise(r => setTimeout(r, 300));
+        const recent = await safeFetch("/me/player/recently-played?limit=20", token);
+        setRecentTracks(recent?.items || []);
+
+        await new Promise(r => setTimeout(r, 300));
+        const pl = await safeFetch("/me/playlists?limit=20", token);
+        setPlaylists(pl?.items || []);
+      } catch (e: any) {
+        if (e.message === "UNAUTHORIZED") {
+          sessionStorage.removeItem("sp_token");
+          setToken("");
+        } else {
+          setError("Failed to load your Spotify data. Please try reconnecting.");
+        }
+      } finally {
+        setLoading(false);
       }
-    }).finally(() => setLoading(false));
+    })();
   }, [token]);
 
   // ── Search workout playlists ──
@@ -296,8 +327,8 @@ const Spotify = () => {
     if (!token || !q.trim()) return;
     setSearchLoading(true);
     try {
-      const data = await spotifyFetch(`/search?q=${encodeURIComponent(q)}&type=playlist&limit=12`, token);
-      setSearchResults(data.playlists?.items?.filter(Boolean) || []);
+      const data = await safeFetch(`/search?q=${encodeURIComponent(q)}&type=playlist&limit=12`, token);
+      setSearchResults(data?.playlists?.items?.filter(Boolean) || []);
     } catch {
       setSearchResults([]);
     } finally {
