@@ -21,9 +21,9 @@ const SpotifyMiniPlayer = () => {
   const [active, setActive] = useState(WORKOUT_PLAYLISTS[0]);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40">
+    <div className="fixed bottom-0 left-0 lg:left-[220px] right-0 z-40">
       {!open ? (
-        <div className="flex items-center justify-between px-5 py-3 bg-[#121212] border-t border-white/10 shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-3 bg-[#121212] border-t-2 border-[#1DB954] shadow-2xl">
           <div className="flex items-center gap-2.5">
             <SpotifyLogo />
             <span className="text-white text-sm font-medium">{active.label}</span>
@@ -31,13 +31,13 @@ const SpotifyMiniPlayer = () => {
           </div>
           <button
             onClick={() => setOpen(true)}
-            className="text-xs text-white/60 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-colors"
+            className="text-xs text-white/80 hover:text-white bg-[#1DB954]/20 hover:bg-[#1DB954]/40 border border-[#1DB954]/50 px-3 py-1.5 rounded-full transition-colors font-medium"
           >
             Open ↑
           </button>
         </div>
       ) : (
-        <div className="bg-[#121212] border-t border-white/10 shadow-2xl">
+        <div className="bg-[#121212] border-t-2 border-[#1DB954] shadow-2xl">
           <div className="flex items-center justify-between px-4 pt-3 pb-2">
             <div className="flex items-center gap-2">
               <SpotifyLogo />
