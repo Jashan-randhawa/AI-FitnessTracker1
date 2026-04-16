@@ -69,14 +69,6 @@ const WorkoutsIcon = () => (
   </svg>
 );
 
-const SpotifyIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="9" />
-    <path d="M7 10.5c3-1 7-0.8 10 0.7" />
-    <path d="M8 13c2.3-0.7 5.4-0.5 7.7 0.6" />
-    <path d="M9 15.4c1.5-0.4 3.4-0.3 4.9 0.4" />
-  </svg>
-);
 
 const SunIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -114,7 +106,6 @@ const navItems: NavItem[] = [
   { path: "/ai", label: "AI Assistant", icon: <AIIcon /> },
   { path: "/weather", label: "Weather", icon: <WeatherIcon /> },
   { path: "/workouts", label: "Workouts", icon: <WorkoutsIcon /> },
-  { path: "/spotify", label: "Spotify", icon: <SpotifyIcon /> },
   { path: "/planner", label: "Meal Planner", icon: <span>📅</span> },
   { path: "/activity-planner", label: "Activity Planner", icon: <span>🏃</span> },
   { path: "/profile", label: "Profile", icon: <ProfileIcon /> },
