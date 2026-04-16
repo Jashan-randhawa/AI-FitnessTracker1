@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
-const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || window.location.origin + "/spotify";
+const REDIRECT_URI = (import.meta.env.VITE_SPOTIFY_REDIRECT_URI || window.location.origin + "/spotify").trim();
 const SCOPES = [
   "user-read-private",
   "user-read-email",
