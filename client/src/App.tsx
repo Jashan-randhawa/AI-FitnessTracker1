@@ -11,6 +11,7 @@ import Weather from "./Pages/Weather";
 import Workouts from "./Pages/Workouts";
 import MealPlanner from "./Pages/MealPlanner";
 import ActivityPlanner from "./Pages/ActivityPlanner";
+import SpotifyPlaylist from "./Pages/SpotifyPlaylist";
 import { useappcontext } from "./Context/AppContext";
 import Login from "./Pages/Login";
 import Loading from "./components/Loading";
@@ -49,6 +50,7 @@ const App = () => {
                 <Route path="workouts"    element={<Workouts />} />
                 <Route path="planner"     element={<MealPlanner />} />
                 <Route path="activity-planner" element={<ActivityPlanner />} />
+                <Route path="spotify"          element={<SpotifyPlaylist />} />
               </Route>
             </Routes>
           )
