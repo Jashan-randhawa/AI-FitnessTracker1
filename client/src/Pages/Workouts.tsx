@@ -29,6 +29,327 @@ interface Playlist {
   searchQuery: string;
 }
 
+// ── Workout Music Types ────────────────────────────────────
+type MusicMood = "all" | "bhangra" | "pump" | "cardio" | "chill" | "focus";
+
+interface MusicTrack {
+  id: string;
+  title: string;
+  artist: string;
+  mood: MusicMood;
+  bpm: string;
+  description: string;
+  trackCount: number;
+  emoji: string;
+  youtubeUrl: string;
+  gradientFrom: string;
+  gradientTo: string;
+  tags: string[];
+}
+
+const PUNJABI_PLAYLISTS: MusicTrack[] = [
+  {
+    id: "m1", title: "Punjabi Gym Bangers", artist: "Various Artists", mood: "pump",
+    bpm: "128–140 BPM", description: "Hardest-hitting Punjabi tracks to smash every set. Pure motivation from first rep to last.",
+    trackCount: 35, emoji: "💥",
+    youtubeUrl: "https://www.youtube.com/results?search_query=punjabi+gym+workout+songs+2024",
+    gradientFrom: "from-orange-500", gradientTo: "to-red-600", tags: ["gym", "lifts", "motivation"],
+  },
+  {
+    id: "m2", title: "Bhangra Cardio Mix", artist: "Bhangra Legends", mood: "bhangra",
+    bpm: "140–160 BPM", description: "Classic and modern bhangra beats to power through cardio circuits and HIIT sessions.",
+    trackCount: 28, emoji: "🥁",
+    youtubeUrl: "https://www.youtube.com/results?search_query=bhangra+cardio+workout+mix",
+    gradientFrom: "from-yellow-400", gradientTo: "to-orange-500", tags: ["bhangra", "cardio", "dance"],
+  },
+  {
+    id: "m3", title: "Diljit Dosanjh Workout", artist: "Diljit Dosanjh", mood: "pump",
+    bpm: "120–135 BPM", description: "G.O.A.T. to Born to Shine — Diljit's most hype tracks keeping the energy sky-high.",
+    trackCount: 22, emoji: "🦁",
+    youtubeUrl: "https://www.youtube.com/results?search_query=diljit+dosanjh+gym+workout+playlist",
+    gradientFrom: "from-purple-600", gradientTo: "to-pink-500", tags: ["diljit", "goat", "hits"],
+  },
+  {
+    id: "m4", title: "AP Dhillon Gym Mix", artist: "AP Dhillon", mood: "focus",
+    bpm: "90–115 BPM", description: "AP Dhillon's smooth yet powerful sound — perfect for focused strength sessions.",
+    trackCount: 18, emoji: "🌟",
+    youtubeUrl: "https://www.youtube.com/results?search_query=ap+dhillon+gym+workout+mix+2024",
+    gradientFrom: "from-slate-700", gradientTo: "to-indigo-500", tags: ["AP Dhillon", "R&B", "focus"],
+  },
+  {
+    id: "m5", title: "Sidhu Moosewala Anthems", artist: "Sidhu Moosewala", mood: "pump",
+    bpm: "95–125 BPM", description: "Iconic tracks that hit different — raw energy and Punjabi pride for every rep.",
+    trackCount: 30, emoji: "🫡",
+    youtubeUrl: "https://www.youtube.com/results?search_query=sidhu+moosewala+workout+playlist",
+    gradientFrom: "from-green-600", gradientTo: "to-emerald-400", tags: ["legend", "iconic", "anthems"],
+  },
+  {
+    id: "m6", title: "Bhangra HIIT Blitz", artist: "DJ Mix Masters", mood: "cardio",
+    bpm: "150–175 BPM", description: "Ultra-fast bhangra edits built for interval training — each drop hits at the perfect moment.",
+    trackCount: 20, emoji: "⚡",
+    youtubeUrl: "https://www.youtube.com/results?search_query=bhangra+HIIT+workout+mix+high+intensity",
+    gradientFrom: "from-rose-500", gradientTo: "to-fuchsia-600", tags: ["HIIT", "intervals", "fast"],
+  },
+  {
+    id: "m7", title: "Karan Aujla Gym Hits", artist: "Karan Aujla", mood: "pump",
+    bpm: "110–130 BPM", description: "Karan's street-ready anthems — cocky confidence for your heaviest lifts.",
+    trackCount: 24, emoji: "🏆",
+    youtubeUrl: "https://www.youtube.com/results?search_query=karan+aujla+gym+workout+songs",
+    gradientFrom: "from-amber-500", gradientTo: "to-yellow-400", tags: ["karan aujla", "swag", "gym"],
+  },
+  {
+    id: "m8", title: "Punjabi Cool-Down Vibes", artist: "Moose Wala, B Praak", mood: "chill",
+    bpm: "60–85 BPM", description: "Soulful Punjabi ballads and slow jams for stretching, recovery, and cool-down.",
+    trackCount: 16, emoji: "🌅",
+    youtubeUrl: "https://www.youtube.com/results?search_query=punjabi+chill+cool+down+workout+slow",
+    gradientFrom: "from-sky-500", gradientTo: "to-blue-600", tags: ["chill", "cool-down", "recovery"],
+  },
+  {
+    id: "m9", title: "B Praak Motivation", artist: "B Praak", mood: "focus",
+    bpm: "80–105 BPM", description: "Emotional, powerful vocals by B Praak that push you through those final tough reps.",
+    trackCount: 14, emoji: "🔥",
+    youtubeUrl: "https://www.youtube.com/results?search_query=b+praak+motivational+punjabi+songs+gym",
+    gradientFrom: "from-red-700", gradientTo: "to-rose-500", tags: ["B Praak", "emotion", "motivation"],
+  },
+  {
+    id: "m10", title: "Imran Khan Beats", artist: "Imran Khan", mood: "bhangra",
+    bpm: "115–130 BPM", description: "Amplifier, Satisfya and more — bangers that never get old no matter the workout.",
+    trackCount: 12, emoji: "🎤",
+    youtubeUrl: "https://www.youtube.com/results?search_query=imran+khan+punjabi+workout+amplifier+satisfya",
+    gradientFrom: "from-teal-500", gradientTo: "to-cyan-400", tags: ["imran khan", "classic", "evergreen"],
+  },
+  {
+    id: "m11", title: "Shubh Workout Mix", artist: "Shubh", mood: "pump",
+    bpm: "105–125 BPM", description: "Shubh's melodic trap-Punjabi fusion — perfect pace for hypertrophy training.",
+    trackCount: 15, emoji: "🎶",
+    youtubeUrl: "https://www.youtube.com/results?search_query=shubh+punjabi+gym+workout+mix+2024",
+    gradientFrom: "from-violet-600", gradientTo: "to-purple-400", tags: ["shubh", "trap", "melodic"],
+  },
+  {
+    id: "m12", title: "Classic Bhangra Party", artist: "Gurdas Maan & More", mood: "bhangra",
+    bpm: "130–150 BPM", description: "Old-school bhangra energy that fuels every warm-up and gets your blood pumping instantly.",
+    trackCount: 32, emoji: "🎺",
+    youtubeUrl: "https://www.youtube.com/results?search_query=classic+old+bhangra+party+workout+mix",
+    gradientFrom: "from-lime-500", gradientTo: "to-green-600", tags: ["classic", "bhangra", "old school"],
+  },
+];
+
+const MUSIC_MOODS: { key: MusicMood | "all"; label: string; emoji: string }[] = [
+  { key: "all",     label: "All",     emoji: "🎵" },
+  { key: "bhangra", label: "Bhangra", emoji: "🥁" },
+  { key: "pump",    label: "Pump Up", emoji: "💥" },
+  { key: "cardio",  label: "Cardio",  emoji: "🏃" },
+  { key: "focus",   label: "Focus",   emoji: "🧠" },
+  { key: "chill",   label: "Chill",   emoji: "🌅" },
+];
+
+// ── Music Card ─────────────────────────────────────────────
+const MusicCard = ({ track, index, onPlay }: { track: MusicTrack; index: number; onPlay: () => void }) => (
+  <div
+    className="group relative rounded-2xl overflow-hidden bg-white dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/40 hover:border-emerald-500/50 shadow-md hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer hover:-translate-y-1"
+    style={{ animation: `wo-cardIn .5s ease-out ${index * 0.06}s both` }}
+    onClick={onPlay}
+  >
+    {/* Thumbnail */}
+    <div className={`relative h-36 bg-gradient-to-br ${track.gradientFrom} ${track.gradientTo} flex items-center justify-center overflow-hidden`}>
+      <span className="text-6xl select-none" style={{ animation: "wo-emoji 3s ease-in-out infinite" }}>{track.emoji}</span>
+      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300" />
+      {/* Play overlay */}
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="w-12 h-12 rounded-full bg-[#1DB954]/90 backdrop-blur-sm flex items-center justify-center shadow-lg shadow-[#1DB954]/40">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+        </div>
+      </div>
+      <div className="absolute top-2.5 right-2.5 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">{track.trackCount} tracks</div>
+      <div className="absolute bottom-2.5 left-2.5 bg-black/55 text-white/90 text-[10px] font-semibold px-2 py-0.5 rounded-md">{track.bpm}</div>
+    </div>
+
+    {/* Info */}
+    <div className="p-3.5">
+      <h3 className="text-sm font-bold text-gray-900 dark:text-white line-clamp-1 group-hover:text-emerald-500 transition-colors duration-200 mb-0.5">{track.title}</h3>
+      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed mb-3">{track.description}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1 flex-wrap">
+          {track.tags.slice(0, 2).map(tag => (
+            <span key={tag} className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wide">{tag}</span>
+          ))}
+        </div>
+        <a
+          href={track.youtubeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={e => e.stopPropagation()}
+          className="flex items-center gap-1 text-[11px] font-semibold text-red-500 hover:text-red-400 transition-colors"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 17" fill="currentColor"><path d="M23.5 2.7a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.6A3 3 0 0 0 .5 2.7 31 31 0 0 0 0 8.5a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 8.5a31 31 0 0 0-.5-5.8zM9.7 12V5l6.3 3.5L9.7 12z" /></svg>
+          Play
+        </a>
+      </div>
+    </div>
+  </div>
+);
+
+// ── Workout Music Section ──────────────────────────────────
+const WorkoutMusicSection = () => {
+  const [activeMood, setActiveMood] = useState<MusicMood | "all">("all");
+  const [musicSearch, setMusicSearch] = useState("");
+  const [nowPlaying, setNowPlaying] = useState<MusicTrack | null>(null);
+  const [barOpen, setBarOpen] = useState(false);
+
+  const filtered = PUNJABI_PLAYLISTS.filter(t => {
+    const matchMood = activeMood === "all" || t.mood === activeMood;
+    const matchSearch = !musicSearch.trim() || [t.title, t.artist, ...t.tags].some(s => s.toLowerCase().includes(musicSearch.toLowerCase()));
+    return matchMood && matchSearch;
+  });
+
+  const handlePlay = (track: MusicTrack) => {
+    setNowPlaying(track);
+    setBarOpen(false);
+    window.open(track.youtubeUrl, "_blank");
+  };
+
+  return (
+    <div className="relative z-10 max-w-6xl mx-auto px-6 pb-32">
+      {/* Music Hero Banner */}
+      <div
+        className="relative overflow-hidden rounded-3xl mb-8 border border-white/20 dark:border-slate-700/40"
+        style={{ background: "linear-gradient(135deg, #0a0a0a 0%, #1a0533 40%, #0d2d1a 100%)", boxShadow: "0 20px 60px -20px rgba(29,185,84,.4)" }}
+      >
+        {/* Glow blobs */}
+        <div className="absolute -top-16 -left-10 w-60 h-60 rounded-full blur-3xl" style={{ background: "rgba(29,185,84,.25)", animation: "wo-heroGlow 5s ease-in-out infinite" }} />
+        <div className="absolute -bottom-20 right-10 w-52 h-52 rounded-full blur-3xl" style={{ background: "rgba(139,92,246,.2)", animation: "wo-heroGlow 6s ease-in-out 2s infinite" }} />
+
+        <div className="relative p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1DB954" /><path d="M17.9 10.9C14.7 9 9.35 8.8 6.3 9.75c-.5.15-1-.15-1.15-.6-.15-.5.15-1 .6-1.15 3.55-1.05 9.4-.85 13.1 1.35.45.25.6.85.35 1.3-.25.35-.85.5-1.3.25zm-.1 2.8c-.25.4-.75.5-1.15.25-2.7-1.65-6.8-2.15-9.95-1.15-.4.1-.85-.1-.95-.5-.1-.4.1-.85.5-.95 3.65-1.1 8.15-.55 11.25 1.35.4.25.5.75.3 1zm-1.3 2.7c-.2.35-.6.45-.95.25-2.35-1.45-5.3-1.75-8.8-.95-.35.1-.65-.15-.75-.45-.1-.35.15-.65.45-.75 3.8-.85 7.1-.5 9.7 1.1.35.15.45.55.35.8z" fill="white" /></svg>
+              <span className="text-xs font-bold text-[#1DB954] tracking-widest uppercase">Workout Music · Punjabi Edition</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-black text-white mb-2">
+              Ik Vari Aa{" "}
+              <span style={{ backgroundImage: "linear-gradient(90deg,#1DB954,#a3f7bf,#1DB954)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", animation: "wo-gradient 3s linear infinite" }}>Gym</span>
+            </h2>
+            <p className="text-slate-300 text-sm max-w-md">12 handpicked Punjabi playlists — from Bhangra HIIT blitzes to Diljit Dosanjh pump-up sets. Open on YouTube and let the dhol do the work.</p>
+          </div>
+          <div className="flex flex-col gap-2 text-sm shrink-0">
+            {[{ label: "12 Playlists", sub: "Punjabi & Bhangra" }, { label: "350+ Tracks", sub: "across all moods" }, { label: "60–175 BPM", sub: "warm-up to HIIT" }].map(s => (
+              <div key={s.label} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
+                <span className="font-bold text-white">{s.label}</span>
+                <span className="text-slate-400 text-xs">{s.sub}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Mood Filter */}
+      <div className="flex gap-2 flex-wrap mb-4">
+        {MUSIC_MOODS.map(({ key, label, emoji }, i) => {
+          const active = activeMood === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setActiveMood(key as MusicMood | "all")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all duration-200 cursor-pointer relative overflow-hidden ${active ? "bg-[#1DB954] text-black border-[#1DB954] shadow-lg shadow-[#1DB954]/30" : "bg-white dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/50 hover:border-[#1DB954]/50 hover:text-[#1DB954]"}`}
+              style={{ transform: active ? "scale(1.05)" : "scale(1)", animation: `wo-slideUp .4s ease-out ${i * 0.05 + 0.1}s both` }}
+            >
+              {active && <span className="absolute inset-0 bg-white/20 rounded-xl" style={{ animation: "wo-ping 1.5s ease-out infinite" }} />}
+              <span className="relative z-10">{emoji}</span>
+              <span className="relative z-10">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-6">
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+        <input
+          type="text"
+          placeholder="Search Punjabi playlists, artists…"
+          value={musicSearch}
+          onChange={e => setMusicSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#1DB954] transition-colors"
+        />
+      </div>
+
+      {/* Grid */}
+      {filtered.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {filtered.map((track, i) => (
+            <MusicCard key={track.id} track={track} index={i} onPlay={() => handlePlay(track)} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-24 rounded-3xl bg-white/60 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/50">
+          <div className="text-5xl mb-4" style={{ animation: "wo-emoji 3s ease-in-out infinite" }}>🎵</div>
+          <p className="text-slate-400 font-bold">No playlists found</p>
+          <button onClick={() => { setActiveMood("all"); setMusicSearch(""); }} className="mt-4 px-5 py-2 text-sm font-bold rounded-xl bg-[#1DB954] text-black cursor-pointer hover:bg-[#1ed760] transition-colors">Clear filters</button>
+        </div>
+      )}
+
+      {/* ── Now-Playing Bottom Bar ── */}
+      {nowPlaying && (
+        <>
+          {/* Expanded drawer */}
+          {barOpen && (
+            <div
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+              onClick={() => setBarOpen(false)}
+            >
+              <div
+                className="absolute bottom-0 left-0 right-0 bg-[#121212] rounded-t-3xl border-t border-[#1DB954]/30 p-6 shadow-2xl"
+                onClick={e => e.stopPropagation()}
+                style={{ animation: "wo-modalSlide .3s ease-out" }}
+              >
+                <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5" />
+                <div className="flex items-center gap-4 mb-5">
+                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${nowPlaying.gradientFrom} ${nowPlaying.gradientTo} flex items-center justify-center text-3xl shadow-lg`}>{nowPlaying.emoji}</div>
+                  <div>
+                    <p className="text-white font-bold text-lg leading-tight">{nowPlaying.title}</p>
+                    <p className="text-[#1DB954] text-sm">{nowPlaying.artist}</p>
+                    <p className="text-slate-500 text-xs mt-0.5">{nowPlaying.bpm} · {nowPlaying.trackCount} tracks</p>
+                  </div>
+                </div>
+                <p className="text-slate-400 text-sm mb-5 leading-relaxed">{nowPlaying.description}</p>
+                <div className="flex gap-2 flex-wrap mb-5">
+                  {nowPlaying.tags.map(t => (
+                    <span key={t} className="text-[10px] font-bold px-2 py-1 rounded-lg bg-[#1DB954]/10 text-[#1DB954] border border-[#1DB954]/20 uppercase tracking-wide">{t}</span>
+                  ))}
+                </div>
+                <a
+                  href={nowPlaying.youtubeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors shadow-lg shadow-red-600/30"
+                >
+                  <svg width="16" height="11" viewBox="0 0 24 17" fill="white"><path d="M23.5 2.7a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.6A3 3 0 0 0 .5 2.7 31 31 0 0 0 0 8.5a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 8.5a31 31 0 0 0-.5-5.8zM9.7 12V5l6.3 3.5L9.7 12z" /></svg>
+                  Open on YouTube
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Sticky bottom bar — matches the existing design */}
+          <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between px-5 py-3 bg-[#121212] border-t-2 border-[#1DB954] shadow-2xl">
+            <div className="flex items-center gap-2.5">
+              <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1DB954" /><path d="M17.9 10.9C14.7 9 9.35 8.8 6.3 9.75c-.5.15-1-.15-1.15-.6-.15-.5.15-1 .6-1.15 3.55-1.05 9.4-.85 13.1 1.35.45.25.6.85.35 1.3-.25.35-.85.5-1.3.25zm-.1 2.8c-.25.4-.75.5-1.15.25-2.7-1.65-6.8-2.15-9.95-1.15-.4.1-.85-.1-.95-.5-.1-.4.1-.85.5-.95 3.65-1.1 8.15-.55 11.25 1.35.4.25.5.75.3 1zm-1.3 2.7c-.2.35-.6.45-.95.25-2.35-1.45-5.3-1.75-8.8-.95-.35.1-.65-.15-.75-.45-.1-.35.15-.65.45-.75 3.8-.85 7.1-.5 9.7 1.1.35.15.45.55.35.8z" fill="white" /></svg>
+              <span className="text-white text-sm font-medium">{nowPlaying.emoji} {nowPlaying.title}</span>
+              <span className="text-white/40 text-xs">· Workout Music</span>
+            </div>
+            <button
+              onClick={() => setBarOpen(true)}
+              className="text-xs text-white/80 hover:text-white bg-[#1DB954]/20 hover:bg-[#1DB954]/40 border border-[#1DB954]/50 px-3 py-1.5 rounded-full transition-colors font-medium cursor-pointer"
+            >
+              Open ↑
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY || "";
 
 const PLAYLISTS: Playlist[] = [
@@ -457,6 +778,7 @@ const SearchBar = ({value, onChange}: {value:string;onChange:(v:string)=>void}) 
 // ── Main Page ──────────────────────────────────────────────
 export default function Workouts() {
   const {theme, toggleTheme} = useTheme();
+  const [activeTab, setActiveTab] = useState<"videos" | "music">("videos");
   const [activeCategory, setActiveCategory] = useState<Category|"all">("all");
   const [activeLevel, setActiveLevel] = useState<string>("all levels");
   const [search, setSearch] = useState("");
@@ -577,14 +899,44 @@ export default function Workouts() {
         })()}
       </div>
 
-      {/* ── API Banner ── */}
-      {showApiBanner && (
+      {/* ── Tab Switcher ── */}
+      <div className="relative z-10 max-w-6xl mx-auto px-6 mb-2" style={{animation:"wo-slideUp .5s ease-out .4s both"}}>
+        <div className="inline-flex bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-1 gap-1 shadow-sm">
+          {([
+            { key: "videos", label: "Workout Videos", emoji: "🎬" },
+            { key: "music",  label: "Workout Music",  emoji: "🎵" },
+          ] as const).map(({ key, label, emoji }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 cursor-pointer ${
+                activeTab === key
+                  ? key === "music"
+                    ? "bg-[#1DB954] text-black shadow-md shadow-[#1DB954]/30"
+                    : "bg-emerald-500 text-black shadow-md shadow-emerald-500/30"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              }`}
+            >
+              <span>{emoji}</span>
+              <span>{label}</span>
+              {key === "music" && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-white/20 tracking-wide">PUNJABI</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Music Section ── */}
+      {activeTab === "music" && <WorkoutMusicSection />}
+
+      {/* ── Videos: API Banner ── */}
+      {activeTab === "videos" && showApiBanner && (
         <div className="relative z-10 max-w-6xl mx-auto">
           <NoApiBanner onDismiss={() => setShowApiBanner(false)}/>
         </div>
       )}
 
-      {/* ── Filters ── */}
+      {/* ── Videos: Filters ── */}
+      {activeTab === "videos" && (
       <div className="relative z-10 max-w-6xl mx-auto px-6 pb-6 space-y-4" style={{animation:"wo-slideUp .5s ease-out .45s both"}}>
         <SearchBar value={search} onChange={setSearch}/>
 
@@ -615,8 +967,10 @@ export default function Workouts() {
           ))}
         </div>
       </div>
+      )}
 
-      {/* ── Grid ── */}
+      {/* ── Videos: Grid ── */}
+      {activeTab === "videos" && (
       <div className="relative z-10 max-w-6xl mx-auto px-6 pb-12">
         {filtered.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
@@ -637,6 +991,7 @@ export default function Workouts() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
