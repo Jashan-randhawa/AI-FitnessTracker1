@@ -375,7 +375,7 @@ The app will be available at `http://localhost:5173`.
 | Variable | Required | Description |
 |---|---|---|
 | `VITE_STRAPI_API_URL` | ✅ | Base URL of the Strapi backend |
-| `VITE_RAPIDAPI_KEY` | ⚠️ Optional | RapidAPI key for live YouTube video search in the Workout Library |
+| `VITE_RAPIDAPI_KEY` | ⚠️ Optional | RapidAPI key for live YouTube search in Workout Videos and Workout Music |
 
 ---
 
@@ -387,7 +387,7 @@ The app will be available at `http://localhost:5173`.
 | `GOOGLE_CLIENT_ID` | Google OAuth | [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth | Same as above |
 | `NEWS_API_KEY` | NewsAPI | [newsapi.org/register](https://newsapi.org/register) |
-| `VITE_RAPIDAPI_KEY` | YouTube138 (optional) | [rapidapi.com](https://rapidapi.com/hub) → search "YouTube138" — enables live video search in the Workout Library |
+| `VITE_RAPIDAPI_KEY` | YouTube138 (optional) | [rapidapi.com](https://rapidapi.com/hub) → search "YouTube138" — enables live YouTube search in Workout Videos and Workout Music |
 
 > **Weather** is powered by [Open-Meteo](https://open-meteo.com/) — free and **no API key required**.
 

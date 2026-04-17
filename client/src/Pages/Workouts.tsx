@@ -37,6 +37,7 @@ interface MusicTrack {
   title: string;
   artist: string;
   mood: MusicMood;
+  searchQuery: string;
   bpm: string;
   description: string;
   trackCount: number;
@@ -50,6 +51,7 @@ interface MusicTrack {
 const PUNJABI_PLAYLISTS: MusicTrack[] = [
   {
     id: "m1", title: "Punjabi Gym Bangers", artist: "Various Artists", mood: "pump",
+    searchQuery: "punjabi gym workout songs 2024",
     bpm: "128–140 BPM", description: "Hardest-hitting Punjabi tracks to smash every set. Pure motivation from first rep to last.",
     trackCount: 35, emoji: "💥",
     youtubeUrl: "https://www.youtube.com/results?search_query=punjabi+gym+workout+songs+2024",
@@ -57,6 +59,7 @@ const PUNJABI_PLAYLISTS: MusicTrack[] = [
   },
   {
     id: "m2", title: "Bhangra Cardio Mix", artist: "Bhangra Legends", mood: "bhangra",
+    searchQuery: "bhangra cardio workout mix",
     bpm: "140–160 BPM", description: "Classic and modern bhangra beats to power through cardio circuits and HIIT sessions.",
     trackCount: 28, emoji: "🥁",
     youtubeUrl: "https://www.youtube.com/results?search_query=bhangra+cardio+workout+mix",
@@ -64,6 +67,7 @@ const PUNJABI_PLAYLISTS: MusicTrack[] = [
   },
   {
     id: "m3", title: "Diljit Dosanjh Workout", artist: "Diljit Dosanjh", mood: "pump",
+    searchQuery: "diljit dosanjh gym workout playlist",
     bpm: "120–135 BPM", description: "G.O.A.T. to Born to Shine — Diljit's most hype tracks keeping the energy sky-high.",
     trackCount: 22, emoji: "🦁",
     youtubeUrl: "https://www.youtube.com/results?search_query=diljit+dosanjh+gym+workout+playlist",
@@ -71,6 +75,7 @@ const PUNJABI_PLAYLISTS: MusicTrack[] = [
   },
   {
     id: "m4", title: "AP Dhillon Gym Mix", artist: "AP Dhillon", mood: "focus",
+    searchQuery: "ap dhillon gym workout mix 2024",
     bpm: "90–115 BPM", description: "AP Dhillon's smooth yet powerful sound — perfect for focused strength sessions.",
     trackCount: 18, emoji: "🌟",
     youtubeUrl: "https://www.youtube.com/results?search_query=ap+dhillon+gym+workout+mix+2024",
@@ -78,6 +83,7 @@ const PUNJABI_PLAYLISTS: MusicTrack[] = [
   },
   {
     id: "m5", title: "Sidhu Moosewala Anthems", artist: "Sidhu Moosewala", mood: "pump",
+    searchQuery: "sidhu moosewala workout playlist",
     bpm: "95–125 BPM", description: "Iconic tracks that hit different — raw energy and Punjabi pride for every rep.",
     trackCount: 30, emoji: "🫡",
     youtubeUrl: "https://www.youtube.com/results?search_query=sidhu+moosewala+workout+playlist",
@@ -85,6 +91,7 @@ const PUNJABI_PLAYLISTS: MusicTrack[] = [
   },
   {
     id: "m6", title: "Bhangra HIIT Blitz", artist: "DJ Mix Masters", mood: "cardio",
+    searchQuery: "bhangra HIIT workout mix high intensity",
     bpm: "150–175 BPM", description: "Ultra-fast bhangra edits built for interval training — each drop hits at the perfect moment.",
     trackCount: 20, emoji: "⚡",
     youtubeUrl: "https://www.youtube.com/results?search_query=bhangra+HIIT+workout+mix+high+intensity",
@@ -92,6 +99,7 @@ const PUNJABI_PLAYLISTS: MusicTrack[] = [
   },
   {
     id: "m7", title: "Karan Aujla Gym Hits", artist: "Karan Aujla", mood: "pump",
+    searchQuery: "karan aujla gym workout songs",
     bpm: "110–130 BPM", description: "Karan's street-ready anthems — cocky confidence for your heaviest lifts.",
     trackCount: 24, emoji: "🏆",
     youtubeUrl: "https://www.youtube.com/results?search_query=karan+aujla+gym+workout+songs",
@@ -99,6 +107,7 @@ const PUNJABI_PLAYLISTS: MusicTrack[] = [
   },
   {
     id: "m8", title: "Punjabi Cool-Down Vibes", artist: "Moose Wala, B Praak", mood: "chill",
+    searchQuery: "punjabi chill cool down workout slow",
     bpm: "60–85 BPM", description: "Soulful Punjabi ballads and slow jams for stretching, recovery, and cool-down.",
     trackCount: 16, emoji: "🌅",
     youtubeUrl: "https://www.youtube.com/results?search_query=punjabi+chill+cool+down+workout+slow",
@@ -106,6 +115,7 @@ const PUNJABI_PLAYLISTS: MusicTrack[] = [
   },
   {
     id: "m9", title: "B Praak Motivation", artist: "B Praak", mood: "focus",
+    searchQuery: "b praak motivational punjabi songs gym",
     bpm: "80–105 BPM", description: "Emotional, powerful vocals by B Praak that push you through those final tough reps.",
     trackCount: 14, emoji: "🔥",
     youtubeUrl: "https://www.youtube.com/results?search_query=b+praak+motivational+punjabi+songs+gym",
@@ -113,6 +123,7 @@ const PUNJABI_PLAYLISTS: MusicTrack[] = [
   },
   {
     id: "m10", title: "Imran Khan Beats", artist: "Imran Khan", mood: "bhangra",
+    searchQuery: "imran khan punjabi workout amplifier satisfya",
     bpm: "115–130 BPM", description: "Amplifier, Satisfya and more — bangers that never get old no matter the workout.",
     trackCount: 12, emoji: "🎤",
     youtubeUrl: "https://www.youtube.com/results?search_query=imran+khan+punjabi+workout+amplifier+satisfya",
@@ -120,6 +131,7 @@ const PUNJABI_PLAYLISTS: MusicTrack[] = [
   },
   {
     id: "m11", title: "Shubh Workout Mix", artist: "Shubh", mood: "pump",
+    searchQuery: "shubh punjabi gym workout mix 2024",
     bpm: "105–125 BPM", description: "Shubh's melodic trap-Punjabi fusion — perfect pace for hypertrophy training.",
     trackCount: 15, emoji: "🎶",
     youtubeUrl: "https://www.youtube.com/results?search_query=shubh+punjabi+gym+workout+mix+2024",
@@ -127,6 +139,7 @@ const PUNJABI_PLAYLISTS: MusicTrack[] = [
   },
   {
     id: "m12", title: "Classic Bhangra Party", artist: "Gurdas Maan & More", mood: "bhangra",
+    searchQuery: "classic old bhangra party workout mix",
     bpm: "130–150 BPM", description: "Old-school bhangra energy that fuels every warm-up and gets your blood pumping instantly.",
     trackCount: 32, emoji: "🎺",
     youtubeUrl: "https://www.youtube.com/results?search_query=classic+old+bhangra+party+workout+mix",
@@ -195,6 +208,10 @@ const WorkoutMusicSection = () => {
   const [musicSearch, setMusicSearch] = useState("");
   const [nowPlaying, setNowPlaying] = useState<MusicTrack | null>(null);
   const [barOpen, setBarOpen] = useState(false);
+  const hasKey = Boolean(RAPIDAPI_KEY);
+  const activeMusicQuery = nowPlaying?.searchQuery || "";
+  const { videos: musicVideos } = useYouTubeSearch(activeMusicQuery, hasKey && Boolean(nowPlaying));
+  const topMusicUrl = musicVideos[0]?.videoId ? `https://www.youtube.com/watch?v=${musicVideos[0].videoId}` : (nowPlaying?.youtubeUrl || "");
 
   const filtered = PUNJABI_PLAYLISTS.filter(t => {
     const matchMood = activeMood === "all" || t.mood === activeMood;
@@ -204,6 +221,10 @@ const WorkoutMusicSection = () => {
 
   const handlePlay = (track: MusicTrack) => {
     setNowPlaying(track);
+    if (hasKey) {
+      setBarOpen(true);
+      return;
+    }
     setBarOpen(false);
     window.open(track.youtubeUrl, "_blank");
   };
@@ -318,13 +339,13 @@ const WorkoutMusicSection = () => {
                   ))}
                 </div>
                 <a
-                  href={nowPlaying.youtubeUrl}
+                  href={topMusicUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors shadow-lg shadow-red-600/30"
                 >
                   <svg width="16" height="11" viewBox="0 0 24 17" fill="white"><path d="M23.5 2.7a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.6A3 3 0 0 0 .5 2.7 31 31 0 0 0 0 8.5a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 8.5a31 31 0 0 0-.5-5.8zM9.7 12V5l6.3 3.5L9.7 12z" /></svg>
-                  Open on YouTube
+                  {hasKey ? "Open top YouTube result" : "Open on YouTube"}
                 </a>
               </div>
             </div>
@@ -535,7 +556,7 @@ const NoApiBanner = ({onDismiss}: {onDismiss:()=>void}) => (
     <span className="text-xl shrink-0 mt-0.5">⚠️</span>
     <div className="flex-1 min-w-0">
       <p className="text-sm font-semibold text-amber-400">RapidAPI key not configured</p>
-      <p className="text-xs text-amber-500/80 mt-0.5 leading-relaxed">Add <code className="bg-amber-500/20 px-1 rounded">VITE_RAPIDAPI_KEY=your_key</code> to <code className="bg-amber-500/20 px-1 rounded">client/.env</code> to enable live YouTube video search.</p>
+      <p className="text-xs text-amber-500/80 mt-0.5 leading-relaxed">Add <code className="bg-amber-500/20 px-1 rounded">VITE_RAPIDAPI_KEY=your_key</code> to <code className="bg-amber-500/20 px-1 rounded">client/.env</code> to enable live YouTube search for workout videos and workout music.</p>
     </div>
     <button onClick={onDismiss} className="text-amber-500 hover:text-amber-300 transition-colors shrink-0 mt-0.5 cursor-pointer">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -831,7 +852,7 @@ export default function Workouts() {
                   </h1>
 
                   <p className="text-sm text-slate-200 mt-2" style={{animation:"wo-slideUp .5s ease-out .3s both"}}>
-                    {RAPIDAPI_KEY ? "🟢 Live YouTube search enabled" : "Curated playlists from top creators"}
+                    {RAPIDAPI_KEY ? "🟢 Live YouTube search enabled for videos & music" : "Curated playlists from top creators"}
                   </p>
 
                   <div className="mt-4 flex flex-wrap items-center gap-2 text-xs" style={{animation:"wo-slideUp .5s ease-out .35s both"}}>
