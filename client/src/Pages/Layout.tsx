@@ -3,10 +3,10 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 
 const WORKOUT_PLAYLISTS = [
-  { label: "🎵 Punjabi Hits",   id: "37i9dQZF1DX0XUfTFmNBRM" },
-  { label: "🕺 Bhangra",        id: "37i9dQZF1DWTl4y3vgJOXW" },
-  { label: "🌟 Diljit Dosanjh", id: "37i9dQZF1DZ06evO0FMKB1" },
-  { label: "🔥 Punjabi Pop",    id: "37i9dQZF1DX9Gp1MKKk3U9" },
+  { label: "🔥 Hot Hits Punjabi",   id: "37i9dQZF1DWXVJK4aT7pmk" },
+  { label: "🎵 Punjabi 101",        id: "37i9dQZF1DX5cZuAHLNjGz" },
+  { label: "📈 Trending Punjabi",   id: "37i9dQZF1DWZEYG45EmWYV" },
+  { label: "💥 Punjabi Pump",       id: "1yuDbVP5sAsqxkuEqliGTQ" },
 ];
 
 const SpotifyLogo = () => (
