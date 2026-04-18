@@ -29,7 +29,7 @@ interface Playlist {
   searchQuery: string;
 }
 
-const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY || "";
+const STRAPI_API_BASE_URL = (import.meta.env.VITE_STRAPI_API_URL ?? "http://localhost:1337").replace(/\/$/, "");
 
 const PLAYLISTS: Playlist[] = [
   { id: "1", title: "Beginner Full Body Strength", channel: "Heather Robertson", category: "strength", level: "beginner", description: "Complete beginner-friendly strength workouts targeting every muscle group with dumbbells.", videoCount: 12, emoji: "🏋️", youtubePlaylistId: "PLt4lS6MZ6JJoFQvfp2RlqDzOFGDJWbm4X", thumbnailColor: "from-rose-500 to-orange-500", searchQuery: "beginner full body strength workout Heather Robertson" },
@@ -73,7 +73,6 @@ const FEATURED_IMAGES: Record<Category, string> = {
   mobility: "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80",
 };
 
-// ── Keyframes ──────────────────────────────────────────────
 const ANIMATION_STYLES = `
 @keyframes wo-float {
   0%,100%{transform:translateY(0) translateX(0);opacity:.35}
@@ -130,52 +129,63 @@ const ANIMATION_STYLES = `
 }
 `;
 
-// ── RapidAPI Hook ──────────────────────────────────────────
+// ── Strapi-proxied YouTube Search Hook ─────────────────────
 function useYouTubeSearch(query: string, enabled: boolean) {
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!enabled || !query || !RAPIDAPI_KEY) return;
-    setLoading(true); setError(null);
+    if (!enabled || !query) return;
+    setLoading(true);
+    setError(null);
     const ctrl = new AbortController();
-    fetch(`https://youtube138.p.rapidapi.com/search/?q=${encodeURIComponent(query)}&hl=en&gl=US`, {
-      headers: { "x-rapidapi-key": RAPIDAPI_KEY, "x-rapidapi-host": "youtube138.p.rapidapi.com" },
+
+    fetch(`${STRAPI_API_BASE_URL}/api/youtube/search?q=${encodeURIComponent(query)}`, {
       signal: ctrl.signal,
     })
       .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json(); })
       .then(data => {
-        setVideos((data.contents || []).filter((i: any) => i.type === "video" && i.video).slice(0, 8).map((i: any) => ({
-          id: i.video.videoId, videoId: i.video.videoId, title: i.video.title,
-          channel: i.video.author?.title || "Unknown",
-          thumbnail: i.video.thumbnails?.at(-1)?.url || `https://i.ytimg.com/vi/${i.video.videoId}/hqdefault.jpg`,
-          duration: i.video.lengthText || "", viewCount: i.video.stats?.views ? formatViews(i.video.stats.views) : "",
-          publishedAt: i.video.publishedTimeText || "",
-        })));
+        setVideos(
+          (data.contents || [])
+            .filter((i: any) => i.type === "video" && i.video)
+            .slice(0, 8)
+            .map((i: any) => ({
+              id: i.video.videoId,
+              videoId: i.video.videoId,
+              title: i.video.title,
+              channel: i.video.author?.title || "Unknown",
+              thumbnail: i.video.thumbnails?.at(-1)?.url || `https://i.ytimg.com/vi/${i.video.videoId}/hqdefault.jpg`,
+              duration: i.video.lengthText || "",
+              viewCount: i.video.stats?.views ? formatViews(i.video.stats.views) : "",
+              publishedAt: i.video.publishedTimeText || "",
+            }))
+        );
       })
       .catch(e => { if (e.name !== "AbortError") setError(e.message); })
       .finally(() => setLoading(false));
+
     return () => ctrl.abort();
   }, [query, enabled]);
+
   return { videos, loading, error };
 }
 
 function formatViews(n: number) {
-  if (n >= 1e6) return `${(n/1e6).toFixed(1)}M views`;
-  if (n >= 1e3) return `${(n/1e3).toFixed(0)}K views`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M views`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(0)}K views`;
   return `${n} views`;
 }
 
-// ── Animated Background ────────────────────────────────────
 const PARTICLES = [
-  {x:8, y:12, s:6, c:"rgba(16,185,129,.6)",  d:0,   dur:7},
-  {x:84,y:22, s:4, c:"rgba(139,92,246,.5)", d:1.5, dur:9},
-  {x:44,y:68, s:5, c:"rgba(244,63,94,.5)",  d:.8,  dur:6},
-  {x:71,y:79, s:3, c:"rgba(34,211,238,.6)", d:2.2, dur:8},
-  {x:21,y:53, s:7, c:"rgba(251,191,36,.4)", d:3,   dur:10},
-  {x:59,y:9,  s:4, c:"rgba(16,185,129,.5)", d:.3,  dur:7},
-  {x:91,y:61, s:5, c:"rgba(139,92,246,.4)", d:4,   dur:8},
-  {x:34,y:88, s:6, c:"rgba(244,63,94,.4)",  d:1,   dur:11},
+  {x:8,  y:12, s:6, c:"rgba(16,185,129,.6)",  d:0,   dur:7},
+  {x:84, y:22, s:4, c:"rgba(139,92,246,.5)",  d:1.5, dur:9},
+  {x:44, y:68, s:5, c:"rgba(244,63,94,.5)",   d:.8,  dur:6},
+  {x:71, y:79, s:3, c:"rgba(34,211,238,.6)",  d:2.2, dur:8},
+  {x:21, y:53, s:7, c:"rgba(251,191,36,.4)",  d:3,   dur:10},
+  {x:59, y:9,  s:4, c:"rgba(16,185,129,.5)",  d:.3,  dur:7},
+  {x:91, y:61, s:5, c:"rgba(139,92,246,.4)",  d:4,   dur:8},
+  {x:34, y:88, s:6, c:"rgba(244,63,94,.4)",   d:1,   dur:11},
 ];
 
 const AnimatedBackground = () => (
@@ -185,13 +195,12 @@ const AnimatedBackground = () => (
     <div className="absolute bottom-20 right-1/4 w-80 h-80 rounded-full blur-3xl" style={{background:"radial-gradient(circle,rgba(244,63,94,.06) 0%,transparent 70%)",animation:"wo-orb 7s ease-in-out 4s infinite"}} />
     <div className="absolute top-2/3 left-1/2 w-72 h-72 rounded-full blur-3xl" style={{background:"radial-gradient(circle,rgba(34,211,238,.05) 0%,transparent 70%)",animation:"wo-orb 9s ease-in-out 1s infinite"}} />
     <div className="absolute inset-0 opacity-[0.018]" style={{backgroundImage:"linear-gradient(rgba(16,185,129,.5) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,.5) 1px,transparent 1px)",backgroundSize:"60px 60px"}} />
-    {PARTICLES.map((p,i) => (
+    {PARTICLES.map((p, i) => (
       <div key={i} className="absolute rounded-full" style={{left:`${p.x}%`,top:`${p.y}%`,width:p.s,height:p.s,background:p.c,animation:`wo-float ${p.dur}s ease-in-out ${p.d}s infinite`,opacity:.4}} />
     ))}
   </div>
 );
 
-// ── Animated counter ───────────────────────────────────────
 const AnimatedCounter = ({target, dur=900}: {target:number;dur?:number}) => {
   const [n, setN] = useState(0);
   const t0 = useRef<number|null>(null);
@@ -199,8 +208,8 @@ const AnimatedCounter = ({target, dur=900}: {target:number;dur?:number}) => {
     t0.current = null;
     const tick = (ts: number) => {
       if (!t0.current) t0.current = ts;
-      const p = Math.min((ts - t0.current)/dur, 1);
-      setN(Math.round((1-(1-p)**3)*target));
+      const p = Math.min((ts - t0.current) / dur, 1);
+      setN(Math.round((1 - (1 - p) ** 3) * target));
       if (p < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -208,21 +217,6 @@ const AnimatedCounter = ({target, dur=900}: {target:number;dur?:number}) => {
   return <>{n}</>;
 };
 
-// ── No-API Banner ──────────────────────────────────────────
-const NoApiBanner = ({onDismiss}: {onDismiss:()=>void}) => (
-  <div className="mx-6 mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3" style={{animation:"wo-slideUp .5s ease-out"}}>
-    <span className="text-xl shrink-0 mt-0.5">⚠️</span>
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-semibold text-amber-400">RapidAPI key not configured</p>
-      <p className="text-xs text-amber-500/80 mt-0.5 leading-relaxed">Add <code className="bg-amber-500/20 px-1 rounded">VITE_RAPIDAPI_KEY=your_key</code> to <code className="bg-amber-500/20 px-1 rounded">client/.env</code> to enable live YouTube video search.</p>
-    </div>
-    <button onClick={onDismiss} className="text-amber-500 hover:text-amber-300 transition-colors shrink-0 mt-0.5 cursor-pointer">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-  </div>
-);
-
-// ── Video Player Modal ─────────────────────────────────────
 const VideoPlayerModal = ({videoId, title, onClose}: {videoId:string;title:string;onClose:()=>void}) => (
   <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{animation:"wo-fadeIn .2s ease-out"}}>
     <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={onClose}/>
@@ -240,11 +234,9 @@ const VideoPlayerModal = ({videoId, title, onClose}: {videoId:string;title:strin
   </div>
 );
 
-// ── Playlist Modal ─────────────────────────────────────────
 const PlaylistModal = ({playlist, onClose}: {playlist:Playlist;onClose:()=>void}) => {
   const [playingVideo, setPlayingVideo] = useState<{id:string;title:string}|null>(null);
-  const hasKey = Boolean(RAPIDAPI_KEY);
-  const {videos, loading, error} = useYouTubeSearch(playlist.searchQuery, hasKey);
+  const {videos, loading, error} = useYouTubeSearch(playlist.searchQuery, true);
   const ytUrl = `https://www.youtube.com/playlist?list=${playlist.youtubePlaylistId}`;
   return (
     <>
@@ -253,7 +245,6 @@ const PlaylistModal = ({playlist, onClose}: {playlist:Playlist;onClose:()=>void}
         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}/>
         <div className="relative z-10 w-full sm:max-w-2xl max-h-[92vh] overflow-hidden rounded-t-3xl sm:rounded-2xl shadow-2xl bg-slate-900 border border-slate-700/60 flex flex-col" style={{animation:"wo-modalSlide .4s cubic-bezier(.34,1.56,.64,1)"}}>
           <div className="flex justify-center pt-3 pb-1 sm:hidden"><div className="w-10 h-1 rounded-full bg-slate-700"/></div>
-          {/* Banner */}
           <div className={`relative h-44 bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-between px-6 shrink-0 overflow-hidden`}>
             <div className="absolute inset-0 pointer-events-none" style={{background:"linear-gradient(105deg,transparent 35%,rgba(255,255,255,.18) 50%,transparent 65%)",backgroundSize:"200% 100%",animation:"wo-shimmer 3s linear .5s infinite"}}/>
             <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-xl" style={{animation:"wo-orb 4s ease-in-out infinite"}}/>
@@ -268,58 +259,50 @@ const PlaylistModal = ({playlist, onClose}: {playlist:Playlist;onClose:()=>void}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
-          {/* Body */}
           <div className="overflow-y-auto flex-1 p-5 space-y-4">
             <p className="text-slate-400 text-sm leading-relaxed">{playlist.description}</p>
             <div className="flex gap-3">
-              {[{label:`${playlist.videoCount} Videos`,icon:"▶"},{label:playlist.category,icon:"🏷"}].map((s,i) => (
+              {[{label:`${playlist.videoCount} Videos`,icon:"▶"},{label:playlist.category,icon:"🏷"}].map((s, i) => (
                 <div key={s.label} className="flex items-center gap-1.5 bg-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 font-medium" style={{animation:`wo-slideUp .4s ease-out ${i*.1+.2}s both`}}>
                   <span className="opacity-60">{s.icon}</span><span className="capitalize">{s.label}</span>
                 </div>
               ))}
             </div>
-            {hasKey ? (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Live Results · YouTube</h3>
-                  {loading && <div className="flex gap-1">{[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay:`${i*.15}s`}}/>)}</div>}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Live Results · YouTube</h3>
+                {loading && <div className="flex gap-1">{[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay:`${i*.15}s`}}/>)}</div>}
+              </div>
+              {error && <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400">Error: {error}</div>}
+              {!loading && !error && videos.length > 0 && (
+                <div className="space-y-2">
+                  {videos.map((v, i) => (
+                    <button key={v.id} onClick={() => setPlayingVideo({id:v.videoId,title:v.title})}
+                      className="w-full flex gap-3 p-2.5 rounded-xl hover:bg-slate-800 transition-all duration-200 group text-left cursor-pointer hover:scale-[1.01]"
+                      style={{animation:`wo-slideUp .35s ease-out ${i*.06}s both`}}>
+                      <div className="relative shrink-0 w-28 h-16 rounded-lg overflow-hidden bg-slate-800">
+                        <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy"/>
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-md scale-75 group-hover:scale-100">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="#111" className="ml-0.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                          </div>
+                        </div>
+                        {v.duration && <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] font-bold px-1 rounded">{v.duration}</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition-colors">{v.title}</p>
+                        <p className="text-[11px] text-slate-500 mt-1 truncate">{v.channel}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {v.viewCount && <span className="text-[10px] text-slate-600">{v.viewCount}</span>}
+                          {v.publishedAt && <span className="text-[10px] text-slate-600">{v.publishedAt}</span>}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                {error && <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400">Error: {error}</div>}
-                {!loading && !error && videos.length > 0 && (
-                  <div className="space-y-2">
-                    {videos.map((v,i) => (
-                      <button key={v.id} onClick={() => setPlayingVideo({id:v.videoId,title:v.title})}
-                        className="w-full flex gap-3 p-2.5 rounded-xl hover:bg-slate-800 transition-all duration-200 group text-left cursor-pointer hover:scale-[1.01]"
-                        style={{animation:`wo-slideUp .35s ease-out ${i*.06}s both`}}>
-                        <div className="relative shrink-0 w-28 h-16 rounded-lg overflow-hidden bg-slate-800">
-                          <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy"/>
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                            <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-md scale-75 group-hover:scale-100">
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="#111" className="ml-0.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                            </div>
-                          </div>
-                          {v.duration && <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] font-bold px-1 rounded">{v.duration}</span>}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition-colors">{v.title}</p>
-                          <p className="text-[11px] text-slate-500 mt-1 truncate">{v.channel}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {v.viewCount && <span className="text-[10px] text-slate-600">{v.viewCount}</span>}
-                            {v.publishedAt && <span className="text-[10px] text-slate-600">{v.publishedAt}</span>}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {!loading && !error && videos.length === 0 && <p className="text-center text-slate-600 text-xs py-4">No videos found.</p>}
-              </div>
-            ) : (
-              <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/50 text-center">
-                <p className="text-sm text-slate-400 font-medium mb-1">🎬 Live video search disabled</p>
-                <p className="text-xs text-slate-600">Configure your RapidAPI key to see real YouTube videos here.</p>
-              </div>
-            )}
+              )}
+              {!loading && !error && videos.length === 0 && <p className="text-center text-slate-600 text-xs py-4">No videos found.</p>}
+            </div>
             <a href={ytUrl} target="_blank" rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white font-bold text-sm transition-all duration-200 shadow-lg shadow-red-600/25 hover:shadow-red-500/40 hover:scale-[1.02] active:scale-[.98]">
               <svg width="17" height="12" viewBox="0 0 24 17" fill="white"><path d="M23.5 2.7a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.6A3 3 0 0 0 .5 2.7 31 31 0 0 0 0 8.5a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 8.5a31 31 0 0 0-.5-5.8zM9.7 12V5l6.3 3.5L9.7 12z"/></svg>
@@ -332,7 +315,6 @@ const PlaylistModal = ({playlist, onClose}: {playlist:Playlist;onClose:()=>void}
   );
 };
 
-// ── Playlist Card ──────────────────────────────────────────
 const PlaylistCard = ({playlist, onPlay, index}: {playlist:Playlist;onPlay:()=>void;index:number}) => {
   const [hovered, setHovered] = useState(false);
   const [sparkles, setSparkles] = useState<{id:number;x:number;y:number}[]>([]);
@@ -347,87 +329,40 @@ const PlaylistCard = ({playlist, onPlay, index}: {playlist:Playlist;onPlay:()=>v
   };
 
   return (
-    <button
-      onClick={onPlay}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setSparkles([]); }}
-      onMouseMove={onMouseMove}
+    <button onClick={onPlay} onMouseEnter={() => setHovered(true)} onMouseLeave={() => { setHovered(false); setSparkles([]); }} onMouseMove={onMouseMove}
       className="group text-left w-full rounded-2xl overflow-hidden cursor-pointer relative"
-      style={{
-        animation:`wo-cardIn .55s cubic-bezier(.34,1.56,.64,1) ${index*70}ms both`,
-        transform: hovered ? "translateY(-6px) scale(1.02)" : "translateY(0) scale(1)",
-        transition:"transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease",
-        boxShadow: hovered ? "0 24px 60px -15px rgba(0,0,0,.35),0 0 0 1px rgba(16,185,129,.22)" : "0 4px 20px -8px rgba(0,0,0,.2)",
-      }}
-    >
-      {/* sparkles */}
+      style={{animation:`wo-cardIn .55s cubic-bezier(.34,1.56,.64,1) ${index*70}ms both`,transform:hovered?"translateY(-6px) scale(1.02)":"translateY(0) scale(1)",transition:"transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease",boxShadow:hovered?"0 24px 60px -15px rgba(0,0,0,.35),0 0 0 1px rgba(16,185,129,.22)":"0 4px 20px -8px rgba(0,0,0,.2)"}}>
       {sparkles.map(sp => (
-        <div key={sp.id} className="absolute pointer-events-none z-30 text-emerald-300 text-xs font-bold select-none"
-          style={{left:`${sp.x}%`,top:`${sp.y}%`,animation:"wo-sparkle .6s ease-out forwards",transform:"translate(-50%,-50%)"}}>✦</div>
+        <div key={sp.id} className="absolute pointer-events-none z-30 text-emerald-300 text-xs font-bold select-none" style={{left:`${sp.x}%`,top:`${sp.y}%`,animation:"wo-sparkle .6s ease-out forwards",transform:"translate(-50%,-50%)"}}>✦</div>
       ))}
-
-      {/* hover glow border */}
-      <div className="absolute inset-0 rounded-2xl pointer-events-none z-10 transition-opacity duration-300"
-        style={{background:"linear-gradient(135deg,rgba(16,185,129,.13),rgba(139,92,246,.09))",opacity:hovered?1:0,boxShadow:hovered?"inset 0 0 0 1px rgba(16,185,129,.28)":"none"}}/>
-
-      {/* thumbnail */}
+      <div className="absolute inset-0 rounded-2xl pointer-events-none z-10 transition-opacity duration-300" style={{background:"linear-gradient(135deg,rgba(16,185,129,.13),rgba(139,92,246,.09))",opacity:hovered?1:0,boxShadow:hovered?"inset 0 0 0 1px rgba(16,185,129,.28)":"none"}}/>
       <div className={`relative h-44 bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-center overflow-hidden`}>
-        {/* shimmer sweep on hover */}
-        <div className="absolute inset-0 pointer-events-none"
-          style={{background:"linear-gradient(105deg,transparent 40%,rgba(255,255,255,.2) 50%,transparent 60%)",backgroundSize:"200% 100%",animation:hovered?"wo-shimmer 1.4s linear infinite":"none"}}/>
+        <div className="absolute inset-0 pointer-events-none" style={{background:"linear-gradient(105deg,transparent 40%,rgba(255,255,255,.2) 50%,transparent 60%)",backgroundSize:"200% 100%",animation:hovered?"wo-shimmer 1.4s linear infinite":"none"}}/>
         <div className="absolute inset-0 bg-gradient-to-br from-white/15 to-transparent"/>
-
-        {/* pulsing blobs */}
-        <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-white/10"
-          style={{animation:`wo-orb 3s ease-in-out ${index*.3}s infinite`}}/>
-        <div className="absolute -bottom-8 -left-4 w-24 h-24 rounded-full bg-black/10"
-          style={{animation:`wo-orb 4s ease-in-out ${index*.2+1}s infinite`}}/>
-
-        {/* emoji */}
-        <span className="text-6xl opacity-85 z-10 select-none transition-all duration-500"
-          style={{
-            animation: hovered ? "wo-emoji 1.5s ease-in-out infinite" : `wo-emoji 4s ease-in-out ${index*.4}s infinite`,
-            filter: hovered ? "drop-shadow(0 0 14px rgba(255,255,255,.55))" : "none",
-            transform: hovered ? "scale(1.18)" : "scale(1)",
-          }}>
-          {playlist.emoji}
-        </span>
-
-        {/* play button + rings */}
+        <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-white/10" style={{animation:`wo-orb 3s ease-in-out ${index*.3}s infinite`}}/>
+        <div className="absolute -bottom-8 -left-4 w-24 h-24 rounded-full bg-black/10" style={{animation:`wo-orb 4s ease-in-out ${index*.2+1}s infinite`}}/>
+        <span className="text-6xl opacity-85 z-10 select-none transition-all duration-500" style={{animation:hovered?"wo-emoji 1.5s ease-in-out infinite":`wo-emoji 4s ease-in-out ${index*.4}s infinite`,filter:hovered?"drop-shadow(0 0 14px rgba(255,255,255,.55))":"none",transform:hovered?"scale(1.18)":"scale(1)"}}>{playlist.emoji}</span>
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-all duration-300 flex items-center justify-center z-20">
           <div className="relative">
-            {hovered && <>
-              <div className="absolute inset-0 rounded-full bg-white/25" style={{animation:"wo-ping 1s ease-out infinite"}}/>
-              <div className="absolute inset-0 rounded-full bg-white/15 scale-125" style={{animation:"wo-ping 1s ease-out .35s infinite"}}/>
-            </>}
-            <div className="relative w-14 h-14 rounded-full bg-white/95 flex items-center justify-center shadow-xl transition-all duration-300"
-              style={{opacity:hovered?1:0,transform:hovered?"scale(1)":"scale(.7)"}}>
+            {hovered && <><div className="absolute inset-0 rounded-full bg-white/25" style={{animation:"wo-ping 1s ease-out infinite"}}/><div className="absolute inset-0 rounded-full bg-white/15 scale-125" style={{animation:"wo-ping 1s ease-out .35s infinite"}}/></>}
+            <div className="relative w-14 h-14 rounded-full bg-white/95 flex items-center justify-center shadow-xl transition-all duration-300" style={{opacity:hovered?1:0,transform:hovered?"scale(1)":"scale(.7)"}}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="#111" className="ml-1"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             </div>
           </div>
         </div>
-
-        {/* badges */}
-        <div className="absolute top-3 left-3 z-10">
-          <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wide ${LEVEL_BADGE[playlist.level]}`}>{playlist.level}</span>
-        </div>
+        <div className="absolute top-3 left-3 z-10"><span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wide ${LEVEL_BADGE[playlist.level]}`}>{playlist.level}</span></div>
         <div className="absolute bottom-3 right-3 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-md z-10">{playlist.videoCount} videos</div>
         <div className="absolute bottom-3 left-3 bg-black/50 text-white/90 text-[10px] font-semibold px-2 py-0.5 rounded-md capitalize z-10">{playlist.category}</div>
       </div>
-
-      {/* info panel */}
       <div className="p-4 bg-white dark:bg-slate-800/80 border-x border-b border-slate-100 dark:border-slate-700/50 rounded-b-2xl backdrop-blur-sm transition-colors duration-200">
         <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-tight line-clamp-1 group-hover:text-emerald-500 transition-colors duration-200 mb-1">{playlist.title}</h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed mb-3">{playlist.description}</p>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <svg width="11" height="11" viewBox="0 0 24 17" fill="currentColor" className="text-red-500 shrink-0">
-              <path d="M23.5 2.7a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.6A3 3 0 0 0 .5 2.7 31 31 0 0 0 0 8.5a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 8.5a31 31 0 0 0-.5-5.8zM9.7 12V5l6.3 3.5L9.7 12z"/>
-            </svg>
+            <svg width="11" height="11" viewBox="0 0 24 17" fill="currentColor" className="text-red-500 shrink-0"><path d="M23.5 2.7a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.6A3 3 0 0 0 .5 2.7 31 31 0 0 0 0 8.5a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 8.5a31 31 0 0 0-.5-5.8zM9.7 12V5l6.3 3.5L9.7 12z"/></svg>
             <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate font-medium">{playlist.channel}</span>
           </div>
-          <span className="text-[10px] text-emerald-500 font-semibold flex items-center gap-0.5 transition-all duration-300"
-            style={{opacity:hovered?1:0,transform:hovered?"translateX(0)":"translateX(-6px)"}}>
+          <span className="text-[10px] text-emerald-500 font-semibold flex items-center gap-0.5 transition-all duration-300" style={{opacity:hovered?1:0,transform:hovered?"translateX(0)":"translateX(-6px)"}}>
             Watch <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
           </span>
         </div>
@@ -436,32 +371,27 @@ const PlaylistCard = ({playlist, onPlay, index}: {playlist:Playlist;onPlay:()=>v
   );
 };
 
-// ── Search Bar ─────────────────────────────────────────────
 const SearchBar = ({value, onChange}: {value:string;onChange:(v:string)=>void}) => (
   <div className="relative group">
-    <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-all duration-200 group-focus-within:scale-110"
-      width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-all duration-200 group-focus-within:scale-110" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
     </svg>
     <input type="text" placeholder="Search workouts, channels…" value={value} onChange={e => onChange(e.target.value)}
       className="w-full pl-11 pr-4 py-3 text-sm rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-gray-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 backdrop-blur-sm"/>
     {value && (
-      <button onClick={() => onChange("")}
-        className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-all duration-200 cursor-pointer hover:rotate-90">
+      <button onClick={() => onChange("")} className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-all duration-200 cursor-pointer hover:rotate-90">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     )}
   </div>
 );
 
-// ── Main Page ──────────────────────────────────────────────
 export default function Workouts() {
   const {theme, toggleTheme} = useTheme();
   const [activeCategory, setActiveCategory] = useState<Category|"all">("all");
   const [activeLevel, setActiveLevel] = useState<string>("all levels");
   const [search, setSearch] = useState("");
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist|null>(null);
-  const [showApiBanner, setShowApiBanner] = useState(!RAPIDAPI_KEY);
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
@@ -476,24 +406,19 @@ export default function Workouts() {
     <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200">
       <style>{ANIMATION_STYLES}</style>
       <AnimatedBackground/>
-
       {selectedPlaylist && <PlaylistModal playlist={selectedPlaylist} onClose={() => setSelectedPlaylist(null)}/>}
 
-      {/* ── Hero ── */}
       <div className="relative z-10 px-6 pt-10 pb-8 max-w-6xl mx-auto">
         {(() => {
           const featured = filtered[0] || PLAYLISTS[0];
           return (
             <div className="relative overflow-hidden rounded-3xl border border-white/20 dark:border-slate-700/40 bg-gradient-to-br from-white/80 via-emerald-100/40 to-cyan-100/50 dark:from-slate-900/80 dark:via-emerald-900/20 dark:to-cyan-900/20"
               style={{boxShadow:"0 20px 70px -35px rgba(16,185,129,.65),0 0 0 1px rgba(16,185,129,.08)",animation:mounted?"wo-slideUp .6s cubic-bezier(.34,1.56,.64,1) both":"none"}}>
-              {/* Animated blobs */}
               <div className="absolute -top-20 -left-16 w-56 h-56 rounded-full bg-emerald-400/30 blur-3xl" style={{animation:"wo-heroGlow 5s ease-in-out infinite"}}/>
               <div className="absolute -bottom-24 -right-12 w-64 h-64 rounded-full bg-cyan-500/25 blur-3xl" style={{animation:"wo-heroGlow 6s ease-in-out 2s infinite"}}/>
               <div className="absolute top-1/2 left-1/3 w-40 h-40 rounded-full bg-violet-500/15 blur-3xl" style={{animation:"wo-heroGlow 7s ease-in-out 1s infinite"}}/>
               <div className="absolute inset-0 bg-gradient-to-r from-slate-900/45 via-slate-900/25 to-slate-900/40 dark:from-slate-950/60 dark:via-slate-950/30 dark:to-slate-950/65"/>
-              {/* Hero shimmer */}
               <div className="absolute inset-0 pointer-events-none" style={{background:"linear-gradient(105deg,transparent 35%,rgba(255,255,255,.06) 50%,transparent 65%)",backgroundSize:"200% 100%",animation:"wo-shimmer 6s linear infinite"}}/>
-
               <div className="relative p-5 sm:p-7 md:p-8 min-h-[240px] sm:min-h-[290px] flex flex-col md:flex-row gap-6 md:gap-8 md:items-center md:justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2" style={{animation:"wo-slideUp .5s ease-out .1s both"}}>
@@ -502,16 +427,11 @@ export default function Workouts() {
                     </div>
                     <span className="text-xs font-bold text-emerald-300 tracking-widest uppercase">Workout Library</span>
                   </div>
-
                   <h1 className="text-3xl sm:text-4xl font-black tracking-tight" style={{animation:"wo-slideUp .5s ease-out .2s both"}}>
                     <span className="text-white">Workout </span>
                     <span style={{backgroundImage:"linear-gradient(90deg,#6ee7b7,#34d399,#10b981,#6ee7b7)",backgroundSize:"300% auto",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",animation:"wo-gradient 4s linear infinite"}}>Videos</span>
                   </h1>
-
-                  <p className="text-sm text-slate-200 mt-2" style={{animation:"wo-slideUp .5s ease-out .3s both"}}>
-                    {RAPIDAPI_KEY ? "🟢 Live YouTube search enabled" : "Curated playlists from top creators"}
-                  </p>
-
+                  <p className="text-sm text-slate-200 mt-2" style={{animation:"wo-slideUp .5s ease-out .3s both"}}>🟢 Live YouTube search enabled</p>
                   <div className="mt-4 flex flex-wrap items-center gap-2 text-xs" style={{animation:"wo-slideUp .5s ease-out .35s both"}}>
                     <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/85 dark:bg-slate-900/75 text-slate-700 dark:text-slate-200 shadow-sm backdrop-blur">
                       <span className="text-[10px] uppercase tracking-wider text-slate-500">Showing</span>
@@ -519,23 +439,13 @@ export default function Workouts() {
                     </span>
                     <span className="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-emerald-500/15 ring-1 ring-emerald-300/35 text-emerald-100">Featured now</span>
                   </div>
-
                   <div className="mt-5 flex flex-wrap gap-3" style={{animation:"wo-slideUp .5s ease-out .4s both"}}>
-                    <button onClick={() => setSelectedPlaylist(featured)}
-                      className="px-5 py-2.5 rounded-xl text-sm font-bold bg-emerald-400 text-slate-900 hover:bg-emerald-300 transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/50 hover:scale-105 active:scale-95">
-                      Start Featured Workout
-                    </button>
-                    <button onClick={() => { setActiveCategory("all"); setActiveLevel("all levels"); setSearch(""); }}
-                      className="px-5 py-2.5 rounded-xl text-sm font-bold bg-white/15 hover:bg-white/25 text-white ring-1 ring-white/40 backdrop-blur-sm transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95">
-                      Browse All
-                    </button>
+                    <button onClick={() => setSelectedPlaylist(featured)} className="px-5 py-2.5 rounded-xl text-sm font-bold bg-emerald-400 text-slate-900 hover:bg-emerald-300 transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/50 hover:scale-105 active:scale-95">Start Featured Workout</button>
+                    <button onClick={() => { setActiveCategory("all"); setActiveLevel("all levels"); setSearch(""); }} className="px-5 py-2.5 rounded-xl text-sm font-bold bg-white/15 hover:bg-white/25 text-white ring-1 ring-white/40 backdrop-blur-sm transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95">Browse All</button>
                   </div>
                 </div>
-
-                {/* Featured thumbnail */}
                 <div className="w-full md:max-w-sm" style={{animation:"wo-slideUp .6s cubic-bezier(.34,1.56,.64,1) .2s both"}}>
-                  <div className="rounded-2xl border border-white/25 bg-white/10 dark:bg-slate-900/45 p-3 backdrop-blur-md shadow-[0_18px_40px_-20px_rgba(15,23,42,.8)] hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
-                    onClick={() => setSelectedPlaylist(featured)}>
+                  <div className="rounded-2xl border border-white/25 bg-white/10 dark:bg-slate-900/45 p-3 backdrop-blur-md shadow-[0_18px_40px_-20px_rgba(15,23,42,.8)] hover:scale-[1.02] transition-transform duration-300 cursor-pointer" onClick={() => setSelectedPlaylist(featured)}>
                     <div className={`relative rounded-xl overflow-hidden h-40 bg-gradient-to-br ${featured.thumbnailColor}`}>
                       <img src={FEATURED_IMAGES[featured.category]} alt={featured.title} className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-500"/>
                       <div className="absolute inset-0 pointer-events-none" style={{background:"linear-gradient(105deg,transparent 35%,rgba(255,255,255,.12) 50%,transparent 65%)",backgroundSize:"200% 100%",animation:"wo-shimmer 3s linear infinite"}}/>
@@ -553,22 +463,11 @@ export default function Workouts() {
                     <p className="text-xs text-slate-200">{featured.channel}</p>
                   </div>
                 </div>
-
-                {/* Theme toggle */}
-                <button onClick={toggleTheme}
-                  className="absolute top-4 right-4 w-10 h-10 rounded-2xl flex items-center justify-center bg-white/85 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-600/60 text-slate-600 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-500 transition-all duration-200 cursor-pointer shadow-sm hover:rotate-12 hover:scale-110"
-                  aria-label="Toggle theme">
+                <button onClick={toggleTheme} className="absolute top-4 right-4 w-10 h-10 rounded-2xl flex items-center justify-center bg-white/85 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-600/60 text-slate-600 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-500 transition-all duration-200 cursor-pointer shadow-sm hover:rotate-12 hover:scale-110" aria-label="Toggle theme">
                   {theme === "dark" ? (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                    </svg>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
                   ) : (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                    </svg>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                   )}
                 </button>
               </div>
@@ -577,18 +476,8 @@ export default function Workouts() {
         })()}
       </div>
 
-      {/* ── API Banner ── */}
-      {showApiBanner && (
-        <div className="relative z-10 max-w-6xl mx-auto">
-          <NoApiBanner onDismiss={() => setShowApiBanner(false)}/>
-        </div>
-      )}
-
-      {/* ── Filters ── */}
       <div className="relative z-10 max-w-6xl mx-auto px-6 pb-6 space-y-4" style={{animation:"wo-slideUp .5s ease-out .45s both"}}>
         <SearchBar value={search} onChange={setSearch}/>
-
-        {/* Category chips */}
         <div className="flex gap-2 flex-wrap">
           {CATEGORIES.map(({key, label, emoji}, i) => {
             const active = activeCategory === key;
@@ -603,8 +492,6 @@ export default function Workouts() {
             );
           })}
         </div>
-
-        {/* Level filter */}
         <div className="flex gap-2 flex-wrap">
           {LEVELS.map((level, i) => (
             <button key={level} onClick={() => setActiveLevel(level)}
@@ -616,7 +503,6 @@ export default function Workouts() {
         </div>
       </div>
 
-      {/* ── Grid ── */}
       <div className="relative z-10 max-w-6xl mx-auto px-6 pb-12">
         {filtered.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
@@ -625,15 +511,11 @@ export default function Workouts() {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-28 text-center rounded-3xl bg-white/60 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/50 backdrop-blur-sm"
-            style={{animation:"wo-scaleIn .4s cubic-bezier(.34,1.56,.64,1) both"}}>
+          <div className="flex flex-col items-center justify-center py-28 text-center rounded-3xl bg-white/60 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/50 backdrop-blur-sm" style={{animation:"wo-scaleIn .4s cubic-bezier(.34,1.56,.64,1) both"}}>
             <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl mb-5 bg-slate-100 dark:bg-slate-700/60 shadow-inner" style={{animation:"wo-emoji 3s ease-in-out infinite"}}>🎬</div>
             <p className="text-slate-400 font-bold text-lg">No workouts found</p>
             <p className="text-slate-500 text-sm mt-1 max-w-xs">Try adjusting your filters or searching something different</p>
-            <button onClick={() => { setActiveCategory("all"); setActiveLevel("all levels"); setSearch(""); }}
-              className="mt-5 px-5 py-2.5 text-sm font-bold rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-500/25 hover:scale-105 active:scale-95">
-              Clear all filters
-            </button>
+            <button onClick={() => { setActiveCategory("all"); setActiveLevel("all levels"); setSearch(""); }} className="mt-5 px-5 py-2.5 text-sm font-bold rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-500/25 hover:scale-105 active:scale-95">Clear all filters</button>
           </div>
         )}
       </div>
