@@ -3,6 +3,8 @@ import api from "../configs/api";
 import toast from "react-hot-toast";
 import { useappcontext } from "../Context/AppContext";
 import { useTheme } from "../Context/Themecontext";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const GOAL_LABELS: Record<string, string> = {
   lose: "Lose Weight",
@@ -238,25 +240,164 @@ const ShareCard = ({ user, streak, foodCount, activityCount, onClose }: {
   );
 };
 
-// ── CSV Export ───────────────────────────────────────────────
-const exportCSV = (allFoodLogs: any[], allActivityLogs: any[]) => {
-  const foodRows = allFoodLogs.map((l) => [
-    "food", l.name ?? "", l.calories ?? 0, l.mealType ?? "", l.protein ?? 0, l.carbs ?? 0, l.fat ?? 0,
-    new Date(resolveDate(l)).toLocaleDateString("en-GB"), ""
-  ]);
-  const activityRows = allActivityLogs.map((l) => [
-    "activity", l.name ?? l.type ?? "", l.calories ?? l.caloriesBurned ?? 0, "", "", "", "", 
-    new Date(resolveDate(l)).toLocaleDateString("en-GB"), `${l.duration ?? 0} min`
-  ]);
+// ── PDF Export ───────────────────────────────────────────────
+const exportPDF = (allFoodLogs: any[], allActivityLogs: any[], user: any, streak: number, earnedBadges: any[]) => {
+  try {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
-  const header = "Type,Name,Calories,Meal/Type,Protein(g),Carbs(g),Fat(g),Date,Duration\n";
-  const rows = [...foodRows, ...activityRows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
-  const blob = new Blob([header + rows], { type: "text/csv" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `fittrack-data-${new Date().toISOString().slice(0, 10)}.csv`;
-  link.click();
-  toast.success("Data exported!");
+    // ── Header banner ──
+    doc.setFillColor(16, 185, 129); // emerald-500
+    doc.rect(0, 0, pageW, 28, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("FitTrack — Progress Report", 14, 12);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${user?.username ?? "User"}  ·  Generated on ${today}`, 14, 20);
+
+    // ── Stats summary row ──
+    const stats = [
+      { label: "Food Entries",    value: String(allFoodLogs.length)    },
+      { label: "Activities",      value: String(allActivityLogs.length) },
+      { label: "Active Streak",   value: `${streak} days`              },
+      { label: "Badges Earned",   value: `${earnedBadges.length}`      },
+    ];
+    const boxW = (pageW - 28) / 4;
+    let bx = 14;
+    stats.forEach(({ label, value }) => {
+      doc.setFillColor(241, 245, 249); // slate-100
+      doc.roundedRect(bx, 34, boxW - 2, 20, 3, 3, "F");
+      doc.setTextColor(16, 185, 129);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(value, bx + (boxW - 2) / 2, 44, { align: "center" });
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text(label, bx + (boxW - 2) / 2, 50, { align: "center" });
+      bx += boxW;
+    });
+
+    // ── Profile info ──
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Profile", 14, 64);
+    doc.setDrawColor(226, 232, 240);
+    doc.line(14, 66, pageW - 14, 66);
+
+    const profile = [
+      ["Age",            user?.age     ? `${user.age} years`          : "—"],
+      ["Weight",         user?.weight  ? `${user.weight} kg`          : "—"],
+      ["Height",         user?.height  ? `${user.height} cm`          : "—"],
+      ["Goal",           GOAL_LABELS[user?.goal ?? ""] ?? "—"                ],
+      ["Calorie Target", user?.dailycaloriesintake ? `${user.dailycaloriesintake} kcal/day` : "—"],
+      ["Member Since",   user?.createdAt ? new Date(user.createdAt).toLocaleDateString("en-GB") : "—"],
+    ];
+    autoTable(doc, {
+      startY: 68,
+      head: [],
+      body: profile,
+      theme: "plain",
+      styles: { fontSize: 9, cellPadding: 2.5, textColor: [15, 23, 42] },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: 50, textColor: [100, 116, 139] },
+        1: { cellWidth: "auto" },
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    // ── Food logs table ──
+    const afterProfile = (doc as any).lastAutoTable.finalY + 8;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("Food Logs", 14, afterProfile);
+    doc.setDrawColor(226, 232, 240);
+    doc.line(14, afterProfile + 2, pageW - 14, afterProfile + 2);
+
+    if (allFoodLogs.length === 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text("No food logs recorded yet.", 14, afterProfile + 10);
+    } else {
+      autoTable(doc, {
+        startY: afterProfile + 5,
+        head: [["Date", "Name", "Meal Type", "Calories", "Protein (g)", "Carbs (g)", "Fat (g)"]],
+        body: allFoodLogs.map((l) => [
+          new Date(resolveDate(l)).toLocaleDateString("en-GB"),
+          l.name ?? "—",
+          l.mealType ?? "—",
+          l.calories ?? 0,
+          l.protein ?? 0,
+          l.carbs ?? 0,
+          l.fat ?? 0,
+        ]),
+        theme: "grid",
+        headStyles: { fillColor: [16, 185, 129], textColor: 255, fontSize: 8, fontStyle: "bold" },
+        bodyStyles: { fontSize: 8, textColor: [15, 23, 42] },
+        alternateRowStyles: { fillColor: [241, 245, 249] },
+        margin: { left: 14, right: 14 },
+      });
+    }
+
+    // ── Activity logs table ──
+    const afterFood = (doc as any).lastAutoTable?.finalY ?? afterProfile + 15;
+    const actY = afterFood + 8;
+
+    // Add new page if not enough space
+    if (actY > 250) doc.addPage();
+    const actStart = actY > 250 ? 14 : actY;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("Activity Logs", 14, actStart);
+    doc.setDrawColor(226, 232, 240);
+    doc.line(14, actStart + 2, pageW - 14, actStart + 2);
+
+    if (allActivityLogs.length === 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text("No activity logs recorded yet.", 14, actStart + 10);
+    } else {
+      autoTable(doc, {
+        startY: actStart + 5,
+        head: [["Date", "Name / Type", "Duration (min)", "Calories Burned"]],
+        body: allActivityLogs.map((l) => [
+          new Date(resolveDate(l)).toLocaleDateString("en-GB"),
+          l.name ?? l.type ?? "—",
+          l.duration ?? "—",
+          l.calories ?? l.caloriesBurned ?? "—",
+        ]),
+        theme: "grid",
+        headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 8, fontStyle: "bold" },
+        bodyStyles: { fontSize: 8, textColor: [15, 23, 42] },
+        alternateRowStyles: { fillColor: [241, 245, 249] },
+        margin: { left: 14, right: 14 },
+      });
+    }
+
+    // ── Footer on every page ──
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text("Generated by AI Fitness Tracker", 14, 292);
+      doc.text(`Page ${i} of ${totalPages}`, pageW - 14, 292, { align: "right" });
+    }
+
+    doc.save(`fittrack-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast.success("PDF report downloaded!");
+  } catch {
+    toast.error("Could not generate PDF.");
+  }
 };
 
 // ── Main Profile Page ─────────────────────────────────────────
@@ -391,12 +532,12 @@ export default function Profile() {
           {/* Data export */}
           <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5">
             <p className="text-sm font-bold mb-1">Export Your Data</p>
-            <p className="text-xs text-slate-400 mb-3">Download all your food and activity logs as a CSV file.</p>
+            <p className="text-xs text-slate-400 mb-3">Download a full PDF report with your profile, food logs and activity history.</p>
             <button
-              onClick={() => exportCSV(allFoodLogs, allActivityLogs)}
+              onClick={() => exportPDF(allFoodLogs, allActivityLogs, user, streak, earnedBadges)}
               className="w-full py-3 bg-slate-200 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 text-sm font-semibold rounded-xl transition-all cursor-pointer"
             >
-              📥 Download CSV
+              📥 Download PDF
             </button>
           </div>
 
