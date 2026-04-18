@@ -3,10 +3,10 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 
 const WORKOUT_PLAYLISTS = [
-  { label: "💪 Beast Mode",  id: "37i9dQZF1DWUVpAXiEPK8P" },
-  { label: "🏃 Running",     id: "37i9dQZF1DX70RN3TfWWJh" },
-  { label: "🧘 Yoga & Calm", id: "37i9dQZF1DX9uZebar5oFb" },
-  { label: "🔥 HIIT",        id: "37i9dQZF1DX4eRPd9frC1m" },
+  { label: "🎵 Punjabi Hits",   id: "37i9dQZF1DX0XUfTFmNBRM" },
+  { label: "🕺 Bhangra",        id: "37i9dQZF1DWTl4y3vgJOXW" },
+  { label: "🌟 Diljit Dosanjh", id: "37i9dQZF1DZ06evO0FMKB1" },
+  { label: "🔥 Punjabi Pop",    id: "37i9dQZF1DX9Gp1MKKk3U9" },
 ];
 
 const SpotifyLogo = () => (
@@ -27,7 +27,7 @@ const SpotifyMiniPlayer = () => {
           <div className="flex items-center gap-2.5">
             <SpotifyLogo />
             <span className="text-white text-sm font-medium">{active.label}</span>
-            <span className="text-white/40 text-xs">· Workout Music</span>
+            <span className="text-white/40 text-xs">· Punjabi Music</span>
           </div>
           <button
             onClick={() => setOpen(true)}
@@ -41,7 +41,7 @@ const SpotifyMiniPlayer = () => {
           <div className="flex items-center justify-between px-4 pt-3 pb-2">
             <div className="flex items-center gap-2">
               <SpotifyLogo />
-              <span className="text-white text-sm font-semibold">Workout Music</span>
+              <span className="text-white text-sm font-semibold">Punjabi Music</span>
             </div>
             <button onClick={() => setOpen(false)} className="text-white/50 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10 transition-colors">
               ✕ Close
