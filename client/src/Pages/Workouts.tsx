@@ -664,14 +664,60 @@ const PunjabiMusicSection = () => {
   );
 };
 
+// ── Mode Toggle Button ─────────────────────────────────────
+const ModeToggle = ({ activeMode, onToggle }: { activeMode: "videos" | "music"; onToggle: () => void }) => {
+  const isMusic = activeMode === "music";
+  return (
+    <button
+      onClick={onToggle}
+      aria-label="Toggle between Workout Videos and Music"
+      className="relative flex items-center gap-0 rounded-2xl p-1 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 shadow-2xl"
+      style={{
+        background: isMusic
+          ? "linear-gradient(135deg,#7c3aed,#db2777,#f97316)"
+          : "linear-gradient(135deg,#059669,#0891b2,#6366f1)",
+        boxShadow: isMusic
+          ? "0 8px 32px -8px rgba(219,39,119,.6), 0 0 0 1px rgba(219,39,119,.2)"
+          : "0 8px 32px -8px rgba(5,150,105,.6), 0 0 0 1px rgba(5,150,105,.2)",
+        minWidth: 220,
+      }}
+    >
+      {/* sliding pill */}
+      <span
+        className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 shadow-lg transition-all duration-300 ease-[cubic-bezier(.34,1.56,.64,1)]"
+        style={{ left: isMusic ? "calc(50% + 4px)" : "4px" }}
+      />
+      {/* Videos tab */}
+      <span
+        className={`relative z-10 flex items-center gap-1.5 px-4 py-2.5 text-xs font-black tracking-wide uppercase transition-all duration-200 ${!isMusic ? "text-white" : "text-white/50"}`}
+        style={{ minWidth: 100, justifyContent: "center" }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Videos
+      </span>
+      {/* Music tab */}
+      <span
+        className={`relative z-10 flex items-center gap-1.5 px-4 py-2.5 text-xs font-black tracking-wide uppercase transition-all duration-200 ${isMusic ? "text-white" : "text-white/50"}`}
+        style={{ minWidth: 100, justifyContent: "center" }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        Music
+      </span>
+    </button>
+  );
+};
+
 export default function Workouts() {
   const {theme, toggleTheme} = useTheme();
+  const [activeMode, setActiveMode] = useState<"videos" | "music">("videos");
   const [activeCategory, setActiveCategory] = useState<Category|"all">("all");
   const [activeLevel, setActiveLevel] = useState<string>("all levels");
   const [search, setSearch] = useState("");
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist|null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+
+  const isMusic = activeMode === "music";
 
   const filtered = PLAYLISTS.filter(p => {
     const matchCat = activeCategory === "all" || p.category === activeCategory;
@@ -686,120 +732,226 @@ export default function Workouts() {
       <AnimatedBackground/>
       {selectedPlaylist && <PlaylistModal playlist={selectedPlaylist} onClose={() => setSelectedPlaylist(null)}/>}
 
+      {/* ── Hero Section ── */}
       <div className="relative z-10 px-6 pt-10 pb-8 max-w-6xl mx-auto">
         {(() => {
           const featured = filtered[0] || PLAYLISTS[0];
+          const heroGlow = isMusic ? "rgba(219,39,119,.65)" : "rgba(16,185,129,.65)";
+          const heroBg = isMusic
+            ? "from-white/80 via-pink-100/40 to-purple-100/50 dark:from-slate-900/80 dark:via-pink-900/20 dark:to-purple-900/20"
+            : "from-white/80 via-emerald-100/40 to-cyan-100/50 dark:from-slate-900/80 dark:via-emerald-900/20 dark:to-cyan-900/20";
+          const orb1 = isMusic ? "bg-pink-400/30" : "bg-emerald-400/30";
+          const orb2 = isMusic ? "bg-purple-500/25" : "bg-cyan-500/25";
+          const orb3 = isMusic ? "bg-rose-500/15" : "bg-violet-500/15";
           return (
-            <div className="relative overflow-hidden rounded-3xl border border-white/20 dark:border-slate-700/40 bg-gradient-to-br from-white/80 via-emerald-100/40 to-cyan-100/50 dark:from-slate-900/80 dark:via-emerald-900/20 dark:to-cyan-900/20"
-              style={{boxShadow:"0 20px 70px -35px rgba(16,185,129,.65),0 0 0 1px rgba(16,185,129,.08)",animation:mounted?"wo-slideUp .6s cubic-bezier(.34,1.56,.64,1) both":"none"}}>
-              <div className="absolute -top-20 -left-16 w-56 h-56 rounded-full bg-emerald-400/30 blur-3xl" style={{animation:"wo-heroGlow 5s ease-in-out infinite"}}/>
-              <div className="absolute -bottom-24 -right-12 w-64 h-64 rounded-full bg-cyan-500/25 blur-3xl" style={{animation:"wo-heroGlow 6s ease-in-out 2s infinite"}}/>
-              <div className="absolute top-1/2 left-1/3 w-40 h-40 rounded-full bg-violet-500/15 blur-3xl" style={{animation:"wo-heroGlow 7s ease-in-out 1s infinite"}}/>
+            <div
+              className={`relative overflow-hidden rounded-3xl border border-white/20 dark:border-slate-700/40 bg-gradient-to-br ${heroBg} transition-all duration-500`}
+              style={{boxShadow:`0 20px 70px -35px ${heroGlow},0 0 0 1px ${heroGlow.replace(".65","0.08")}`,animation:mounted?"wo-slideUp .6s cubic-bezier(.34,1.56,.64,1) both":"none"}}
+            >
+              <div className={`absolute -top-20 -left-16 w-56 h-56 rounded-full ${orb1} blur-3xl transition-all duration-500`} style={{animation:"wo-heroGlow 5s ease-in-out infinite"}}/>
+              <div className={`absolute -bottom-24 -right-12 w-64 h-64 rounded-full ${orb2} blur-3xl transition-all duration-500`} style={{animation:"wo-heroGlow 6s ease-in-out 2s infinite"}}/>
+              <div className={`absolute top-1/2 left-1/3 w-40 h-40 rounded-full ${orb3} blur-3xl transition-all duration-500`} style={{animation:"wo-heroGlow 7s ease-in-out 1s infinite"}}/>
               <div className="absolute inset-0 bg-gradient-to-r from-slate-900/45 via-slate-900/25 to-slate-900/40 dark:from-slate-950/60 dark:via-slate-950/30 dark:to-slate-950/65"/>
               <div className="absolute inset-0 pointer-events-none" style={{background:"linear-gradient(105deg,transparent 35%,rgba(255,255,255,.06) 50%,transparent 65%)",backgroundSize:"200% 100%",animation:"wo-shimmer 6s linear infinite"}}/>
+
               <div className="relative p-5 sm:p-7 md:p-8 min-h-[240px] sm:min-h-[290px] flex flex-col md:flex-row gap-6 md:gap-8 md:items-center md:justify-between">
                 <div className="flex-1">
+                  {/* Label */}
                   <div className="flex items-center gap-2 mb-2" style={{animation:"wo-slideUp .5s ease-out .1s both"}}>
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30" style={{animation:"wo-orb 3s ease-in-out infinite"}}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    <div
+                      className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg transition-all duration-500"
+                      style={{background: isMusic ? "linear-gradient(135deg,#db2777,#7c3aed)" : "linear-gradient(135deg,#34d399,#059669)", boxShadow: isMusic ? "0 4px 14px rgba(219,39,119,.4)" : "0 4px 14px rgba(5,150,105,.4)"}}
+                    >
+                      {isMusic
+                        ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                        : <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                      }
                     </div>
-                    <span className="text-xs font-bold text-emerald-300 tracking-widest uppercase">Workout Library</span>
-                  </div>
-                  <h1 className="text-3xl sm:text-4xl font-black tracking-tight" style={{animation:"wo-slideUp .5s ease-out .2s both"}}>
-                    <span className="text-white">Workout </span>
-                    <span style={{backgroundImage:"linear-gradient(90deg,#6ee7b7,#34d399,#10b981,#6ee7b7)",backgroundSize:"300% auto",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",animation:"wo-gradient 4s linear infinite"}}>Videos</span>
-                  </h1>
-                  <p className="text-sm text-slate-200 mt-2" style={{animation:"wo-slideUp .5s ease-out .3s both"}}>🟢 Live YouTube search enabled</p>
-                  <div className="mt-4 flex flex-wrap items-center gap-2 text-xs" style={{animation:"wo-slideUp .5s ease-out .35s both"}}>
-                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/85 dark:bg-slate-900/75 text-slate-700 dark:text-slate-200 shadow-sm backdrop-blur">
-                      <span className="text-[10px] uppercase tracking-wider text-slate-500">Showing</span>
-                      <span className="text-sm font-black text-emerald-500"><AnimatedCounter target={filtered.length} dur={800}/></span>
+                    <span
+                      className="text-xs font-bold tracking-widest uppercase transition-all duration-300"
+                      style={{color: isMusic ? "#f9a8d4" : "#6ee7b7"}}
+                    >
+                      {isMusic ? "Workout Music" : "Workout Library"}
                     </span>
-                    <span className="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-emerald-500/15 ring-1 ring-emerald-300/35 text-emerald-100">Featured now</span>
                   </div>
+
+                  {/* Title */}
+                  <h1 className="text-3xl sm:text-4xl font-black tracking-tight" style={{animation:"wo-slideUp .5s ease-out .2s both"}}>
+                    <span className="text-white">{isMusic ? "Punjabi " : "Workout "}</span>
+                    <span style={{
+                      backgroundImage: isMusic
+                        ? "linear-gradient(90deg,#f472b6,#a78bfa,#fb923c,#f472b6)"
+                        : "linear-gradient(90deg,#6ee7b7,#34d399,#10b981,#6ee7b7)",
+                      backgroundSize:"300% auto",
+                      WebkitBackgroundClip:"text",
+                      WebkitTextFillColor:"transparent",
+                      backgroundClip:"text",
+                      animation:"wo-gradient 4s linear infinite"
+                    }}>
+                      {isMusic ? "Music" : "Videos"}
+                    </span>
+                  </h1>
+
+                  <p className="text-sm text-slate-200 mt-2" style={{animation:"wo-slideUp .5s ease-out .3s both"}}>
+                    {isMusic ? "🎵 Bhangra, Pop & Rap beats for every session" : "🟢 Live YouTube search enabled"}
+                  </p>
+
+                  {/* Stats */}
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-xs" style={{animation:"wo-slideUp .5s ease-out .35s both"}}>
+                    {!isMusic && (
+                      <>
+                        <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/85 dark:bg-slate-900/75 text-slate-700 dark:text-slate-200 shadow-sm backdrop-blur">
+                          <span className="text-[10px] uppercase tracking-wider text-slate-500">Showing</span>
+                          <span className="text-sm font-black text-emerald-500"><AnimatedCounter target={filtered.length} dur={800}/></span>
+                        </span>
+                        <span className="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-emerald-500/15 ring-1 ring-emerald-300/35 text-emerald-100">Featured now</span>
+                      </>
+                    )}
+                    {isMusic && (
+                      <>
+                        <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/85 dark:bg-slate-900/75 text-slate-700 dark:text-slate-200 shadow-sm backdrop-blur">
+                          <span className="text-[10px] uppercase tracking-wider text-slate-500">Playlists</span>
+                          <span className="text-sm font-black text-pink-500"><AnimatedCounter target={PUNJABI_PLAYLISTS.length} dur={800}/></span>
+                        </span>
+                        <span className="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-pink-500/15 ring-1 ring-pink-300/35 text-pink-100">Powered by YouTube</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* CTA Buttons */}
                   <div className="mt-5 flex flex-wrap gap-3" style={{animation:"wo-slideUp .5s ease-out .4s both"}}>
-                    <button onClick={() => setSelectedPlaylist(featured)} className="px-5 py-2.5 rounded-xl text-sm font-bold bg-emerald-400 text-slate-900 hover:bg-emerald-300 transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/50 hover:scale-105 active:scale-95">Start Featured Workout</button>
-                    <button onClick={() => { setActiveCategory("all"); setActiveLevel("all levels"); setSearch(""); }} className="px-5 py-2.5 rounded-xl text-sm font-bold bg-white/15 hover:bg-white/25 text-white ring-1 ring-white/40 backdrop-blur-sm transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95">Browse All</button>
+                    {!isMusic ? (
+                      <>
+                        <button onClick={() => setSelectedPlaylist(featured)} className="px-5 py-2.5 rounded-xl text-sm font-bold bg-emerald-400 text-slate-900 hover:bg-emerald-300 transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/50 hover:scale-105 active:scale-95">Start Featured Workout</button>
+                        <button onClick={() => { setActiveCategory("all"); setActiveLevel("all levels"); setSearch(""); }} className="px-5 py-2.5 rounded-xl text-sm font-bold bg-white/15 hover:bg-white/25 text-white ring-1 ring-white/40 backdrop-blur-sm transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95">Browse All</button>
+                      </>
+                    ) : (
+                      <button onClick={() => setActiveMode("videos")} className="px-5 py-2.5 rounded-xl text-sm font-bold bg-white/15 hover:bg-white/25 text-white ring-1 ring-white/40 backdrop-blur-sm transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95">← Back to Videos</button>
+                    )}
                   </div>
                 </div>
-                <div className="w-full md:max-w-sm" style={{animation:"wo-slideUp .6s cubic-bezier(.34,1.56,.64,1) .2s both"}}>
-                  <div className="rounded-2xl border border-white/25 bg-white/10 dark:bg-slate-900/45 p-3 backdrop-blur-md shadow-[0_18px_40px_-20px_rgba(15,23,42,.8)] hover:scale-[1.02] transition-transform duration-300 cursor-pointer" onClick={() => setSelectedPlaylist(featured)}>
-                    <div className={`relative rounded-xl overflow-hidden h-40 bg-gradient-to-br ${featured.thumbnailColor}`}>
-                      <img src={FEATURED_IMAGES[featured.category]} alt={featured.title} className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-500"/>
-                      <div className="absolute inset-0 pointer-events-none" style={{background:"linear-gradient(105deg,transparent 35%,rgba(255,255,255,.12) 50%,transparent 65%)",backgroundSize:"200% 100%",animation:"wo-shimmer 3s linear infinite"}}/>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent"/>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30" style={{animation:"wo-orb 2.5s ease-in-out infinite"}}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="white" className="ml-0.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+
+                {/* Right preview card */}
+                {!isMusic && (
+                  <div className="w-full md:max-w-sm" style={{animation:"wo-slideUp .6s cubic-bezier(.34,1.56,.64,1) .2s both"}}>
+                    <div className="rounded-2xl border border-white/25 bg-white/10 dark:bg-slate-900/45 p-3 backdrop-blur-md shadow-[0_18px_40px_-20px_rgba(15,23,42,.8)] hover:scale-[1.02] transition-transform duration-300 cursor-pointer" onClick={() => setSelectedPlaylist(featured)}>
+                      <div className={`relative rounded-xl overflow-hidden h-40 bg-gradient-to-br ${featured.thumbnailColor}`}>
+                        <img src={FEATURED_IMAGES[featured.category]} alt={featured.title} className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-500"/>
+                        <div className="absolute inset-0 pointer-events-none" style={{background:"linear-gradient(105deg,transparent 35%,rgba(255,255,255,.12) 50%,transparent 65%)",backgroundSize:"200% 100%",animation:"wo-shimmer 3s linear infinite"}}/>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent"/>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30" style={{animation:"wo-orb 2.5s ease-in-out infinite"}}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="white" className="ml-0.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                          </div>
                         </div>
+                        <span className="absolute top-2 right-2 text-[11px] font-bold px-2 py-1 rounded-lg bg-black/55 text-white">{featured.videoCount*5} min</span>
+                        <span className={`absolute bottom-2 left-2 px-2 py-1 rounded-lg text-[11px] font-semibold capitalize ${LEVEL_BADGE[featured.level]}`}>{featured.level}</span>
+                        <span className="absolute bottom-2 right-2 px-2 py-1 rounded-lg text-[11px] font-semibold bg-white/85 text-slate-800 capitalize">{featured.category}</span>
                       </div>
-                      <span className="absolute top-2 right-2 text-[11px] font-bold px-2 py-1 rounded-lg bg-black/55 text-white">{featured.videoCount*5} min</span>
-                      <span className={`absolute bottom-2 left-2 px-2 py-1 rounded-lg text-[11px] font-semibold capitalize ${LEVEL_BADGE[featured.level]}`}>{featured.level}</span>
-                      <span className="absolute bottom-2 right-2 px-2 py-1 rounded-lg text-[11px] font-semibold bg-white/85 text-slate-800 capitalize">{featured.category}</span>
+                      <p className="mt-3 text-sm font-semibold text-white line-clamp-1">{featured.title}</p>
+                      <p className="text-xs text-slate-200">{featured.channel}</p>
                     </div>
-                    <p className="mt-3 text-sm font-semibold text-white line-clamp-1">{featured.title}</p>
-                    <p className="text-xs text-slate-200">{featured.channel}</p>
                   </div>
+                )}
+
+                {/* Music preview card in hero */}
+                {isMusic && (
+                  <div className="w-full md:max-w-sm" style={{animation:"wo-slideUp .6s cubic-bezier(.34,1.56,.64,1) .2s both"}}>
+                    <div className="rounded-2xl border border-white/25 bg-white/10 dark:bg-slate-900/45 p-4 backdrop-blur-md shadow-[0_18px_40px_-20px_rgba(15,23,42,.8)]">
+                      <div className="grid grid-cols-2 gap-2">
+                        {PUNJABI_PLAYLISTS.slice(0,4).map((p,i) => (
+                          <div key={p.id} className={`relative rounded-xl overflow-hidden h-16 bg-gradient-to-br ${p.thumbnailColor} flex items-center justify-center`} style={{animation:`wo-scaleIn .4s cubic-bezier(.34,1.56,.64,1) ${i*.07}s both`}}>
+                            <span className="text-2xl" style={{animation:"wo-emoji 3s ease-in-out infinite"}}>{p.emoji}</span>
+                            <div className="absolute inset-0 bg-black/20"/>
+                            <span className="absolute bottom-1 left-1.5 text-[9px] font-bold text-white/90 leading-tight truncate w-[calc(100%-8px)]">{p.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-3 text-xs text-slate-300 text-center font-medium">6 curated Punjabi playlists · All moods</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Theme + Toggle controls */}
+                <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+                  <button onClick={toggleTheme} className="w-10 h-10 rounded-2xl flex items-center justify-center bg-white/85 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-600/60 text-slate-600 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-500 transition-all duration-200 cursor-pointer shadow-sm hover:rotate-12 hover:scale-110" aria-label="Toggle theme">
+                    {theme === "dark" ? (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    ) : (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    )}
+                  </button>
                 </div>
-                <button onClick={toggleTheme} className="absolute top-4 right-4 w-10 h-10 rounded-2xl flex items-center justify-center bg-white/85 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-600/60 text-slate-600 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-500 transition-all duration-200 cursor-pointer shadow-sm hover:rotate-12 hover:scale-110" aria-label="Toggle theme">
-                  {theme === "dark" ? (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                  ) : (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                  )}
-                </button>
               </div>
             </div>
           );
         })()}
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6 pb-6 space-y-4" style={{animation:"wo-slideUp .5s ease-out .45s both"}}>
-        <SearchBar value={search} onChange={setSearch}/>
-        <div className="flex gap-2 flex-wrap">
-          {CATEGORIES.map(({key, label, emoji}, i) => {
-            const active = activeCategory === key;
-            return (
-              <button key={key} onClick={() => setActiveCategory(key as Category|"all")}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all duration-200 cursor-pointer relative overflow-hidden ${active ? "bg-emerald-500 text-black border-emerald-500 shadow-lg shadow-emerald-500/30" : "bg-white dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/50 hover:border-emerald-500/50 hover:text-emerald-500"}`}
-                style={{transform:active?"scale(1.05)":"scale(1)",animation:`wo-slideUp .4s ease-out ${i*.05+.5}s both`}}>
-                {active && <span className="absolute inset-0 bg-white/20 rounded-xl" style={{animation:"wo-ping 1.5s ease-out infinite"}}/>}
-                <span className="relative z-10">{emoji}</span>
-                <span className="relative z-10">{label}</span>
-              </button>
-            );
-          })}
+      {/* ── Mode Toggle ── */}
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pb-6 flex items-center justify-between gap-4" style={{animation:"wo-slideUp .5s ease-out .42s both"}}>
+        <div className="flex flex-col">
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+            {isMusic ? "🎵 Now viewing: Music" : "🎬 Now viewing: Videos"}
+          </span>
+          <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+            {isMusic ? "Switch to workout videos anytime" : "Switch to workout music anytime"}
+          </span>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {LEVELS.map((level, i) => (
-            <button key={level} onClick={() => setActiveLevel(level)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer capitalize hover:scale-105 active:scale-95 ${activeLevel === level ? `${LEVEL_BADGE[level]} scale-105` : "bg-white dark:bg-slate-800/60 text-slate-400 border-slate-200 dark:border-slate-700/50 hover:border-slate-400"}`}
-              style={{animation:`wo-slideUp .4s ease-out ${i*.05+.55}s both`}}>
-              {level}
-            </button>
-          ))}
-        </div>
+        <ModeToggle activeMode={activeMode} onToggle={() => setActiveMode(m => m === "videos" ? "music" : "videos")} />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6 pb-12">
-        {filtered.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {filtered.map((playlist, i) => (
-              <PlaylistCard key={playlist.id} playlist={playlist} index={i} onPlay={() => setSelectedPlaylist(playlist)}/>
-            ))}
+      {/* ── Videos Mode ── */}
+      {!isMusic && (
+        <>
+          <div className="relative z-10 max-w-6xl mx-auto px-6 pb-6 space-y-4" style={{animation:"wo-slideUp .5s ease-out .45s both"}}>
+            <SearchBar value={search} onChange={setSearch}/>
+            <div className="flex gap-2 flex-wrap">
+              {CATEGORIES.map(({key, label, emoji}, i) => {
+                const active = activeCategory === key;
+                return (
+                  <button key={key} onClick={() => setActiveCategory(key as Category|"all")}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all duration-200 cursor-pointer relative overflow-hidden ${active ? "bg-emerald-500 text-black border-emerald-500 shadow-lg shadow-emerald-500/30" : "bg-white dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/50 hover:border-emerald-500/50 hover:text-emerald-500"}`}
+                    style={{transform:active?"scale(1.05)":"scale(1)",animation:`wo-slideUp .4s ease-out ${i*.05+.5}s both`}}>
+                    {active && <span className="absolute inset-0 bg-white/20 rounded-xl" style={{animation:"wo-ping 1.5s ease-out infinite"}}/>}
+                    <span className="relative z-10">{emoji}</span>
+                    <span className="relative z-10">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {LEVELS.map((level, i) => (
+                <button key={level} onClick={() => setActiveLevel(level)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer capitalize hover:scale-105 active:scale-95 ${activeLevel === level ? `${LEVEL_BADGE[level]} scale-105` : "bg-white dark:bg-slate-800/60 text-slate-400 border-slate-200 dark:border-slate-700/50 hover:border-slate-400"}`}
+                  style={{animation:`wo-slideUp .4s ease-out ${i*.05+.55}s both`}}>
+                  {level}
+                </button>
+              ))}
+            </div>
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-28 text-center rounded-3xl bg-white/60 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/50 backdrop-blur-sm" style={{animation:"wo-scaleIn .4s cubic-bezier(.34,1.56,.64,1) both"}}>
-            <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl mb-5 bg-slate-100 dark:bg-slate-700/60 shadow-inner" style={{animation:"wo-emoji 3s ease-in-out infinite"}}>🎬</div>
-            <p className="text-slate-400 font-bold text-lg">No workouts found</p>
-            <p className="text-slate-500 text-sm mt-1 max-w-xs">Try adjusting your filters or searching something different</p>
-            <button onClick={() => { setActiveCategory("all"); setActiveLevel("all levels"); setSearch(""); }} className="mt-5 px-5 py-2.5 text-sm font-bold rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-500/25 hover:scale-105 active:scale-95">Clear all filters</button>
-          </div>
-        )}
-      </div>
 
-      {/* ── Punjabi Music Section ── */}
-      <PunjabiMusicSection />
+          <div className="relative z-10 max-w-6xl mx-auto px-6 pb-12">
+            {filtered.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {filtered.map((playlist, i) => (
+                  <PlaylistCard key={playlist.id} playlist={playlist} index={i} onPlay={() => setSelectedPlaylist(playlist)}/>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-28 text-center rounded-3xl bg-white/60 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/50 backdrop-blur-sm" style={{animation:"wo-scaleIn .4s cubic-bezier(.34,1.56,.64,1) both"}}>
+                <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl mb-5 bg-slate-100 dark:bg-slate-700/60 shadow-inner" style={{animation:"wo-emoji 3s ease-in-out infinite"}}>🎬</div>
+                <p className="text-slate-400 font-bold text-lg">No workouts found</p>
+                <p className="text-slate-500 text-sm mt-1 max-w-xs">Try adjusting your filters or searching something different</p>
+                <button onClick={() => { setActiveCategory("all"); setActiveLevel("all levels"); setSearch(""); }} className="mt-5 px-5 py-2.5 text-sm font-bold rounded-xl bg-emerald-500 text-black hover:bg-emerald-400 transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-500/25 hover:scale-105 active:scale-95">Clear all filters</button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── Music Mode ── */}
+      {isMusic && <PunjabiMusicSection />}
     </div>
   );
 }
