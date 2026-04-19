@@ -208,8 +208,6 @@ function useYouTubeSearch(query: string, enabled: boolean) {
   return { videos, loading, error };
 }
 
-function formatViews(n: number) {
-
 // ── Punjabi Music Search Hook (same RapidAPI backend) ──────
 function usePunjabiMusicSearch(query: string, enabled: boolean) {
   const [tracks, setTracks] = useState<YouTubeVideo[]>([]);
@@ -238,7 +236,7 @@ function usePunjabiMusicSearch(query: string, enabled: boolean) {
               channel: i.video.author?.title || "Unknown",
               thumbnail: i.video.thumbnails?.at(-1)?.url || `https://i.ytimg.com/vi/${i.video.videoId}/hqdefault.jpg`,
               duration: i.video.lengthText || "",
-              viewCount: i.video.stats?.views ? formatViewsInner(i.video.stats.views) : "",
+              viewCount: i.video.stats?.views ? formatViews(i.video.stats.views) : "",
               publishedAt: i.video.publishedTimeText || "",
             }))
         );
@@ -250,12 +248,6 @@ function usePunjabiMusicSearch(query: string, enabled: boolean) {
   }, [query, enabled]);
 
   return { tracks, loading, error };
-}
-
-function formatViewsInner(n: number) {
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M views`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(0)}K views`;
-  return `${n} views`;
 }
 
 function formatViews(n: number) {
