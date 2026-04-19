@@ -29,6 +29,19 @@ interface Playlist {
   searchQuery: string;
 }
 
+interface PunjabiPlaylist {
+  id: string;
+  title: string;
+  artist: string;
+  mood: "hype" | "warm-up" | "cool-down" | "pump";
+  description: string;
+  emoji: string;
+  searchQuery: string;
+  thumbnailColor: string;
+  bpm: string;
+  tags: string[];
+}
+
 const STRAPI_API_BASE_URL = (import.meta.env.VITE_STRAPI_API_URL ?? "http://localhost:1337").replace(/\/$/, "");
 
 const PLAYLISTS: Playlist[] = [
@@ -45,6 +58,30 @@ const PLAYLISTS: Playlist[] = [
   { id: "11", title: "Intermediate HIIT & Strength", channel: "Heather Robertson", category: "hiit", level: "intermediate", description: "Challenging combination of HIIT and strength training for intermediate fitness levels.", videoCount: 20, emoji: "🎯", youtubePlaylistId: "PLt4lS6MZ6JJoiSRS7Ow1xfYRHaYGh4OzI", thumbnailColor: "from-red-500 to-rose-600", searchQuery: "HIIT strength workout intermediate Heather Robertson" },
   { id: "12", title: "Cycling & Indoor Cardio", channel: "Global Cycling Network", category: "cardio", level: "intermediate", description: "Indoor cycling workouts and cardio drills to build endurance and leg power.", videoCount: 22, emoji: "🚴", youtubePlaylistId: "PLUkQFGUbQLFzjPmU5n8gUHYbJcOjkBflS", thumbnailColor: "from-cyan-500 to-blue-500", searchQuery: "indoor cycling cardio workout GCN" },
 ];
+
+const PUNJABI_PLAYLISTS: PunjabiPlaylist[] = [
+  { id: "p1", title: "Bhangra Pump Up", artist: "Diljit Dosanjh & AP Dhillon", mood: "pump", description: "High-energy Bhangra beats to power through your hardest sets. Maximum intensity guaranteed.", emoji: "🔥", searchQuery: "Diljit Dosanjh bhangra workout gym", thumbnailColor: "from-orange-500 to-red-600", bpm: "140–160 BPM", tags: ["bhangra", "high energy", "gym"] },
+  { id: "p2", title: "AP Dhillon Hits", artist: "AP Dhillon", mood: "hype", description: "Smooth yet powerful AP Dhillon tracks — perfect for steady-state cardio and endurance runs.", emoji: "💜", searchQuery: "AP Dhillon workout motivation 2024", thumbnailColor: "from-violet-600 to-purple-700", bpm: "120–135 BPM", tags: ["modern", "cardio", "run"] },
+  { id: "p3", title: "Warm-Up Vibes", artist: "Sidhu Moosewala Tribute", mood: "warm-up", description: "Melodic Punjabi tracks to get your blood flowing and your mind in the zone before the session.", emoji: "🌅", searchQuery: "Sidhu Moosewala best songs workout", thumbnailColor: "from-amber-400 to-orange-500", bpm: "95–115 BPM", tags: ["warm-up", "melodic", "legend"] },
+  { id: "p4", title: "HIIT Bhangra", artist: "Guru Randhawa & Badshah", mood: "hype", description: "Explosive Punjabi pop and bhangra mashups timed perfectly for HIIT intervals and sprints.", emoji: "⚡", searchQuery: "Guru Randhawa Badshah gym HIIT playlist", thumbnailColor: "from-yellow-500 to-orange-600", bpm: "145–165 BPM", tags: ["HIIT", "pop", "intervals"] },
+  { id: "p5", title: "Cool-Down Ragas", artist: "Satinder Sartaaj", mood: "cool-down", description: "Soul-soothing Punjabi classical and folk melodies for your post-workout stretch and recovery.", emoji: "🧘", searchQuery: "Satinder Sartaaj relaxing Punjabi songs", thumbnailColor: "from-teal-500 to-cyan-600", bpm: "60–85 BPM", tags: ["cool-down", "folk", "recovery"] },
+  { id: "p6", title: "Street Hustle Mix", artist: "Karan Aujla & Shubh", mood: "pump", description: "Raw, gritty Punjabi rap tracks that hit hard — ideal for heavy lifting and strength days.", emoji: "💪", searchQuery: "Karan Aujla Shubh gym rap workout 2024", thumbnailColor: "from-slate-700 to-slate-900", bpm: "130–155 BPM", tags: ["rap", "strength", "lifting"] },
+];
+
+const PUNJABI_MOODS: { key: PunjabiPlaylist["mood"] | "all"; label: string; emoji: string }[] = [
+  { key: "all", label: "All", emoji: "🎵" },
+  { key: "pump", label: "Pump Up", emoji: "🔥" },
+  { key: "hype", label: "Hype", emoji: "⚡" },
+  { key: "warm-up", label: "Warm-Up", emoji: "🌅" },
+  { key: "cool-down", label: "Cool-Down", emoji: "🧘" },
+];
+
+const MOOD_BADGE: Record<string, string> = {
+  pump: "bg-red-500/20 text-red-400 ring-1 ring-red-500/40",
+  hype: "bg-yellow-500/20 text-yellow-400 ring-1 ring-yellow-500/40",
+  "warm-up": "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40",
+  "cool-down": "bg-teal-500/20 text-teal-400 ring-1 ring-teal-500/40",
+};
 
 const CATEGORIES: { key: Category | "all"; label: string; emoji: string }[] = [
   { key: "all", label: "All", emoji: "✨" },
@@ -169,6 +206,56 @@ function useYouTubeSearch(query: string, enabled: boolean) {
   }, [query, enabled]);
 
   return { videos, loading, error };
+}
+
+function formatViews(n: number) {
+
+// ── Punjabi Music Search Hook (same RapidAPI backend) ──────
+function usePunjabiMusicSearch(query: string, enabled: boolean) {
+  const [tracks, setTracks] = useState<YouTubeVideo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!enabled || !query) return;
+    setLoading(true);
+    setError(null);
+    const ctrl = new AbortController();
+
+    fetch(`${STRAPI_API_BASE_URL}/api/youtube/search?q=${encodeURIComponent(query)}`, {
+      signal: ctrl.signal,
+    })
+      .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json(); })
+      .then(data => {
+        setTracks(
+          (data.contents || [])
+            .filter((i: any) => i.type === "video" && i.video)
+            .slice(0, 10)
+            .map((i: any) => ({
+              id: i.video.videoId,
+              videoId: i.video.videoId,
+              title: i.video.title,
+              channel: i.video.author?.title || "Unknown",
+              thumbnail: i.video.thumbnails?.at(-1)?.url || `https://i.ytimg.com/vi/${i.video.videoId}/hqdefault.jpg`,
+              duration: i.video.lengthText || "",
+              viewCount: i.video.stats?.views ? formatViewsInner(i.video.stats.views) : "",
+              publishedAt: i.video.publishedTimeText || "",
+            }))
+        );
+      })
+      .catch(e => { if (e.name !== "AbortError") setError(e.message); })
+      .finally(() => setLoading(false));
+
+    return () => ctrl.abort();
+  }, [query, enabled]);
+
+  return { tracks, loading, error };
+}
+
+function formatViewsInner(n: number) {
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M views`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(0)}K views`;
+  return `${n} views`;
 }
 
 function formatViews(n: number) {
@@ -386,6 +473,205 @@ const SearchBar = ({value, onChange}: {value:string;onChange:(v:string)=>void}) 
   </div>
 );
 
+// ── Punjabi Music Modal ────────────────────────────────────
+const PunjabiMusicModal = ({ playlist, onClose }: { playlist: PunjabiPlaylist; onClose: () => void }) => {
+  const [playingVideo, setPlayingVideo] = useState<{ id: string; title: string } | null>(null);
+  const { tracks, loading, error } = usePunjabiMusicSearch(playlist.searchQuery, true);
+
+  return (
+    <>
+      {playingVideo && <VideoPlayerModal videoId={playingVideo.id} title={playingVideo.title} onClose={() => setPlayingVideo(null)} />}
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ animation: "wo-fadeIn .25s ease-out" }}>
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative z-10 w-full sm:max-w-2xl max-h-[92vh] overflow-hidden rounded-t-3xl sm:rounded-2xl shadow-2xl bg-slate-900 border border-slate-700/60 flex flex-col" style={{ animation: "wo-modalSlide .4s cubic-bezier(.34,1.56,.64,1)" }}>
+          <div className="flex justify-center pt-3 pb-1 sm:hidden"><div className="w-10 h-1 rounded-full bg-slate-700" /></div>
+          {/* Header */}
+          <div className={`relative h-44 bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-between px-6 shrink-0 overflow-hidden`}>
+            <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(105deg,transparent 35%,rgba(255,255,255,.18) 50%,transparent 65%)", backgroundSize: "200% 100%", animation: "wo-shimmer 3s linear .5s infinite" }} />
+            <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-xl" style={{ animation: "wo-orb 4s ease-in-out infinite" }} />
+            <div className="absolute -bottom-10 left-10 w-24 h-24 rounded-full bg-black/15 blur-xl" style={{ animation: "wo-orb 5s ease-in-out 1s infinite" }} />
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-white/20 text-white uppercase tracking-wider">🎵 Punjabi Music</span>
+                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${MOOD_BADGE[playlist.mood]}`}>{playlist.mood.toUpperCase()}</span>
+              </div>
+              <h2 className="text-xl font-black text-white leading-tight drop-shadow-sm">{playlist.title}</h2>
+              <p className="text-white/70 text-sm mt-0.5">{playlist.artist}</p>
+              <p className="text-white/50 text-xs mt-0.5">{playlist.bpm}</p>
+            </div>
+            <span className="text-7xl opacity-80 relative z-10 select-none" style={{ animation: "wo-emoji 3s ease-in-out infinite" }}>{playlist.emoji}</span>
+            <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center bg-black/30 text-white hover:bg-black/50 hover:rotate-90 transition-all duration-200 cursor-pointer">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
+          </div>
+          {/* Body */}
+          <div className="overflow-y-auto flex-1 p-5 space-y-4">
+            <p className="text-slate-400 text-sm leading-relaxed">{playlist.description}</p>
+            <div className="flex gap-2 flex-wrap">
+              {playlist.tags.map((tag, i) => (
+                <span key={tag} className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 font-medium capitalize" style={{ animation: `wo-slideUp .3s ease-out ${i * .08}s both` }}>#{tag}</span>
+              ))}
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Live Results · YouTube</h3>
+                {loading && <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: `${i * .15}s` }} />)}</div>}
+              </div>
+              {error && <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400">Error: {error}</div>}
+              {!loading && !error && tracks.length > 0 && (
+                <div className="space-y-2">
+                  {tracks.map((v, i) => (
+                    <button key={v.id} onClick={() => setPlayingVideo({ id: v.videoId, title: v.title })}
+                      className="w-full flex gap-3 p-2.5 rounded-xl hover:bg-slate-800 transition-all duration-200 group text-left cursor-pointer hover:scale-[1.01]"
+                      style={{ animation: `wo-slideUp .35s ease-out ${i * .06}s both` }}>
+                      <div className="relative shrink-0 w-28 h-16 rounded-lg overflow-hidden bg-slate-800">
+                        <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-md scale-75 group-hover:scale-100">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="#111" className="ml-0.5"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                          </div>
+                        </div>
+                        {v.duration && <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] font-bold px-1 rounded">{v.duration}</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-white leading-snug line-clamp-2 group-hover:text-orange-400 transition-colors">{v.title}</p>
+                        <p className="text-[11px] text-slate-500 mt-1 truncate">{v.channel}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {v.viewCount && <span className="text-[10px] text-slate-600">{v.viewCount}</span>}
+                          {v.publishedAt && <span className="text-[10px] text-slate-600">{v.publishedAt}</span>}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!loading && !error && tracks.length === 0 && <p className="text-center text-slate-600 text-xs py-4">No tracks found. Check your backend connection.</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ── Punjabi Music Card ─────────────────────────────────────
+const PunjabiMusicCard = ({ playlist, onPlay, index }: { playlist: PunjabiPlaylist; onPlay: () => void; index: number }) => {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <button onClick={onPlay}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="group text-left w-full rounded-2xl overflow-hidden cursor-pointer relative"
+      style={{ animation: `wo-cardIn .55s cubic-bezier(.34,1.56,.64,1) ${index * 70}ms both`, transform: hovered ? "translateY(-5px) scale(1.02)" : "translateY(0) scale(1)", transition: "transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease", boxShadow: hovered ? "0 20px 50px -15px rgba(0,0,0,.4),0 0 0 1px rgba(251,146,60,.25)" : "0 4px 20px -8px rgba(0,0,0,.25)" }}>
+      <div className="absolute inset-0 rounded-2xl pointer-events-none z-10 transition-opacity duration-300" style={{ background: "linear-gradient(135deg,rgba(251,146,60,.12),rgba(239,68,68,.08))", opacity: hovered ? 1 : 0, boxShadow: hovered ? "inset 0 0 0 1px rgba(251,146,60,.28)" : "none" }} />
+      {/* Card thumbnail */}
+      <div className={`relative h-36 bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-center overflow-hidden`}>
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(105deg,transparent 40%,rgba(255,255,255,.2) 50%,transparent 60%)", backgroundSize: "200% 100%", animation: hovered ? "wo-shimmer 1.4s linear infinite" : "none" }} />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/15 to-transparent" />
+        <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-white/10" style={{ animation: `wo-orb 3s ease-in-out ${index * .3}s infinite` }} />
+        <span className="text-5xl opacity-85 z-10 select-none transition-all duration-500" style={{ animation: hovered ? "wo-emoji 1.5s ease-in-out infinite" : `wo-emoji 4s ease-in-out ${index * .4}s infinite`, transform: hovered ? "scale(1.2)" : "scale(1)" }}>{playlist.emoji}</span>
+        {/* Play overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center z-20">
+          <div className="w-12 h-12 rounded-full bg-white/95 flex items-center justify-center shadow-xl transition-all duration-300" style={{ opacity: hovered ? 1 : 0, transform: hovered ? "scale(1)" : "scale(.7)" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#111" className="ml-1"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+          </div>
+        </div>
+        <div className="absolute top-2.5 left-2.5 z-10">
+          <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wide ${MOOD_BADGE[playlist.mood]}`}>{playlist.mood}</span>
+        </div>
+        <div className="absolute bottom-2.5 right-2.5 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-md z-10">{playlist.bpm}</div>
+      </div>
+      {/* Card body */}
+      <div className="p-4 bg-white dark:bg-slate-800/80 border-x border-b border-slate-100 dark:border-slate-700/50 rounded-b-2xl backdrop-blur-sm">
+        <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-tight line-clamp-1 group-hover:text-orange-400 transition-colors duration-200 mb-0.5">{playlist.title}</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium">{playlist.artist}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed mb-3">{playlist.description}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex gap-1 flex-wrap">
+            {playlist.tags.slice(0, 2).map(t => (
+              <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 capitalize">#{t}</span>
+            ))}
+          </div>
+          <span className="text-[10px] text-orange-400 font-semibold flex items-center gap-0.5 transition-all duration-300" style={{ opacity: hovered ? 1 : 0 }}>
+            Play <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+};
+
+// ── Punjabi Music Section ──────────────────────────────────
+const PunjabiMusicSection = () => {
+  const [activeMood, setActiveMood] = useState<PunjabiPlaylist["mood"] | "all">("all");
+  const [selectedMusic, setSelectedMusic] = useState<PunjabiPlaylist | null>(null);
+
+  const filtered = PUNJABI_PLAYLISTS.filter(p =>
+    activeMood === "all" || p.mood === activeMood
+  );
+
+  return (
+    <div className="relative z-10 max-w-6xl mx-auto px-6 pb-16" style={{ animation: "wo-slideUp .6s ease-out .3s both" }}>
+      {selectedMusic && <PunjabiMusicModal playlist={selectedMusic} onClose={() => setSelectedMusic(null)} />}
+      {/* Section Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/30" style={{ animation: "wo-orb 3s ease-in-out infinite" }}>
+              <span className="text-sm">🎵</span>
+            </div>
+            <span className="text-xs font-bold text-orange-400 tracking-widest uppercase">Workout Music</span>
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white">
+            Punjabi{" "}
+            <span style={{ backgroundImage: "linear-gradient(90deg,#fb923c,#ef4444,#f97316,#fb923c)", backgroundSize: "300% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", animation: "wo-gradient 4s linear infinite" }}>Music</span>
+            {" "}Playlists
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Pump up your workout with the best Punjabi beats — powered by YouTube 🟠</p>
+        </div>
+        {/* Mood filters */}
+        <div className="flex gap-2 flex-wrap">
+          {PUNJABI_MOODS.map(({ key, label, emoji }, i) => {
+            const active = activeMood === key;
+            return (
+              <button key={key} onClick={() => setActiveMood(key as PunjabiPlaylist["mood"] | "all")}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all duration-200 cursor-pointer relative overflow-hidden ${active ? "bg-orange-500 text-black border-orange-500 shadow-lg shadow-orange-500/30 scale-105" : "bg-white dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/50 hover:border-orange-500/50 hover:text-orange-400"}`}
+                style={{ animation: `wo-slideUp .4s ease-out ${i * .05}s both` }}>
+                {active && <span className="absolute inset-0 bg-white/20 rounded-xl" style={{ animation: "wo-ping 1.5s ease-out infinite" }} />}
+                <span className="relative z-10">{emoji}</span>
+                <span className="relative z-10">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Divider with label */}
+      <div className="relative flex items-center gap-4 mb-6">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-orange-500/40 to-transparent" />
+        <span className="text-[11px] font-bold text-orange-400/80 uppercase tracking-widest px-2">🥁 Punjabi Beats for Every Session</span>
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-orange-500/40 to-transparent" />
+      </div>
+
+      {/* Music grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {filtered.map((playlist, i) => (
+          <PunjabiMusicCard key={playlist.id} playlist={playlist} index={i} onPlay={() => setSelectedMusic(playlist)} />
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20 text-center rounded-3xl bg-white/60 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/50" style={{ animation: "wo-scaleIn .4s cubic-bezier(.34,1.56,.64,1) both" }}>
+          <div className="text-4xl mb-3" style={{ animation: "wo-emoji 3s ease-in-out infinite" }}>🎵</div>
+          <p className="text-slate-400 font-bold">No playlists match this mood</p>
+          <button onClick={() => setActiveMood("all")} className="mt-4 px-5 py-2 text-sm font-bold rounded-xl bg-orange-500 text-black hover:bg-orange-400 transition-all duration-200 cursor-pointer hover:scale-105">Show All Music</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function Workouts() {
   const {theme, toggleTheme} = useTheme();
   const [activeCategory, setActiveCategory] = useState<Category|"all">("all");
@@ -519,6 +805,9 @@ export default function Workouts() {
           </div>
         )}
       </div>
+
+      {/* ── Punjabi Music Section ── */}
+      <PunjabiMusicSection />
     </div>
   );
 }
