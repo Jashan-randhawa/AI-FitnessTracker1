@@ -1,11 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
-
-const getGemini = () => {
-  const apiKey = process.env.GOOGLE_API_KEY || process.env.Gemini_API_Key;
-  if (!apiKey) throw new Error("Gemini API key not set.");
-  return new GoogleGenAI({ apiKey });
-};
-
 const chatWithOpenRouter = async (
   messages: ChatMessage[],
   systemInstruction: string
@@ -85,34 +77,6 @@ export const chatWithGemini = async (
     ? `${SYSTEM_PROMPT}\n\nUser context: ${userContext}`
     : SYSTEM_PROMPT;
 
-  const geminiKey = process.env.GOOGLE_API_KEY || process.env.Gemini_API_Key;
-  const openRouterKey = process.env.OPENROUTER_API_KEY;
-
-  if (geminiKey) {
-    try {
-      console.log("[AI] Trying Gemini for chat...");
-      const response = await getGemini().models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: messages,
-        config: { systemInstruction },
-      });
-      console.log("[AI] Gemini chat succeeded.");
-      return response.text ?? "Sorry, I could not generate a response. Please try again.";
-    } catch (err: any) {
-      const isQuota = err?.status === 429 || err?.message?.includes("429") || err?.message?.includes("quota");
-      console.error("[AI] Gemini chat error:", err?.message);
-      if (isQuota && openRouterKey) {
-        console.warn("[AI] Gemini quota exceeded, falling back to OpenRouter...");
-      } else {
-        throw err;
-      }
-    }
-  }
-
-  if (openRouterKey) {
-    console.log("[AI] Using OpenRouter for chat...");
-    return await chatWithOpenRouter(messages, systemInstruction);
-  }
-
-  throw new Error("No AI provider available. Please set Gemini_API_Key or OPENROUTER_API_KEY.");
+  console.log("[AI] Using OpenRouter for chat...");
+  return await chatWithOpenRouter(messages, systemInstruction);
 };

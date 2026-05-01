@@ -1,12 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
 import fs from "fs";
 import path from "path";
-
-const getGemini = () => {
-  const apiKey = process.env.GOOGLE_API_KEY || process.env.Gemini_API_Key;
-  if (!apiKey) throw new Error("Gemini API key not set.");
-  return new GoogleGenAI({ apiKey });
-};
 
 const getMimeType = (filepath: string): string => {
   const ext = path.extname(filepath).toLowerCase();
@@ -43,13 +36,14 @@ const parseAndValidate = (raw: string) => {
   };
 };
 
-const analyzeWithOpenRouter = async (filepath: string): Promise<any> => {
+export const analyzeImage = async (filepath: string) => {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error("OpenRouter API key not set.");
 
   const base64 = fs.readFileSync(filepath, { encoding: "base64" });
   const mimeType = getMimeType(filepath);
 
+  console.log("[AI] Using OpenRouter for image analysis...");
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -82,51 +76,4 @@ const analyzeWithOpenRouter = async (filepath: string): Promise<any> => {
   const data = JSON.parse(responseText) as any;
   const text = data.choices?.[0]?.message?.content ?? "";
   return parseAndValidate(text);
-};
-
-const ANALYZE_TIMEOUT_MS = 20000;
-
-export const analyzeImage = async (filepath: string) => {
-  const geminiKey = process.env.GOOGLE_API_KEY || process.env.Gemini_API_Key;
-  const openRouterKey = process.env.OPENROUTER_API_KEY;
-
-  if (geminiKey) {
-    try {
-      console.log("[AI] Trying Gemini for image analysis...");
-      const base64ImageFile = fs.readFileSync(filepath, { encoding: "base64" });
-      const mimeType = getMimeType(filepath);
-
-      const analysisPromise = getGemini().models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: [
-          { inlineData: { mimeType, data: base64ImageFile } },
-          { text: IMAGE_PROMPT },
-        ],
-      });
-
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Image analysis timed out.")), ANALYZE_TIMEOUT_MS)
-      );
-
-      const response = await Promise.race([analysisPromise, timeoutPromise]);
-      const result = parseAndValidate(response.text ?? "");
-      console.log("[AI] Gemini image analysis succeeded.");
-      return result;
-    } catch (err: any) {
-      const isQuota = err?.status === 429 || err?.message?.includes("429") || err?.message?.includes("quota");
-      console.error("[AI] Gemini image error:", err?.message);
-      if (isQuota && openRouterKey) {
-        console.warn("[AI] Gemini quota exceeded, falling back to OpenRouter...");
-      } else {
-        throw err;
-      }
-    }
-  }
-
-  if (openRouterKey) {
-    console.log("[AI] Using OpenRouter for image analysis...");
-    return await analyzeWithOpenRouter(filepath);
-  }
-
-  throw new Error("No AI provider available. Please set Gemini_API_Key or OPENROUTER_API_KEY.");
 };

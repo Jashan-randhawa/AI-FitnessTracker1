@@ -1,11 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
-
-const getGemini = () => {
-  const apiKey = process.env.GOOGLE_API_KEY || process.env.Gemini_API_Key;
-  if (!apiKey) throw new Error("Gemini API key not set.");
-  return new GoogleGenAI({ apiKey });
-};
-
 const SYSTEM_PROMPT = `You are a fitness calorie estimation assistant.
 
 Your task:
@@ -64,59 +56,36 @@ export const estimateCalories = async (
   weightKg: number
 ): Promise<CalorieEstimateResult> => {
   const userPrompt = `Activity: ${activity}\nDuration: ${durationMinutes} minutes\nWeight: ${weightKg} kg`;
-  const geminiKey = process.env.GOOGLE_API_KEY || process.env.Gemini_API_Key;
   const openRouterKey = process.env.OPENROUTER_API_KEY;
 
-  // Try Gemini first
-  if (geminiKey) {
-    try {
-      console.log("[AI] Trying Gemini for calorie estimate...");
-      const response = await getGemini().models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-        config: { systemInstruction: SYSTEM_PROMPT },
-      });
-      console.log("[AI] Gemini calorie estimate succeeded.");
-      return parseResult(response.text ?? "", activity, durationMinutes, weightKg);
-    } catch (err: any) {
-      const isQuota = err?.status === 429 || err?.message?.includes("429") || err?.message?.includes("quota");
-      if (isQuota && openRouterKey) {
-        console.warn("[AI] Gemini quota exceeded, falling back to OpenRouter...");
-      } else {
-        throw err;
-      }
-    }
+  if (!openRouterKey) {
+    throw new Error("No AI provider available. Please set OPENROUTER_API_KEY.");
   }
 
-  // Fallback to OpenRouter
-  if (openRouterKey) {
-    console.log("[AI] Using OpenRouter for calorie estimate...");
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openRouterKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://fittrack.app",
-        "X-Title": "FitTrack Calorie Estimate",
-      },
-      body: JSON.stringify({
-        model: "openrouter/auto",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
+  console.log("[AI] Using OpenRouter for calorie estimate...");
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openRouterKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://fittrack.app",
+      "X-Title": "FitTrack Calorie Estimate",
+    },
+    body: JSON.stringify({
+      model: "openrouter/auto",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+    }),
+  });
 
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`OpenRouter error: ${err}`);
-    }
-
-    const data = await response.json() as any;
-    const raw = data.choices?.[0]?.message?.content ?? "";
-    return parseResult(raw, activity, durationMinutes, weightKg);
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`OpenRouter error: ${err}`);
   }
 
-  throw new Error("No AI provider available. Please set Gemini_API_Key or OPENROUTER_API_KEY.");
+  const data = await response.json() as any;
+  const raw = data.choices?.[0]?.message?.content ?? "";
+  return parseResult(raw, activity, durationMinutes, weightKg);
 };

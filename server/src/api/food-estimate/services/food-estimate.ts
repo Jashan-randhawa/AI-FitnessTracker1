@@ -1,16 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
-
-const getProviderKeys = () => ({
-  geminiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.Gemini_API_Key,
-  openRouterKey: process.env.OPENROUTER_API_KEY,
-});
-
-const getGemini = () => {
-  const { geminiKey: apiKey } = getProviderKeys();
-  if (!apiKey) throw new Error("Gemini API key not set.");
-  return new GoogleGenAI({ apiKey });
-};
-
 const SYSTEM_PROMPT = `You are a nutrition estimation assistant.
 Given a food entry text, estimate nutrition for one realistic serving.
 
@@ -118,34 +105,6 @@ const estimateWithOpenRouter = async (foodText: string): Promise<FoodEstimateRes
 };
 
 export const estimateFood = async (foodText: string): Promise<FoodEstimateResult> => {
-  const { geminiKey, openRouterKey } = getProviderKeys();
-
-  if (geminiKey) {
-    try {
-      console.log("[AI] Trying Gemini for food estimate...");
-      const response = await getGemini().models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: [{ role: "user", parts: [{ text: `Food entry: ${foodText}` }] }],
-        config: { systemInstruction: SYSTEM_PROMPT },
-      });
-      console.log("[AI] Gemini food estimate succeeded.");
-      return parseResult(response.text ?? "", foodText);
-    } catch (err: unknown) {
-      const status = typeof err === "object" && err !== null && "status" in err ? (err as { status?: number }).status : undefined;
-      const message = typeof err === "object" && err !== null && "message" in err ? String((err as { message?: unknown }).message ?? "") : "";
-      const isQuota = status === 429 || message.includes("429") || message.includes("quota");
-      if (isQuota && openRouterKey) {
-        console.warn("[AI] Gemini quota exceeded, falling back to OpenRouter...");
-      } else {
-        throw err;
-      }
-    }
-  }
-
-  if (openRouterKey) {
-    console.log("[AI] Using OpenRouter for food estimate...");
-    return await estimateWithOpenRouter(foodText);
-  }
-
-  throw new Error("No AI provider available. Please set GOOGLE_API_KEY (Gemini key) or OPENROUTER_API_KEY.");
+  console.log("[AI] Using OpenRouter for food estimate...");
+  return await estimateWithOpenRouter(foodText);
 };
