@@ -1,5 +1,5 @@
 import { Context } from "koa"
-import { analyzeImage } from "../services/gemini";
+import { analyzeImage } from "../services/openrouter";
 
 export default {
     async analyze(ctx: Context) {

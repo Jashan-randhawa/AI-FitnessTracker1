@@ -1,6 +1,6 @@
 import { Context } from "koa";
-import { chatWithGemini } from "../services/gemini-chat";
-import type { ChatMessage } from "../services/gemini-chat";
+import { chatWithGemini } from "../services/openrouter-chat";
+import type { ChatMessage } from "../services/openrouter-chat";
 
 export default {
   async chat(ctx: Context) {
