@@ -1,0 +1,189 @@
+/* Optimistic VF is Meta's proprietary variable face and isn't publicly licensed,
+   so we use Montserrat as the closest open substitute: a geometric-humanist
+   sans with the same 300–700 variable weight range the design system calls for. */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300..800;1,300..800&display=swap');
+@import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));  /* ← ADD THIS LINE */
+
+/*
+ * Design tokens — adapted from the Meta commerce design system (DESIGN.md).
+ * Rather than rewriting every utility class across the app, we remap the
+ * Tailwind palettes/scales the app already uses so the brand language
+ * updates everywhere those utilities are used:
+ *   - emerald  → Cobalt Primary (buy/primary-action blue: #0064E0)
+ *   - red      → Critical (semantic error/destructive red: #E41E3F)
+ *   - purple / violet → Oculus Purple (the system's only other sanctioned accent: #A121CE)
+ *   - radius xl/2xl/3xl/4xl bumped up one step to match Meta's 16/24/32/40px scale
+ *     (xs/sm/md/lg already matched Meta's 2/4/6/8px exactly — no change needed there)
+ * Neutrals (slate) and decorative content colors (amber/orange/yellow used for
+ * streaks, weather, etc.) are left as-is: Meta's own doc has no published
+ * dark-mode neutral tokens ("Known Gaps"), and its own rule is to keep the
+ * palette to two accents — not to recolor every decorative use of color.
+ */
+@theme {
+  --font-sans: "Montserrat", "Helvetica", "Arial", "Noto Sans", sans-serif;
+
+  /* Cobalt Primary ramp — anchored on the real tokens at 400/500/600 */
+  --color-emerald-50: #eaf3ff;
+  --color-emerald-100: #d6e9ff;
+  --color-emerald-200: #adceff;
+  --color-emerald-300: #7bb0ff;
+  --color-emerald-400: #0091ff;  /* primary-soft */
+  --color-emerald-500: #0064e0;  /* primary */
+  --color-emerald-600: #0457cb;  /* primary-deep */
+  --color-emerald-700: #0349a8;
+  --color-emerald-800: #033a85;
+  --color-emerald-900: #032c63;
+  --color-emerald-950: #021d42;
+
+  /* Critical ramp */
+  --color-red-50: #fdecef;
+  --color-red-100: #fad3da;
+  --color-red-200: #f4a7b5;
+  --color-red-400: #f0284a;   /* critical-strong */
+  --color-red-500: #e41e3f;   /* critical */
+  --color-red-600: #c11a37;
+  --color-red-700: #98152b;
+  --color-red-900: #5c0d1a;
+
+  /* Oculus Purple ramp — the system's sole secondary accent */
+  --color-purple-50: #f6ebfb;
+  --color-purple-100: #ecd4f6;
+  --color-purple-200: #d9a8ee;
+  --color-purple-400: #b34ddb;
+  --color-purple-500: #a121ce;
+  --color-purple-600: #841aa8;
+  --color-purple-700: #631480;
+  --color-purple-900: #380b48;
+  --color-violet-50: #f6ebfb;
+  --color-violet-200: #d9a8ee;
+  --color-violet-400: #b34ddb;
+  --color-violet-500: #a121ce;
+  --color-violet-600: #841aa8;
+  --color-violet-700: #631480;
+  --color-violet-800: #4c0f63;
+  --color-violet-900: #380b48;
+  --color-violet-950: #250731;
+
+  /* Named neutral/semantic tokens for new components (pill tabs, badges) */
+  --color-ink-deep: #0a1317;
+  --color-ink: #1c1e21;
+  --color-charcoal: #444950;
+  --color-steel: #5d6c7b;
+  --color-stone: #8595a4;
+  --color-hairline: #ced0d4;
+  --color-hairline-soft: #dee3e9;
+  --color-surface-soft: #f1f4f7;
+
+  /* Radius scale — xs/sm/md/lg already match Meta's 2/4/6/8px */
+  --radius-xl: 16px;   /* was 12px */
+  --radius-2xl: 24px;  /* was 16px */
+  --radius-3xl: 32px;  /* was 24px */
+  --radius-4xl: 40px;  /* new — Meta's "feature" token */
+}
+
+*{
+    font-family: var(--font-sans);
+}
+
+body {
+    @apply dark:bg-slate-950 dark:text-white bg-slate-50 text-gray-900 transition-colors duration-200;
+}
+
+
+/* Shared Page Styles */
+.page-container {
+  @apply min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 transition-colors duration-200;
+}
+
+.page-header {
+  @apply bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 p-6 pt-12 transition-colors duration-200;
+}
+
+.layout-container {
+  @apply min-h-screen lg:max-h-screen lg:flex bg-white dark:bg-slate-950 transition-colors duration-200;
+}
+
+.page-content-grid {
+  @apply p-4 lg:p-6 space-y-4 lg:grid lg:grid-cols-2 lg:gap-6;
+}
+
+/* Login Page */
+.login-page-container {
+  @apply flex items-center justify-center w-full h-screen px-4 bg-white dark:bg-slate-950 transition-colors duration-200;
+}
+
+.login-form {
+  @apply flex w-full flex-col max-w-80;
+}
+
+.login-input {
+  @apply pl-10 rounded-lg ring ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none p-2.5 w-full transition-all duration-200;
+}
+
+.login-button {
+  @apply mt-6 py-3 w-full rounded-full bg-emerald-500 text-white font-bold transition hover:bg-emerald-600 disabled:opacity-60 text-sm;
+}
+
+/* Dashboard Page */
+.dashboard-header {
+  @apply bg-linear-to-br from-emerald-500 to-emerald-600 text-white p-6 pt-12 pb-20 rounded-b-3xl;
+}
+
+.dashboard-grid {
+  @apply px-4 -mt-10 space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:px-6 lg:max-w-4xl lg:mx-auto;
+}
+
+.dashboard-card-grid {
+  @apply grid grid-cols-2 gap-4 lg:col-span-2;
+}
+
+/* Profile Page */
+.profile-content {
+  @apply p-4 lg:p-6 space-y-4 lg:grid grid-cols-2 gap-6;
+}
+
+.profile-info-row {
+  @apply flex items-center gap-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg transition-colors duration-200;
+}
+
+/* Food Log Page — matches Meta's radio-option row treatment (rounded.lg, hairline) */
+.food-entry-item {
+  @apply flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg transition-colors duration-200;
+}
+
+/* Activity Log Page */
+.activity-entry-item {
+  @apply flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg transition-colors duration-200;
+}
+
+/* Onboarding Page */
+.onboarding-container {
+  @apply min-h-screen bg-linear-to-b from-emerald-50 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col transition-colors duration-200;
+}
+
+.onboarding-wrapper {
+  @apply w-full lg:max-w-5xl mx-auto;
+}
+
+/* radio-option / radio-option-selected pattern */
+.onboarding-option-btn {
+  @apply w-full p-3 pl-5 rounded-lg border text-left border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 cursor-pointer;
+}
+
+.onboarding-option-btn-selected {
+  @apply border-2 border-emerald-600 dark:border-emerald-500 bg-white dark:bg-slate-800;
+}
+
+/* Meta badge chips — semantic status pills */
+.badge-success {
+  @apply inline-flex items-center bg-green-600 text-white text-xs font-bold rounded-full px-2.5 py-1;
+}
+
+.badge-warning {
+  @apply inline-flex items-center bg-amber-400 text-ink-deep text-xs font-bold rounded-full px-2.5 py-1;
+}
+
+.badge-critical {
+  @apply inline-flex items-center bg-red-500 text-white text-xs font-bold rounded-full px-2.5 py-1;
+}

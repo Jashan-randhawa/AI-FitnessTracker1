@@ -1,0 +1,373 @@
+diff --git a/client/.env.example b/client/.env.example
+index 3d1c19a..02c987f 100644
+--- a/client/.env.example
++++ b/client/.env.example
+@@ -1,4 +1,7 @@
+ # Trailing slash is optional (trimmed automatically by the client API config).
+ VITE_STRAPI_API_URL=https://your-strapi-backend.com
+ VITE_RAPIDAPI_KEY=your_rapidapi_key
+-VITE_AZURE_MAPS_KEY=your_azure_maps_primary_key
++
++# Weather data comes from Open-Meteo (https://open-meteo.com) - free, no key required.
++# The AI Workout Suggestion feature calls the backend's /api/ai-assistant/chat
++# endpoint, which uses OPENROUTER_API_KEY set in server/.env - no key needed here.
+diff --git a/client/src/Pages/Weather.tsx b/client/src/Pages/Weather.tsx
+index 31186d7..8a67fb6 100644
+--- a/client/src/Pages/Weather.tsx
++++ b/client/src/Pages/Weather.tsx
+@@ -1,9 +1,8 @@
+ import { useState, useEffect, useCallback } from "react";
+ import { useTheme } from "../Context/Themecontext";
+ 
+-/* ─── Azure Maps key from env ─── */
+-const AZURE_KEY = import.meta.env.VITE_AZURE_MAPS_KEY as string;
+-const AZURE_BASE = "https://atlas.microsoft.com/weather";
++/* ─── Open-Meteo (free, no API key required) ─── */
++const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast";
+ 
+ /* ─── Types ─── */
+ type CurrentWeather = {
+@@ -130,36 +129,65 @@ const getAQILevel = (aqi: number): AQILevel => {
+ 
+ const aqiBarPercent = (aqi: number) => Math.min(100, (aqi / 300) * 100);
+ 
+-/* ─── Azure Maps icon → emoji ─── */
+-// Icon codes: https://learn.microsoft.com/azure/azure-maps/weather-services-concepts#weather-icons
+-const AZURE_ICON_EMOJI: Record<number, string> = {
+-  1: "☀️", 2: "🌤️", 3: "🌤️", 4: "⛅", 5: "⛅",
+-  6: "🌥️", 7: "☁️", 8: "☁️",
+-  11: "🌫️",
+-  12: "🌦️", 13: "🌦️", 14: "🌦️",
+-  15: "⛈️", 16: "⛈️", 17: "⛈️",
+-  18: "🌧️",
+-  19: "🌨️", 20: "🌨️", 21: "❄️", 22: "🌨️", 23: "🌨️",
+-  24: "🌨️", 25: "🌧️", 26: "🌧️", 29: "🌧️",
+-  30: "🌡️", 31: "🥶", 32: "💨",
+-  33: "🌙", 34: "🌙", 35: "🌙", 36: "🌙", 37: "🌙", 38: "☁️",
+-  39: "🌧️", 40: "🌧️", 41: "⛈️", 42: "⛈️",
+-  43: "🌨️", 44: "🌨️",
++/* ─── Open-Meteo WMO weather code → emoji / phrase ─── */
++// Codes: https://open-meteo.com/en/docs (WMO Weather interpretation codes)
++const WMO_ICON_EMOJI: Record<number, string> = {
++  0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
++  45: "🌫️", 48: "🌫️",
++  51: "🌦️", 53: "🌦️", 55: "🌧️",
++  56: "🌧️", 57: "🌧️",
++  61: "🌦️", 63: "🌧️", 65: "🌧️",
++  66: "🌧️", 67: "🌨️",
++  71: "🌨️", 73: "🌨️", 75: "❄️", 77: "🌨️",
++  80: "🌦️", 81: "🌧️", 82: "⛈️",
++  85: "🌨️", 86: "🌨️",
++  95: "⛈️", 96: "⛈️", 99: "⛈️",
+ };
+ 
+-const getIconEmoji = (code: number) => AZURE_ICON_EMOJI[code] ?? "🌡️";
++const WMO_PHRASE: Record<number, string> = {
++  0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
++  45: "Fog", 48: "Depositing rime fog",
++  51: "Light drizzle", 53: "Moderate drizzle", 55: "Dense drizzle",
++  56: "Light freezing drizzle", 57: "Dense freezing drizzle",
++  61: "Slight rain", 63: "Moderate rain", 65: "Heavy rain",
++  66: "Light freezing rain", 67: "Heavy freezing rain",
++  71: "Slight snow fall", 73: "Moderate snow fall", 75: "Heavy snow fall", 77: "Snow grains",
++  80: "Slight rain showers", 81: "Moderate rain showers", 82: "Violent rain showers",
++  85: "Slight snow showers", 86: "Heavy snow showers",
++  95: "Thunderstorm", 96: "Thunderstorm with slight hail", 99: "Thunderstorm with heavy hail",
++};
++
++const getIconEmoji = (code: number) => WMO_ICON_EMOJI[code] ?? "🌡️";
++const getPhrase = (code: number) => WMO_PHRASE[code] ?? "Unknown";
+ 
+ const getBgGradient = (iconCode: number, isDayTime: boolean) => {
+   if (!isDayTime) return "from-slate-900 via-blue-950 to-slate-900";
+-  if (iconCode <= 3) return "from-sky-400 via-blue-500 to-blue-600";
+-  if (iconCode <= 8) return "from-slate-400 via-slate-500 to-blue-500";
+-  if (iconCode === 11) return "from-slate-500 via-slate-600 to-slate-700";
+-  if (iconCode >= 12 && iconCode <= 18) return "from-slate-500 via-blue-600 to-slate-600";
+-  if (iconCode >= 19 && iconCode <= 26) return "from-blue-200 via-slate-300 to-blue-400";
+-  if (iconCode >= 33) return "from-slate-900 via-blue-950 to-slate-900";
++  if (iconCode === 0 || iconCode === 1) return "from-sky-400 via-blue-500 to-blue-600";
++  if (iconCode === 2 || iconCode === 3) return "from-slate-400 via-slate-500 to-blue-500";
++  if (iconCode === 45 || iconCode === 48) return "from-slate-500 via-slate-600 to-slate-700";
++  if (iconCode >= 51 && iconCode <= 67) return "from-slate-500 via-blue-600 to-slate-600";
++  if ((iconCode >= 71 && iconCode <= 77) || iconCode === 85 || iconCode === 86)
++    return "from-blue-200 via-slate-300 to-blue-400";
++  if (iconCode >= 80 && iconCode <= 82) return "from-slate-500 via-blue-600 to-slate-600";
++  if (iconCode >= 95) return "from-slate-700 via-slate-800 to-slate-900";
+   return "from-sky-400 via-blue-500 to-blue-600";
+ };
+ 
++/* ─── Wind degrees → compass direction ─── */
++const degToCompass = (deg: number) => {
++  const dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
++  return dirs[Math.round(deg / 22.5) % 16];
++};
++
++/* ─── UV index → phrase (EPA scale) ─── */
++const uvPhrase = (uv: number) => {
++  if (uv < 3) return "Low";
++  if (uv < 6) return "Moderate";
++  if (uv < 8) return "High";
++  if (uv < 11) return "Very High";
++  return "Extreme";
++};
++
+ const formatHour = (iso: string) => {
+   const d = new Date(iso);
+   const h = d.getHours();
+@@ -203,69 +231,104 @@ async function fetchAQI(lat: number, lon: number): Promise<AQIData | null> {
+   }
+ }
+ 
+-async function fetchAzureCurrent(lat: number, lon: number): Promise<CurrentWeather> {
+-  const res = await fetch(
+-    `${AZURE_BASE}/currentConditions/json?api-version=1.1&query=${lat},${lon}&subscription-key=${AZURE_KEY}`
+-  );
+-  if (!res.ok) throw new Error(`Azure current: ${res.status}`);
++async function fetchOpenMeteoWeather(
++  lat: number,
++  lon: number
++): Promise<{ current: CurrentWeather; hourly: HourlyPoint[]; daily: DailyPoint[] }> {
++  const params = new URLSearchParams({
++    latitude: String(lat),
++    longitude: String(lon),
++    timezone: "auto",
++    forecast_days: "7",
++    past_days: "1",
++    current: [
++      "temperature_2m",
++      "apparent_temperature",
++      "relative_humidity_2m",
++      "wind_speed_10m",
++      "wind_direction_10m",
++      "wind_gusts_10m",
++      "surface_pressure",
++      "cloud_cover",
++      "weather_code",
++      "is_day",
++      "visibility",
++    ].join(","),
++    hourly: ["temperature_2m", "weather_code", "precipitation_probability", "is_day", "uv_index", "visibility"].join(","),
++    daily: [
++      "temperature_2m_max",
++      "temperature_2m_min",
++      "weather_code",
++      "precipitation_probability_max",
++      "uv_index_max",
++      "precipitation_sum",
++    ].join(","),
++  });
++
++  const res = await fetch(`${OPEN_METEO_BASE}?${params.toString()}`);
++  if (!res.ok) throw new Error(`Open-Meteo: ${res.status}`);
+   const data = await res.json();
+-  const r = data.results[0];
+-  return {
+-    temperature: Math.round(r.temperature.value),
+-    feelsLike: Math.round(r.realFeelTemperature.value),
+-    humidity: r.relativeHumidity,
+-    windSpeed: Math.round(r.wind.speed.value),
+-    windDir: r.wind.direction.localizedDescription,
+-    windGust: Math.round(r.windGust.speed.value),
+-    uvIndex: r.uvIndex,
+-    uvPhrase: r.uvIndexPhrase,
+-    visibility: parseFloat(r.visibility.value.toFixed(1)),
+-    pressure: Math.round(r.pressure.value),
+-    cloudCover: r.cloudCover,
+-    phrase: r.phrase,
+-    iconCode: r.iconCode,
+-    isDayTime: r.isDayTime,
+-    past24HourRain: r.precipitationSummary?.past24Hours?.value ?? 0,
++
++  const nowHourIndex: number = data.hourly.time.findIndex((t: string) => t === data.current.time) ?? 0;
++  const uvNow = data.hourly.uv_index?.[nowHourIndex] ?? 0;
++  const visibilityKm = (data.current.visibility ?? data.hourly.visibility?.[nowHourIndex] ?? 10000) / 1000;
++
++  // Yesterday's total precipitation, from the past_days=1 window (index 0 of daily arrays).
++  const past24HourRain = data.daily.precipitation_sum?.[0] ?? 0;
++
++  const current: CurrentWeather = {
++    temperature: Math.round(data.current.temperature_2m),
++    feelsLike: Math.round(data.current.apparent_temperature),
++    humidity: data.current.relative_humidity_2m,
++    windSpeed: Math.round(data.current.wind_speed_10m),
++    windDir: degToCompass(data.current.wind_direction_10m),
++    windGust: Math.round(data.current.wind_gusts_10m),
++    uvIndex: Math.round(uvNow),
++    uvPhrase: uvPhrase(uvNow),
++    visibility: parseFloat(visibilityKm.toFixed(1)),
++    pressure: Math.round(data.current.surface_pressure),
++    cloudCover: data.current.cloud_cover,
++    phrase: getPhrase(data.current.weather_code),
++    iconCode: data.current.weather_code,
++    isDayTime: data.current.is_day === 1,
++    past24HourRain: Math.round(past24HourRain * 10) / 10,
+   };
+-}
+ 
+-async function fetchAzureHourly(lat: number, lon: number): Promise<HourlyPoint[]> {
+-  const res = await fetch(
+-    `${AZURE_BASE}/forecast/hourly/json?api-version=1.1&query=${lat},${lon}&duration=12&subscription-key=${AZURE_KEY}`
+-  );
+-  if (!res.ok) throw new Error(`Azure hourly: ${res.status}`);
+-  const data = await res.json();
+-  return (data.forecasts as any[]).map((h) => ({
+-    time: h.date,
+-    temp: Math.round(h.temperature.value),
+-    phrase: h.iconPhrase,
+-    iconCode: h.iconCode,
+-    isDayTime: h.isDaylight ?? true,
+-    precipProb: Math.round(h.precipitationProbability ?? 0),
+-  }));
+-}
++  // Next 12 hours starting from the current hour (skip the "yesterday" padding from past_days=1).
++  const startIdx = nowHourIndex >= 0 ? nowHourIndex : data.hourly.time.findIndex((t: string) => new Date(t) >= new Date());
++  const hourly: HourlyPoint[] = data.hourly.time
++    .slice(startIdx, startIdx + 12)
++    .map((t: string, i: number) => {
++      const idx = startIdx + i;
++      return {
++        time: t,
++        temp: Math.round(data.hourly.temperature_2m[idx]),
++        phrase: getPhrase(data.hourly.weather_code[idx]),
++        iconCode: data.hourly.weather_code[idx],
++        isDayTime: data.hourly.is_day[idx] === 1,
++        precipProb: Math.round(data.hourly.precipitation_probability[idx] ?? 0),
++      };
++    });
+ 
+-async function fetchAzureDaily(lat: number, lon: number): Promise<DailyPoint[]> {
+-  const res = await fetch(
+-    `${AZURE_BASE}/forecast/daily/json?api-version=1.1&query=${lat},${lon}&duration=15&subscription-key=${AZURE_KEY}`
+-  );
+-  if (!res.ok) throw new Error(`Azure daily: ${res.status}`);
+-  const data = await res.json();
+-  return (data.forecasts as any[]).slice(0, 7).map((d) => ({
+-    date: d.date,
+-    maxTemp: Math.round(d.temperature.maximum.value),
+-    minTemp: Math.round(d.temperature.minimum.value),
+-    phrase: d.day?.iconPhrase ?? d.night?.iconPhrase ?? "",
+-    iconCode: d.day?.iconCode ?? d.night?.iconCode ?? 1,
+-    precipProb: Math.round(d.day?.precipitationProbability ?? 0),
+-  }));
++  // Daily arrays include 1 "yesterday" entry first because of past_days=1; skip it, take next 7.
++  const daily: DailyPoint[] = data.daily.time.slice(1, 8).map((d: string, i: number) => {
++    const idx = i + 1;
++    return {
++      date: d,
++      maxTemp: Math.round(data.daily.temperature_2m_max[idx]),
++      minTemp: Math.round(data.daily.temperature_2m_min[idx]),
++      phrase: getPhrase(data.daily.weather_code[idx]),
++      iconCode: data.daily.weather_code[idx],
++      precipProb: Math.round(data.daily.precipitation_probability_max[idx] ?? 0),
++    };
++  });
++
++  return { current, hourly, daily };
+ }
+ 
+ async function fetchAllWeather(lat: number, lon: number): Promise<WeatherData> {
+-  const [current, hourly, daily, aqi, locationName] = await Promise.all([
+-    fetchAzureCurrent(lat, lon),
+-    fetchAzureHourly(lat, lon),
+-    fetchAzureDaily(lat, lon),
++  const [{ current, hourly, daily }, aqi, locationName] = await Promise.all([
++    fetchOpenMeteoWeather(lat, lon),
+     fetchAQI(lat, lon),
+     fetchLocationName(lat, lon),
+   ]);
+@@ -355,6 +418,7 @@ const Weather = () => {
+         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+         body: JSON.stringify({ messages: [{ role: "user", parts: [{ text: prompt }] }] }),
+       });
++      if (!res.ok) throw new Error(`AI assistant: ${res.status}`);
+       const data = await res.json();
+       setAiSuggestion(data.reply || "Could not generate suggestions.");
+     } catch {
+@@ -377,22 +441,42 @@ const Weather = () => {
+     }
+   }, []);
+ 
+-  useEffect(() => {
++  const [locationNotice, setLocationNotice] = useState("");
++
++  const requestLocation = useCallback(() => {
+     if (!navigator.geolocation) {
+-      // Default to New Delhi if geolocation unavailable
++      setLocationNotice("Your browser doesn't support location access — showing New Delhi.");
+       loadWeather(28.6139, 77.209);
+       return;
+     }
+     navigator.geolocation.getCurrentPosition(
+-      (pos) => loadWeather(pos.coords.latitude, pos.coords.longitude),
+-      () => loadWeather(28.6139, 77.209) // fallback
++      (pos) => {
++        setLocationNotice("");
++        loadWeather(pos.coords.latitude, pos.coords.longitude);
++      },
++      (err) => {
++        // GeolocationPositionError codes: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
++        const reason =
++          err.code === 1
++            ? "Location access was denied — enable it in your browser/site settings, then retry."
++            : err.code === 2
++            ? "Your device couldn't determine a location — check GPS/network and retry."
++            : "Getting your location timed out — retry when you have a better signal.";
++        setLocationNotice(`${reason} Showing New Delhi for now.`);
++        loadWeather(28.6139, 77.209);
++      },
++      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+     );
+   }, [loadWeather]);
+ 
++  useEffect(() => {
++    requestLocation();
++  }, [requestLocation]);
++
+   if (loading) return (
+     <div className={`flex flex-col items-center justify-center h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
+       <div className="text-5xl mb-4 animate-bounce">🌤️</div>
+-      <p className="text-slate-500 dark:text-slate-400 text-sm">Fetching weather from Azure Maps…</p>
++      <p className="text-slate-500 dark:text-slate-400 text-sm">Fetching weather from Open-Meteo…</p>
+     </div>
+   );
+ 
+@@ -401,10 +485,10 @@ const Weather = () => {
+       <div className="text-5xl mb-4">😕</div>
+       <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">{error || "Something went wrong."}</p>
+       <button
+-        onClick={() => loadWeather(28.6139, 77.209)}
++        onClick={requestLocation}
+         className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+       >
+-        Retry with default location
++        Retry
+       </button>
+     </div>
+   );
+@@ -420,6 +504,17 @@ const Weather = () => {
+       <div className={`bg-gradient-to-br ${bg} px-6 py-10 relative overflow-hidden`}>
+         <div className="flex flex-col items-start gap-2">
+           <p className="text-white/80 text-sm font-medium">📍 {locationName}</p>
++          {locationNotice && (
++            <div className="flex items-center gap-2 bg-white/15 rounded-lg px-3 py-1.5 text-xs text-white/90">
++              <span>{locationNotice}</span>
++              <button
++                onClick={requestLocation}
++                className="underline shrink-0 hover:text-white cursor-pointer"
++              >
++                Retry
++              </button>
++            </div>
++          )}
+           <div className="text-8xl leading-none mb-1">{getIconEmoji(current.iconCode)}</div>
+           <div className="text-7xl font-thin text-white tracking-tighter">{current.temperature}°C</div>
+           <p className="text-white/90 text-xl font-medium">{current.phrase}</p>
+@@ -552,7 +647,7 @@ const Weather = () => {
+         </div>
+ 
+         <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-4">
+-          Powered by Azure Maps Weather · AQI by Open-Meteo
++          Powered by Open-Meteo
+         </p>
+       </div>
