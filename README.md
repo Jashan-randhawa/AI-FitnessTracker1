@@ -33,6 +33,8 @@ A full-stack, AI-powered fitness and nutrition tracking web application. Log mea
 - **FitBot AI Assistant** — Chat with an AI fitness coach (served via OpenRouter) for personalized advice on nutrition, exercise, and wellness. FitBot is context-aware — it uses your profile (goals, weight, activity level) for tailored responses, and chat history is saved per user.
 - **AI Food Image Analysis** — Upload a photo of your meal and let the AI identify the food and estimate calories.
 - **AI Calorie & Food Estimation** — Estimate calories and macros from a text description of a meal when no image is available.
+- **AI Meal Planner** — Generate a multi-day (3/5/7-day) meal plan tailored to your goal, calorie target, weight, and preferred cuisine; log any suggested meal straight to your Food Log with one click.
+- **AI Activity Planner** — Generate a multi-day workout plan tailored to your training focus (Balanced, Fat Loss, Strength, Endurance, Mobility), experience level, and available equipment, complete with warm-up/cool-down notes; log any planned activity straight to your Activity Log.
 
 ### 📊 Dashboard
 - Daily calorie summary with progress toward your goal
@@ -144,6 +146,8 @@ AI-FitnessTracker1/
 │   │   │   ├── ActivityLog.tsx          # Workout logging
 │   │   │   ├── AIAssistant.tsx          # FitBot chat interface
 │   │   │   ├── Workouts.tsx             # Workout video library with YouTube integration
+│   │   │   ├── MealPlanner.tsx          # AI-generated multi-day meal plan
+│   │   │   ├── ActivityPlanner.tsx      # AI-generated multi-day workout plan
 │   │   │   ├── Blog.tsx                 # Blog listing + live news
 │   │   │   ├── BlogPost.tsx             # Individual blog post view
 │   │   │   ├── Weather.tsx              # Weather forecast & AQI
@@ -400,6 +404,8 @@ The app will be available at `http://localhost:5173`.
 | `POST` | `/api/image-analysis` | Analyze a food image and return a calorie estimate |
 | `POST` | `/api/calorie-estimate` | Estimate calories from a food description |
 | `POST` | `/api/food-estimate` | Estimate full nutrition (calories, protein, carbs, fat) from a food description |
+
+> The **Meal Planner** and **Activity Planner** pages don't have dedicated routes — they build a structured-JSON prompt client-side and reuse `/api/ai-assistant/chat` (the same endpoint FitBot uses), which is why `maxTokens` on that endpoint is sized for a full multi-day plan, not just a short chat reply.
 
 ### Chat History
 
