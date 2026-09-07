@@ -5,6 +5,7 @@ import { useappcontext } from "../Context/AppContext";
 import { useTheme } from "../Context/Themecontext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import AnimatedNumber from "../components/AnimatedNumber";
 
 const GOAL_LABELS: Record<string, string> = {
   lose: "Lose Weight",
@@ -516,13 +517,15 @@ export default function Profile() {
             <p className="text-sm font-bold mb-4">Your Stats</p>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "Food entries",  value: allFoodLogs.length,     color: "text-emerald-500" },
-                { label: "Activities",    value: allActivityLogs.length, color: "text-blue-500"    },
-                { label: "Active streak", value: `${streak}d`,           color: "text-amber-500"   },
-                { label: "Badges earned", value: earnedBadges.length,    color: "text-violet-500"  },
+                { label: "Food entries",  numericValue: allFoodLogs.length,     suffix: "",  color: "text-emerald-500 dark:text-emerald-400" },
+                { label: "Activities",    numericValue: allActivityLogs.length, suffix: "",  color: "text-blue-500 dark:text-blue-400"       },
+                { label: "Active streak", numericValue: streak,                 suffix: "d", color: "text-amber-500 dark:text-amber-400"     },
+                { label: "Badges earned", numericValue: earnedBadges.length,    suffix: "",  color: "text-violet-500 dark:text-violet-400"   },
               ].map((s) => (
-                <div key={s.label} className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/30 rounded-xl p-4 text-center">
-                  <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
+                <div key={s.label} className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/30 rounded-xl p-4 text-center shadow-xs">
+                  <p className={`text-3xl font-bold ${s.color}`}>
+                    <AnimatedNumber value={s.numericValue} />{s.suffix}
+                  </p>
                   <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{s.label}</p>
                 </div>
               ))}
