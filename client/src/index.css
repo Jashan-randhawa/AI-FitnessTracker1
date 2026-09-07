@@ -1,0 +1,340 @@
+/* ABC Arizona (Luffu's actual typefaces) is a proprietary commercial family,
+   so we substitute Playfair Display for the "Flare" editorial display serif
+   and Inter for "Arizona Sans" — both can hold the tight, single-weight,
+   negative-tracking character the reference system calls for. */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400&family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens — adapted from the Luffu style reference (DESIGN.md).
+ * Luffu itself is light-only: warm Parchment ground, near-black Graphite
+ * ink, and exactly one accent — a dark teal "Deep Ink" reserved for the
+ * primary button. It defines no dark mode at all. Since this app needs one,
+ * the dark values below are our own extrapolation, not lifted from the
+ * source doc: we keep the same "one ground + one ink + one restrained
+ * accent" structure and simply invert it — ink becomes the page, parchment
+ * becomes the text — rather than reaching for a generic slate-900 dark UI.
+ *
+ * What changed from the previous (Meta-derived) token set:
+ *   - emerald   → Deep Ink accent ramp (was Cobalt blue #0064E0)
+ *   - red       → kept as the one disclosed exception to Luffu's achromatic
+ *     rule (destructive/critical state needs a real red-family signal);
+ *     desaturated toward the palette instead of a stock bright red
+ *   - purple/violet → retired; Luffu has no secondary accent. Any component
+ *     still referencing purple/violet utilities directly (not through these
+ *     tokens) will need a follow-up pass — flagging as a known gap.
+ *   - slate     → fully remapped to Luffu's Parchment→Graphite ramp, since
+ *     the app's shared page, card, and border classes lean on the slate
+ *     scale everywhere; remapping here re-themes those without touching
+ *     every page file individually
+ *   - radius xl/2xl/3xl/4xl brought back down to Luffu's 4–6px rectilinear
+ *     scale (previous system had bumped these up to 16–40px for a pill/
+ *     card-heavy look)
+ */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, Cambria, "Times New Roman", serif;
+
+  /* Deep Ink ramp — anchored on Luffu's #192830, extended for dark-mode use */
+  --color-emerald-50: #eef2f1;
+  --color-emerald-100: #dde6e4;
+  --color-emerald-200: #b9cbc8;
+  --color-emerald-300: #8fa9a5;
+  --color-emerald-400: #587e79;  /* accent-soft — dark-mode CTA fill */
+  --color-emerald-500: #192830;  /* Deep Ink — the system's single accent */
+  --color-emerald-600: #142027;
+  --color-emerald-700: #0f191f;
+  --color-emerald-800: #0b1216;
+  --color-emerald-900: #070c0e;
+  --color-emerald-950: #040708;
+
+  /* Critical ramp — muted brick, not a stock bright red, to sit quietly
+     inside an otherwise achromatic system */
+  --color-red-50: #f7ece9;
+  --color-red-100: #f0d5cd;
+  --color-red-200: #e2ab9c;
+  --color-red-400: #b85f47;
+  --color-red-500: #a14a34;
+  --color-red-600: #833a29;
+  --color-red-700: #642c1f;
+  --color-red-900: #3b1a12;
+
+  /* Golden Hour ramp — the second disclosed exception. Luffu's own copy
+     describes the brand as "late afternoon sun through a kitchen window"
+     and its imagery as golden-hour photography; that warmth exists in the
+     brief but never made it into UI color. Used sparingly as a highlight
+     accent (progress fills, active states, warning signal) so data-heavy
+     screens have one warm point of contrast against the ink/parchment
+     system, rather than reaching for a second grey-teal. */
+  --color-amber-50: #faf3e3;
+  --color-amber-100: #f2e2bd;
+  --color-amber-200: #e6c988;
+  --color-amber-300: #d6ac54;
+  --color-amber-400: #c9932f;  /* Golden Hour — the warm highlight accent */
+  --color-amber-500: #b37f26;
+  --color-amber-600: #93671e;
+  --color-amber-700: #6f4e17;
+  --color-amber-800: #4d3610;
+
+  /* Slate remapped wholesale to Luffu's paper/ink ramp — this is what
+     retints the page, card, and border classes across every page without
+     editing each file */
+  --color-slate-50: #f5f5ee;   /* Parchment — light-mode page ground */
+  --color-slate-100: #ece9db;
+  --color-slate-200: #e4e7da;  /* Linen — dividers, subtle tint */
+  --color-slate-300: #d7d7cb;  /* Pressed Cotton — card/tertiary surface */
+  --color-slate-400: #b4b6a9;
+  --color-slate-500: #8f948c;  /* Stone — muted secondary text (dark mode) */
+  --color-slate-600: #6b6f68;
+  --color-slate-700: #535557;  /* Slate — secondary text (light mode) */
+  --color-slate-800: #2a3234;  /* dark-mode card surface */
+  --color-slate-900: #1c2224;  /* dark-mode elevated surface */
+  --color-slate-950: #14181a;  /* Ink — dark-mode page ground */
+
+  /* Named neutral/semantic tokens for shared component classes */
+  --color-ink-deep: #14181a;
+  --color-ink: #2f3136;          /* Graphite — primary text, light mode */
+  --color-charcoal: #424e52;     /* Dusk — tertiary text */
+  --color-steel: #535557;        /* Slate — secondary text */
+  --color-stone: #8f948c;
+  --color-hairline: #d7d7cb;
+  --color-hairline-soft: #e4e7da;
+  --color-surface-soft: #f5f5ee;
+
+  /* Radius scale — Luffu is rectilinear: 4–6px on buttons/cards, no pills
+     except avatar/person photography crops (handled per-component) */
+  --radius-xl: 6px;
+  --radius-2xl: 8px;
+  --radius-3xl: 10px;
+  --radius-4xl: 12px;
+}
+
+* {
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+/* Editorial display treatment — Luffu's Flare signature: single weight,
+   tight negative tracking, never bold. Apply to page/section headlines. */
+.font-display {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+body {
+  @apply dark:bg-slate-950 dark:text-slate-100 bg-slate-50 text-ink transition-colors duration-200;
+}
+
+
+/* Shared Page Styles */
+.page-container {
+  @apply min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 transition-colors duration-200;
+}
+
+.page-header {
+  @apply bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-6 pt-12 transition-colors duration-200;
+}
+
+.layout-container {
+  @apply min-h-screen lg:max-h-screen lg:flex bg-white dark:bg-slate-950 transition-colors duration-200;
+}
+
+.page-content-grid {
+  @apply p-4 lg:p-6 space-y-4 lg:grid lg:grid-cols-2 lg:gap-6;
+}
+
+/* Login Page — fully custom-styled inline in Login.tsx (Luffu hero treatment) */
+.login-page-container {
+  @apply flex items-center justify-center w-full h-screen px-4 bg-slate-50 dark:bg-slate-950 transition-colors duration-200;
+}
+
+.login-form {
+  @apply flex w-full flex-col max-w-80;
+}
+
+.login-input {
+  @apply pl-10 rounded-md ring ring-slate-200 dark:ring-slate-700 bg-white dark:bg-slate-900 text-ink dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none p-2.5 w-full transition-all duration-200;
+}
+
+.login-button {
+  @apply mt-6 py-3 w-full rounded-md bg-emerald-500 text-white font-medium transition hover:bg-emerald-600 disabled:opacity-60 text-sm;
+}
+
+/* Dashboard Page — duotone Deep Ink banner with a soft golden-hour glow in
+   the corner. Luffu's own rule bans decorative gradients on content
+   sections, but a hero/header band is closer to their full-bleed-photo
+   hero than a content card — this stands in for that photographic warmth
+   without an actual image asset. */
+.dashboard-header {
+  @apply text-white p-6 pt-12 pb-20 rounded-b-xl relative overflow-hidden;
+  background: linear-gradient(135deg, #1f323c 0%, #14181a 70%);
+}
+.dashboard-header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 88% -10%, rgba(201,147,47,0.28) 0%, transparent 55%);
+  pointer-events: none;
+}
+.dashboard-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard-grid {
+  @apply px-4 -mt-10 space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:px-6 lg:max-w-4xl lg:mx-auto;
+}
+
+.dashboard-card-grid {
+  @apply grid grid-cols-2 gap-4 lg:col-span-2;
+}
+
+/* Profile Page */
+.profile-content {
+  @apply p-4 lg:p-6 space-y-4 lg:grid grid-cols-2 gap-6;
+}
+
+.profile-info-row {
+  @apply flex items-center gap-4 p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md transition-colors duration-200;
+}
+
+/* Food Log Page */
+.food-entry-item {
+  @apply flex items-center justify-between p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md transition-colors duration-200;
+}
+
+/* Activity Log Page */
+.activity-entry-item {
+  @apply flex items-center justify-between p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md transition-colors duration-200;
+}
+
+/* Onboarding Page — fully custom-styled inline in Onboarding.tsx (Luffu dark variant) */
+.onboarding-container {
+  @apply min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-200;
+}
+
+.onboarding-wrapper {
+  @apply w-full lg:max-w-5xl mx-auto;
+}
+
+.onboarding-option-btn {
+  @apply w-full p-3 pl-5 rounded-md border text-left border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 cursor-pointer;
+}
+
+.onboarding-option-btn-selected {
+  @apply border-2 border-amber-400 dark:border-amber-400 bg-white dark:bg-slate-800;
+}
+
+/* Status badges — the disclosed exceptions to Luffu's achromatic rule.
+   Kept rectilinear (Luffu never uses pills). Success stays in the Deep Ink
+   accent family; warning gets the Golden Hour tone so it actually reads as
+   a warning instead of a flat, low-contrast grey chip; critical stays a
+   desaturated brick red. */
+.badge-success {
+  @apply inline-flex items-center bg-emerald-500 text-white text-xs font-medium rounded-md px-2.5 py-1;
+}
+
+.badge-warning {
+  @apply inline-flex items-center bg-amber-400 text-white text-xs font-medium rounded-md px-2.5 py-1;
+}
+
+.badge-critical {
+  @apply inline-flex items-center bg-red-500 text-white text-xs font-medium rounded-md px-2.5 py-1;
+}
+
+/* FitTrack brand mark — dark tile + glowing bolt (see components/Logo.tsx) */
+.fittrack-logo-mark {
+  background: linear-gradient(155deg, #0f1c22 0%, #16262c 100%);
+  animation: fittrack-logo-breathe 2.8s ease-in-out infinite;
+}
+
+.fittrack-logo-mark::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 30% 20%, rgba(45, 212, 191, 0.35), transparent 65%);
+  animation: fittrack-logo-sheen 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.fittrack-logo-text-grad {
+  background: linear-gradient(90deg, #2dd4bf, #4ade80, #2dd4bf);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: fittrack-text-shimmer 3.2s linear infinite;
+}
+
+@keyframes fittrack-logo-breathe {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 2px 10px rgba(45, 212, 191, 0.25), 0 0 0 rgba(74, 222, 128, 0);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 4px 18px rgba(45, 212, 191, 0.4), 0 0 14px rgba(74, 222, 128, 0.35);
+  }
+}
+
+@keyframes fittrack-logo-sheen {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes fittrack-text-shimmer {
+  to { background-position: 200% center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fittrack-logo-mark,
+  .fittrack-logo-mark::after,
+  .fittrack-logo-text-grad {
+    animation: none !important;
+  }
+}
+
+/* Dashboard ring: goal-met glow pulse (see RingProgress in Dashboard.tsx) */
+.ring-goal-glow {
+  animation: ring-goal-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes ring-goal-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 0 rgba(16, 185, 129, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.55));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-goal-glow {
+    animation: none !important;
+  }
+}
+
+/* AI Assistant: breathing "thinking" orb on the bot avatar (see AIAssistant.tsx) */
+.ai-orb-pulse {
+  animation: ai-orb-breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes ai-orb-breathe {
+  0%, 100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 rgba(139, 92, 246, 0.35);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 14px rgba(139, 92, 246, 0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-orb-pulse {
+    animation: none !important;
+  }
+}
