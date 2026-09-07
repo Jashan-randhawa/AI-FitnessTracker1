@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import api from "../configs/api";
 import { useTheme } from "../Context/Themecontext";
 import DateDropdown from "../components/DateDropdown";
+import { StaggerContainer, StaggerItem } from "../components/animations/StaggerList";
 
 type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
@@ -273,10 +274,7 @@ const FoodItemCard = ({ entry, onDelete }: {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 12, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, x: -24, transition: { duration: 0.18 } }}
-      transition={{ type: "spring", stiffness: 320, damping: 26 }}
+      variants={StaggerItem}
       className={`rounded-2xl p-4 transition-all duration-150 border ${confirmId === entry.id ? "bg-rose-950/30 dark:bg-rose-950/40 border-rose-500/30" : "bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/50"}`}
     >
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -346,7 +344,7 @@ const MealSection = ({ mealType, entries, onDelete }: {
         <span className="text-sm font-bold text-gray-900 dark:text-white">{total} kcal</span>
       </div>
 
-      <div className="px-4 pb-4 space-y-2">
+      <motion.div variants={StaggerContainer} initial="hidden" animate="show" className="px-4 pb-4 space-y-2">
         <AnimatePresence initial={false}>
           {entries.map((entry) => (
             <FoodItemCard
@@ -356,7 +354,7 @@ const MealSection = ({ mealType, entries, onDelete }: {
             />
           ))}
         </AnimatePresence>
-      </div>
+      </motion.div>
     </div>
   );
 };

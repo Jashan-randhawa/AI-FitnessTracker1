@@ -4,6 +4,7 @@ import DateDropdown from "../components/DateDropdown";
 import { useappcontext } from "../Context/AppContext";
 import toast from "react-hot-toast";
 import api from "../configs/api";
+import { StaggerContainer, StaggerItem } from "../components/animations/StaggerList";
 
 const resolveDate = (entry: any): string =>
   entry.date ?? entry.createdAt ?? new Date().toISOString();
@@ -240,10 +241,7 @@ const ActivityRow = ({ entry, onDelete }: { entry: any; onDelete: (id: string) =
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, x: -24, transition: { duration: 0.18 } }}
-      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      variants={StaggerItem}
       className="flex items-center justify-between px-4 py-3.5 bg-slate-50 dark:bg-slate-900/40 hover:bg-slate-100 dark:hover:bg-slate-900/70 border-b border-slate-100 dark:border-slate-700/30 last:border-0 transition-colors duration-150"
       style={{ background: confirmId === entry.id ? "rgba(239,68,68,0.05)" : undefined }}
     >
@@ -435,13 +433,13 @@ export default function ActivityLog() {
               </div>
 
               {/* Entries */}
-              <div>
+              <motion.div variants={StaggerContainer} initial="hidden" animate="show">
                 <AnimatePresence initial={false}>
                   {todayLogs.map((entry) => (
                     <ActivityRow key={entry.id} entry={entry} onDelete={handleDelete} />
                   ))}
                 </AnimatePresence>
-              </div>
+              </motion.div>
 
               {/* Footer */}
               <div className="flex items-center justify-between px-5 py-4 border-t border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/30 transition-colors duration-200">

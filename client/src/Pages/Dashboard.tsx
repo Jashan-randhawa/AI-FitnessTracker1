@@ -64,7 +64,7 @@ const BADGE_DEFS = [
 
 // ── Sub-components ─────────────────────────────────────────
 const SkeletonCard = ({ height = "h-28" }: { height?: string }) => (
-  <div className={`${height} rounded-2xl animate-pulse bg-slate-200 dark:bg-slate-800`} />
+  <div className={`${height} rounded-2xl skeleton-shimmer-card`} />
 );
 
 const CustomTooltip = ({ active, payload, label }: any) => {

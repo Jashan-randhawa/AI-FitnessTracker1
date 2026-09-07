@@ -333,8 +333,95 @@ body {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ai-orb-pulse {
-    animation: none !important;
+/* Organic AI Orb: breathing radial gradient with scale 0.95->1.05 and subtle hue-rotate */
+@keyframes ai-orb-organic {
+  0%, 100% {
+    transform: scale(0.95);
+    filter: hue-rotate(0deg) drop-shadow(0 0 8px rgba(16, 185, 129, 0.35));
+  }
+  50% {
+    transform: scale(1.05);
+    filter: hue-rotate(30deg) drop-shadow(0 0 18px rgba(59, 130, 246, 0.55));
   }
 }
+
+.ai-orb-organic-pulse {
+  animation: ai-orb-organic 2.2s ease-in-out infinite;
+  background: radial-gradient(circle at 35% 35%, #34d399 0%, #10b981 40%, #047857 100%);
+}
+
+/* Skeleton layout cards with sweeping gradient shimmer */
+@keyframes skeleton-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.skeleton-shimmer-card {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-slate-200, #e4e7da);
+}
+
+:where(.dark, .dark *) .skeleton-shimmer-card {
+  background-color: var(--color-slate-800, #2a3234);
+}
+
+.skeleton-shimmer-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.05) 50%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+:where(.dark, .dark *) .skeleton-shimmer-card::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+}
+
+/* Workout Rest Timer: urgent heartbeat pulse in final 3 seconds */
+@keyframes rest-heartbeat {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(244, 63, 94, 0);
+  }
+  25% {
+    transform: scale(1.035);
+    box-shadow: 0 0 14px rgba(244, 63, 94, 0.35);
+  }
+  50% {
+    transform: scale(0.985);
+    box-shadow: 0 0 4px rgba(244, 63, 94, 0.15);
+  }
+  75% {
+    transform: scale(1.035);
+    box-shadow: 0 0 14px rgba(244, 63, 94, 0.35);
+  }
+}
+
+.animate-rest-heartbeat {
+  animation: rest-heartbeat 0.75s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-orb-pulse,
+  .ai-orb-organic-pulse,
+  .animate-rest-heartbeat {
+    animation: none !important;
+  }
+  .skeleton-shimmer-card::after {
+    animation: none !important;
+    display: none !important;
+  }
+}
+

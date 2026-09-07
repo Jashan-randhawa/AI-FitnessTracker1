@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 import { useTheme } from "../Context/Themecontext";
+import LiveWorkoutTrackerModal from "../components/animations/LiveWorkoutTrackerModal";
 
 // ── Types ──────────────────────────────────────────────────
 type Category = "all" | "strength" | "cardio" | "yoga" | "hiit" | "mobility";
@@ -714,6 +716,7 @@ export default function Workouts() {
   const [activeLevel, setActiveLevel] = useState<string>("all levels");
   const [search, setSearch] = useState("");
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist|null>(null);
+  const [showSetTracker, setShowSetTracker] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
@@ -823,6 +826,7 @@ export default function Workouts() {
                     {!isMusic ? (
                       <>
                         <button onClick={() => setSelectedPlaylist(featured)} className="px-5 py-2.5 rounded-full text-sm font-bold bg-emerald-400 text-white hover:bg-emerald-300 transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/50 hover:scale-105 active:scale-95">Start Featured Workout</button>
+                        <button onClick={() => setShowSetTracker(true)} className="px-5 py-2.5 rounded-full text-sm font-bold bg-amber-400 text-slate-950 hover:bg-amber-300 transition-all duration-200 cursor-pointer shadow-lg shadow-amber-400/25 hover:scale-105 active:scale-95 flex items-center gap-1.5"><span>⚡</span> Live Set Tracker</button>
                         <button onClick={() => { setActiveCategory("all"); setActiveLevel("all levels"); setSearch(""); }} className="px-5 py-2.5 rounded-full text-sm font-bold bg-white/15 hover:bg-white/25 text-white ring-1 ring-white/40 backdrop-blur-sm transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95">Browse All</button>
                       </>
                     ) : (
@@ -952,6 +956,22 @@ export default function Workouts() {
 
       {/* ── Music Mode ── */}
       {isMusic && <PunjabiMusicSection />}
+
+      {/* ── Floating Live Set Tracker Button ── */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowSetTracker(true)}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm shadow-xl shadow-emerald-500/30 transition-all cursor-pointer"
+      >
+        <span className="text-base">🏋️</span>
+        <span>Live Set Tracker</span>
+      </motion.button>
+
+      {/* ── Set Tracker Modal ── */}
+      {showSetTracker && (
+        <LiveWorkoutTrackerModal onClose={() => setShowSetTracker(false)} />
+      )}
     </div>
   );
 }

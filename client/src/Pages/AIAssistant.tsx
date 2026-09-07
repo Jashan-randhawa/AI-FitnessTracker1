@@ -46,45 +46,88 @@ const BASE_SUGGESTIONS = [
 const formatTime = (date: Date) =>
   date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
-// ── Reveal animation for a freshly-arrived assistant reply ──
-// Each paragraph/list block fades + slides in slightly after the previous
-// one, so a reply doesn't slam onto the screen as one jarring block.
-const MsgContainer = {
+import CollapsiblePlanCard from "../components/animations/CollapsiblePlanCard";
+
+// ── Word/Token Sequential Reveal Variants ──────────────────
+// Fades in words sequentially (opacity: 0, y: 4 -> opacity: 1, y: 0)
+// rather than a jarring bulk block render, smoothing out AI latency.
+const WordContainer = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.09 } },
-};
-const MsgItem = {
-  hidden: { opacity: 0, y: 8 },
-  show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 26 } },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.022, delayChildren: 0.03 },
+  },
 };
 
-// ── Markdown-like renderer ────────────────────────────────
+const WordItem = {
+  hidden: { opacity: 0, y: 4 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] as const },
+  },
+};
+
+// ── Markdown-like renderer with Word Stagger & Accordion Cards ──
 const RenderMessage = ({ text }: { text: string }) => {
   const lines = text.split("\n");
   const elements: React.ReactNode[] = [];
   let listItems: string[] = [];
   let listType: "ul" | "ol" | null = null;
+  let inPlanCard = false;
+  let planTitle = "";
+  let planLines: React.ReactNode[] = [];
+
+  const applyInline = (raw: string): React.ReactNode[] => {
+    const parts = raw.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("**") && part.endsWith("**"))
+        return <strong key={i} className="font-semibold text-gray-900 dark:text-white">{part.slice(2, -2)}</strong>;
+      if (part.startsWith("*") && part.endsWith("*"))
+        return <em key={i}>{part.slice(1, -1)}</em>;
+      return part;
+    });
+  };
+
+  const renderWordsInText = (rawText: string, keyPrefix: string) => {
+    const tokens = rawText.split(/(\s+)/);
+    return tokens.map((token, wIdx) => {
+      if (/^\s+$/.test(token)) {
+        return <span key={`${keyPrefix}-${wIdx}`}>{token}</span>;
+      }
+      return (
+        <motion.span
+          key={`${keyPrefix}-${wIdx}`}
+          variants={WordItem}
+          className="inline-block"
+        >
+          {applyInline(token)}
+        </motion.span>
+      );
+    });
+  };
 
   const flushList = (key: string) => {
     if (!listItems.length) return;
+    const target = inPlanCard ? planLines : elements;
     if (listType === "ul") {
-      elements.push(
-        <ul key={key} className="list-none space-y-1 my-1">
+      target.push(
+        <ul key={key} className="list-none space-y-1.5 my-1.5">
           {listItems.map((item, i) => (
             <li key={i} className="flex items-start gap-2">
-              <span className="mt-1 shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400 dark:bg-emerald-500" />
-              <span>{applyInline(item)}</span>
+              <motion.span variants={WordItem} className="mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400 dark:bg-emerald-500" />
+              <span className="flex-1 leading-relaxed">{renderWordsInText(item, `ul-${i}`)}</span>
             </li>
           ))}
         </ul>
       );
     } else {
-      elements.push(
-        <ol key={key} className="list-none space-y-1 my-1">
+      target.push(
+        <ol key={key} className="list-none space-y-1.5 my-1.5">
           {listItems.map((item, i) => (
             <li key={i} className="flex items-start gap-2">
-              <span className="shrink-0 font-semibold text-emerald-500 dark:text-emerald-400 min-w-[18px]">{i + 1}.</span>
-              <span>{applyInline(item)}</span>
+              <motion.span variants={WordItem} className="shrink-0 font-semibold text-emerald-500 dark:text-emerald-400 min-w-[18px]">{i + 1}.</motion.span>
+              <span className="flex-1 leading-relaxed">{renderWordsInText(item, `ol-${i}`)}</span>
             </li>
           ))}
         </ol>
@@ -93,43 +136,75 @@ const RenderMessage = ({ text }: { text: string }) => {
     listItems = []; listType = null;
   };
 
-  const applyInline = (raw: string): React.ReactNode[] => {
-    const parts = raw.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith("**") && part.endsWith("**"))
-        return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
-      if (part.startsWith("*") && part.endsWith("*"))
-        return <em key={i}>{part.slice(1, -1)}</em>;
-      return part;
-    });
+  const flushPlanCard = (key: string) => {
+    if (inPlanCard && planLines.length > 0) {
+      elements.push(
+        <CollapsiblePlanCard key={key} title={planTitle || "Suggested Plan"} defaultOpen={true}>
+          <div className="space-y-1 text-xs sm:text-sm">
+            {planLines}
+          </div>
+        </CollapsiblePlanCard>
+      );
+      planLines = [];
+      inPlanCard = false;
+      planTitle = "";
+    }
   };
 
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
+
+    // Check for plan headers: e.g. "### Workout Routine" or "**Weekly Meal Plan**"
+    const headerMatch = trimmed.match(/^###\s+(.+)/) || trimmed.match(/^##\s+(.+)/);
+    const planBlockMatch = trimmed.match(/^\*\*(.+plan|.+routine|.+breakdown|.+workout|.+schedule)\*\*/i);
+
+    if (headerMatch || planBlockMatch) {
+      flushList(`list-pre-${idx}`);
+      flushPlanCard(`plan-pre-${idx}`);
+      inPlanCard = true;
+      planTitle = headerMatch ? headerMatch[1] : planBlockMatch![1];
+      return;
+    }
+
     const bulletMatch = trimmed.match(/^[-•]\s+(.+)/);
     const numberedMatch = trimmed.match(/^\d+\.\s+(.+)/);
+
     if (bulletMatch) {
       if (listType === "ol") flushList(`flush-ol-${idx}`);
-      listType = "ul"; listItems.push(bulletMatch[1]);
+      listType = "ul";
+      listItems.push(bulletMatch[1]);
     } else if (numberedMatch) {
       if (listType === "ul") flushList(`flush-ul-${idx}`);
-      listType = "ol"; listItems.push(numberedMatch[1]);
+      listType = "ol";
+      listItems.push(numberedMatch[1]);
     } else {
       flushList(`flush-${idx}`);
-      if (trimmed) elements.push(<p key={idx} className="my-1">{applyInline(trimmed)}</p>);
+      if (trimmed) {
+        const paragraphNode = (
+          <p key={idx} className="my-1.5 leading-relaxed">
+            {renderWordsInText(trimmed, `p-${idx}`)}
+          </p>
+        );
+        if (inPlanCard) {
+          planLines.push(paragraphNode);
+        } else {
+          elements.push(paragraphNode);
+        }
+      }
     }
   });
-  flushList("final");
+
+  flushList("final-list");
+  flushPlanCard("final-plan");
+
   return (
     <motion.div
       className="text-sm leading-relaxed"
-      variants={MsgContainer}
+      variants={WordContainer}
       initial="hidden"
       animate="show"
     >
-      {elements.map((el: any) => (
-        <motion.div key={el.key} variants={MsgItem}>{el}</motion.div>
-      ))}
+      {elements}
     </motion.div>
   );
 };
@@ -413,7 +488,7 @@ Guidelines:
                 transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
                 className="flex gap-3"
               >
-                <div className="ai-orb-pulse shrink-0 w-8 h-8 rounded-xl bg-violet-500 flex items-center justify-center text-white">
+                <div className="ai-orb-organic-pulse shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-white">
                   <BotIcon />
                 </div>
                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl rounded-tl-md px-4 py-3">
