@@ -1,0 +1,79 @@
+
+/* Shared Page Styles */
+.page-container {
+  @apply min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 transition-colors duration-200;
+}
+
+.page-header {
+  @apply bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 p-6 pt-12 transition-colors duration-200;
+}
+
+.layout-container {
+  @apply min-h-screen lg:max-h-screen lg:flex bg-white dark:bg-slate-950 transition-colors duration-200;
+}
+
+.page-content-grid {
+  @apply p-4 lg:p-6 space-y-4 lg:grid lg:grid-cols-2 lg:gap-6;
+}
+
+/* Login Page */
+.login-page-container {
+  @apply flex items-center justify-center w-full h-screen px-4 bg-white dark:bg-slate-950 transition-colors duration-200;
+}
+
+.login-form {
+  @apply flex w-full flex-col max-w-80;
+}
+
+.login-input {
+  @apply pl-10 rounded-md ring ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-600 dark:focus:ring-green-500 outline-none p-2.5 w-full transition-all duration-200;
+}
+
+.login-button {
+  @apply mt-6 py-2.5 w-full rounded-md bg-green-600 text-white transition hover:bg-green-700 disabled:opacity-60 text-sm;
+}
+
+/* Dashboard Page */
+.dashboard-header {
+  @apply bg-linear-to-br from-emerald-500 to-emerald-600 text-white p-6 pt-12 pb-20 rounded-b-3xl;
+}
+
+.dashboard-grid {
+  @apply px-4 -mt-10 space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:px-6 lg:max-w-4xl lg:mx-auto;
+}
+
+.dashboard-card-grid {
+  @apply grid grid-cols-2 gap-4 lg:col-span-2;
+}
+
+/* Profile Page */
+.profile-content {
+  @apply p-4 lg:p-6 space-y-4 lg:grid grid-cols-2 gap-6;
+}
+
+.profile-info-row {
+  @apply flex items-center gap-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg transition-colors duration-200;
+}
+
+/* Food Log Page */
+.food-entry-item {
+  @apply flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl transition-colors duration-200;
+}
+
+/* Activity Log Page */
+.activity-entry-item {
+  @apply flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-xl transition-colors duration-200;
+}
+
+/* Onboarding Page */
+.onboarding-container {
+  @apply min-h-screen bg-linear-to-b from-emerald-50 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col transition-colors duration-200;
+}
+
+.onboarding-wrapper {
+  @apply w-full lg:max-w-5xl mx-auto;
+}
+
+.onboarding-option-btn {
+  @apply w-full p-3 pl-5 rounded-xl border text-left border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 cursor-pointer;
+}
