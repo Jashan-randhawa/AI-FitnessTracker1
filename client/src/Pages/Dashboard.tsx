@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../configs/api";
 import toast from "react-hot-toast";
 import AnimatedNumber from "../components/AnimatedNumber";
+import { StaggerContainer, StaggerItem } from "../components/animations/StaggerList";
 
 // ── Helpers ────────────────────────────────────────────────
 const resolveDate = (entry: any): string =>
@@ -297,7 +298,6 @@ const BmiBar = ({ value }: { value: number }) => {
 
 // ── Dashboard ──────────────────────────────────────────────
 export default function Dashboard() {
-  const [visible, setVisible] = useState(false);
   const { user, allFoodLogs, allActivityLogs, allWaterLogs, setAllWaterLogs, isUserFetched } = useappcontext();
   const { theme } = useTheme();
   const isLight = theme.toString() === "light";
@@ -307,8 +307,6 @@ export default function Dashboard() {
   const [tipLoading, setTipLoading] = useState(false);
   const [chartTab, setChartTab] = useState<"calories" | "protein" | "carbs" | "fat">("calories");
   const [showAllBadges, setShowAllBadges] = useState(false);
-
-  useEffect(() => { setTimeout(() => setVisible(true), 100); }, []);
 
   const todayFoodLogs = useMemo(
     () => allFoodLogs.filter((l) => new Date(resolveDate(l)).toDateString() === today),
@@ -476,9 +474,7 @@ export default function Dashboard() {
       {/* Hero — flat brand fill, not a gradient. Meta's hero pattern is
           photography/solid-first; introducing a teal blend here would be
           exactly the kind of stray third accent the system's Don'ts forbid. */}
-      <div className="bg-emerald-500 px-5 pt-10 pb-20 relative overflow-hidden">
-        <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/5" />
-        <div className="absolute top-10 -right-4 w-24 h-24 rounded-full bg-white/5" />
+      <div className="page-header-dashboard">
         <p className="text-emerald-100 text-xs font-medium mb-1">Welcome back!</p>
         <h1 className="text-2xl font-bold tracking-tight text-white">Hi there! 👋 {user?.username ?? "User"}</h1>
         {user?.goal && (
@@ -491,10 +487,10 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="px-4 -mt-12 space-y-4 max-w-2xl mx-auto">
+      <motion.div variants={StaggerContainer} initial="hidden" animate="show" className="px-4 -mt-12 space-y-4 max-w-2xl mx-auto">
 
         {/* Streak + Net */}
-        <div className={`grid grid-cols-2 gap-4 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "150ms" }}>
+        <motion.div variants={StaggerItem} className="grid grid-cols-2 gap-4">
           <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-2xl p-4 flex flex-col gap-1">
             <span className="text-2xl">🔥</span>
             <span className="text-2xl font-bold text-amber-500 mt-1"><AnimatedNumber value={streak} /> {streak === 1 ? "day" : "days"}</span>
@@ -507,25 +503,25 @@ export default function Dashboard() {
             <span className="text-xs font-medium text-gray-600 dark:text-slate-300">Net Calories</span>
             <span className="text-xs text-gray-400 dark:text-slate-500">Eaten − Burned</span>
           </div>
-        </div>
+        </motion.div>
 
         {/* ── Circular rings: calories consumed + burned ── */}
-        <div className={`${cardCls} transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "0ms" }}>
+        <motion.div variants={StaggerItem} className={cardCls}>
           <h3 className="text-sm font-bold mb-4">Today's Goals</h3>
           <div className="flex flex-wrap justify-center gap-4 md:flex-nowrap md:justify-around">
             <RingProgress value={totalCaloriesToday} max={calorieLimit} color="#0064e0" size={120} label="Calories In" sublabel="consumed" />
             <RingProgress value={totalCaloriesBurnedToday} max={calorieBurnGoal} color="#f97316" size={120} label="Calories Out" sublabel="burned" />
             <RingProgress value={totalActivityMinutes} max={60} color="#a121ce" size={120} label="Active Time" sublabel="minutes" />
           </div>
-        </div>
+        </motion.div>
 
         {/* ── Water tracker ── */}
-        <div className={`transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "200ms" }}>
+        <motion.div variants={StaggerItem}>
           <WaterTracker logs={allWaterLogs} onAdd={handleAddWater} onRemove={handleRemoveWater} />
-        </div>
+        </motion.div>
 
         {/* ── Macro breakdown ── */}
-        <div className={`${softCardCls} transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "250ms" }}>
+        <motion.div variants={StaggerItem} className={softCardCls}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold">Today's Macros</h3>
           </div>
@@ -546,10 +542,10 @@ export default function Dashboard() {
               Log meals with macro details to see your breakdown
             </p>
           )}
-        </div>
+        </motion.div>
 
         {/* ── Achievements ── */}
-        <div className={`${softCardCls} transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "300ms" }}>
+        <motion.div variants={StaggerItem} className={softCardCls}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold">Achievements</h3>
             <span className="text-xs text-gray-400 dark:text-slate-500">{earnedBadges.length}/{BADGE_DEFS.length} earned</span>
@@ -578,10 +574,10 @@ export default function Dashboard() {
               {showAllBadges ? "Show less" : `Show all ${BADGE_DEFS.length} badges`}
             </button>
           )}
-        </div>
+        </motion.div>
 
         {/* ── Today's Summary ── */}
-        <div className={`${softCardCls} transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "350ms" }}>
+        <motion.div variants={StaggerItem} className={softCardCls}>
           <h3 className="text-sm font-bold mb-4">Today's Summary</h3>
           <div className="space-y-0">
             {[
@@ -599,22 +595,22 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* ── BMI + Body ── */}
         {bmi && (
-          <div className={`${softCardCls} transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "400ms" }}>
+          <motion.div variants={StaggerItem} className={softCardCls}>
             <p className="text-xs text-gray-400 dark:text-slate-400 mb-3">Body Metrics</p>
             <div className="flex justify-between text-sm mb-3">
               <span className="text-gray-400 dark:text-slate-400">BMI</span>
               <span className="text-emerald-500 font-bold">{bmi} — {bmiLabel(bmi)}</span>
             </div>
             <BmiBar value={bmi} />
-          </div>
+          </motion.div>
         )}
 
         {/* ── Weekly chart with macro tabs ── */}
-        <div className={`${softCardCls} transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "450ms" }}>
+        <motion.div variants={StaggerItem} className={softCardCls}>
           <h3 className="text-sm font-bold mb-1">Weekly Trends</h3>
           {/* Tab bar */}
           <div className="flex gap-1 mb-4 mt-2 flex-wrap">
@@ -643,10 +639,10 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Daily AI Tip */}
-        <div className={`${cardCls} transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "500ms" }}>
+        <motion.div variants={StaggerItem} className={cardCls}>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 bg-violet-500/15 rounded-xl flex items-center justify-center text-base">💡</div>
             <span className="text-sm font-bold">FitBot's Tip for Today</span>
@@ -662,10 +658,10 @@ export default function Dashboard() {
           ) : (
             <p className="text-sm text-slate-400 dark:text-slate-500 italic">Log your food or activity to get a personalized tip.</p>
           )}
-        </div>
+        </motion.div>
 
         {/* Quick Actions */}
-        <div className={`transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "600ms" }}>
+        <motion.div variants={StaggerItem}>
           <h3 className="text-sm font-bold mb-3 text-gray-900 dark:text-white">Quick Actions</h3>
           <div className="grid grid-cols-2 gap-3">
             {[
@@ -678,16 +674,16 @@ export default function Dashboard() {
               <button
                 key={label}
                 onClick={() => navigate(path)}
-                className={`flex items-center gap-3 p-4 rounded-2xl border ${color} hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 cursor-pointer text-left`}
+                className={`flex items-center gap-3 p-4 rounded-2xl border ${color} hover:scale-[1.02] hover:-translate-y-1 hover:shadow-lg active:scale-[0.98] transition-all duration-150 cursor-pointer text-left`}
               >
                 <span className="text-xl">{icon}</span>
                 <span className="text-sm font-semibold">{label}</span>
               </button>
             ))}
           </div>
-        </div>
+        </motion.div>
 
-      </div>
+      </motion.div>
     </div>
   );
 }

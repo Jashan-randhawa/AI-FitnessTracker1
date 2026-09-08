@@ -135,10 +135,10 @@ Requirements:
     <div className="min-h-screen bg-white dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200 pb-10">
 
       {/* Header */}
-      <div className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800/60 px-5 pt-12 pb-5 lg:pt-8">
+      <div className="page-header-planner">
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-2xl font-bold tracking-tight">Meal Planner</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">AI-generated plans tailored to your goals</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Meal Planner</h1>
+          <p className="text-sm text-teal-100 mt-0.5">AI-generated plans tailored to your goals</p>
         </div>
       </div>
 

@@ -374,18 +374,18 @@ Guidelines:
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white">
 
       {/* Header */}
-      <div className={`${cardCls} px-5 pt-12 pb-4 lg:pt-6 shrink-0`}>
+      <div className="page-header-ai shrink-0 shadow-md">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center text-white">
+              <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white border border-white/20 shadow-inner">
                 <BotIcon />
               </div>
               <div>
-                <h1 className="text-base font-bold">FitBot</h1>
+                <h1 className="text-base sm:text-lg font-bold text-white">FitBot</h1>
                 <div className="flex items-center gap-1.5">
                   <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                  <span className="text-xs text-emerald-500">
+                  <span className="text-xs text-white/90">
                     {memoryLoaded && pastSessions.length > 0 ? `${pastSessions.length} session${pastSessions.length > 1 ? "s" : ""} remembered` : "Online"}
                   </span>
                 </div>
@@ -396,7 +396,7 @@ Guidelines:
               {pastSessions.length > 0 && (
                 <button
                   onClick={() => setShowMemory(!showMemory)}
-                  className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                  className="text-xs px-3 py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer"
                 >
                   🧠 Memory
                 </button>
@@ -404,7 +404,7 @@ Guidelines:
               {messages.length > 0 && (
                 <button
                   onClick={startNewChat}
-                  className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                  className="text-xs px-3 py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer"
                 >
                   New Chat
                 </button>
@@ -414,14 +414,14 @@ Guidelines:
 
           {/* Memory panel */}
           {showMemory && (
-            <div className="mt-3 p-3 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800/40">
+            <div className="mt-3 p-3 rounded-xl bg-white/15 dark:bg-black/30 backdrop-blur-md border border-white/20 text-white">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">🧠 FitBot remembers your past sessions</p>
-                <button onClick={clearMemory} className="text-[10px] text-rose-500 hover:text-rose-600 cursor-pointer">Clear memory</button>
+                <p className="text-xs font-semibold text-white">🧠 FitBot remembers your past sessions</p>
+                <button onClick={clearMemory} className="text-[10px] text-rose-200 hover:text-white underline cursor-pointer">Clear memory</button>
               </div>
               <div className="space-y-2 max-h-32 overflow-y-auto">
                 {pastSessions.slice(0, 3).map((s: any, i) => (
-                  <p key={i} className="text-[11px] text-violet-600 dark:text-violet-400 leading-relaxed line-clamp-2">
+                  <p key={i} className="text-[11px] text-white/80 leading-relaxed line-clamp-2">
                     {s.summary?.split("\n")[0] ?? "Past session"}
                   </p>
                 ))}
@@ -436,7 +436,12 @@ Guidelines:
         <div className="max-w-2xl mx-auto space-y-4">
 
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-col items-center justify-center py-12 text-center"
+            >
               <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-3xl mb-4">🤖</div>
               <h2 className="text-lg font-bold mb-1">Hey, I'm FitBot!</h2>
               <p className="text-sm text-gray-500 dark:text-slate-400 mb-6 max-w-xs">
@@ -447,13 +452,13 @@ Guidelines:
                   <button
                     key={s}
                     onClick={() => sendMessage(s)}
-                    className="text-left px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-700 dark:text-slate-300 hover:border-emerald-300 dark:hover:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all duration-150 cursor-pointer"
+                    className="text-left px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-700 dark:text-slate-300 hover:border-emerald-300 dark:hover:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:scale-[1.03] hover:shadow-md transition-all duration-200 cursor-pointer"
                   >
                     {s}
                   </button>
                 ))}
               </div>
-            </div>
+            </motion.div>
           )}
 
           <AnimatePresence initial={false}>

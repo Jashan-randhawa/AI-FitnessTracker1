@@ -104,7 +104,7 @@ const EditProfileModal = ({ user, onClose, onSave }: {
 
 // ── Info Row ─────────────────────────────────────────────────
 const InfoRow = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
-  <div className="flex items-center gap-4 p-3.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/30">
+  <div className="flex items-center gap-4 p-3.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/30 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
     <div className="w-9 h-9 bg-slate-200 dark:bg-slate-700/60 rounded-lg flex items-center justify-center shrink-0 text-slate-600 dark:text-slate-300">{icon}</div>
     <div>
       <p className="text-xs text-slate-600 dark:text-slate-400">{label}</p>
@@ -445,15 +445,15 @@ export default function Profile() {
     <div className="min-h-screen bg-white dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200">
 
       {/* Header */}
-      <div className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800/60 px-5 pt-12 pb-5 lg:pt-8">
+      <div className="page-header-profile">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Manage your account</p>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Profile</h1>
+            <p className="text-sm text-white/70 mt-0.5">Manage your account</p>
           </div>
           <button
             onClick={() => setShowShareCard(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/20 text-sm font-medium text-white hover:bg-white/10 transition-colors cursor-pointer"
           >
             📤 Share Progress
           </button>

@@ -356,8 +356,8 @@ async function fetchAllWeather(lat: number, lon: number): Promise<WeatherData> {
 
 /* ─── Sub-components ─── */
 const StatCard = ({ label, value, icon }: { label: string; value: string; icon: string }) => (
-  <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 flex flex-col gap-1">
-    <span className="text-2xl">{icon}</span>
+  <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 flex flex-col gap-1 hover:-translate-y-1 hover:shadow-lg transition-all duration-200">
+    <span className="text-2xl animate-float">{icon}</span>
     <span className="text-white/70 text-xs font-medium uppercase tracking-wide">{label}</span>
     <span className="text-white font-semibold text-lg leading-tight">{value}</span>
   </div>
@@ -555,7 +555,7 @@ const Weather = () => {
     <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"} transition-colors duration-200`}>
 
       {/* ── Hero / Current ── */}
-      <div className={`bg-gradient-to-br ${bg} px-6 py-10 relative overflow-hidden`}>
+      <div className={`page-header-weather ${bg}`}>
         <div className="flex flex-col items-start gap-2">
           <div className="flex items-center gap-2">
             <p className="text-white/80 text-sm font-medium">📍 {locationName}</p>

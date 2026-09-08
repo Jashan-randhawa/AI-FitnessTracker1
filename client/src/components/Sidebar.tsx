@@ -9,6 +9,8 @@ type NavItem = {
   icon: ReactElement;
   path?: string;
   externalUrl?: string;
+  activeColor: string;
+  dotColor: string;
 };
 
 const HomeIcon = () => (
@@ -101,16 +103,16 @@ const CloseIcon = () => (
 );
 
 const navItems: NavItem[] = [
-  { path: "/", label: "Home", icon: <HomeIcon /> },
-  { path: "/food", label: "Food", icon: <FoodIcon /> },
-  { path: "/activity", label: "Activity", icon: <ActivityIcon /> },
-  { path: "/blog", label: "Blog", icon: <BlogIcon /> },
-  { path: "/ai", label: "AI Assistant", icon: <AIIcon /> },
-  { path: "/weather", label: "Weather", icon: <WeatherIcon /> },
-  { path: "/workouts", label: "Workouts", icon: <WorkoutsIcon /> },
-  { path: "/planner", label: "Meal Planner", icon: <span>📅</span> },
-  { path: "/activity-planner", label: "Activity Planner", icon: <span>🏃</span> },
-  { path: "/profile", label: "Profile", icon: <ProfileIcon /> },
+  { path: "/", label: "Home", icon: <HomeIcon />, activeColor: "bg-emerald-600 dark:bg-emerald-500", dotColor: "bg-emerald-500" },
+  { path: "/food", label: "Food", icon: <FoodIcon />, activeColor: "bg-amber-600 dark:bg-amber-500", dotColor: "bg-amber-500" },
+  { path: "/activity", label: "Activity", icon: <ActivityIcon />, activeColor: "bg-rose-600 dark:bg-rose-500", dotColor: "bg-rose-500" },
+  { path: "/blog", label: "Blog", icon: <BlogIcon />, activeColor: "bg-pink-600 dark:bg-pink-500", dotColor: "bg-pink-500" },
+  { path: "/ai", label: "AI Assistant", icon: <AIIcon />, activeColor: "bg-violet-600 dark:bg-violet-500", dotColor: "bg-violet-500" },
+  { path: "/weather", label: "Weather", icon: <WeatherIcon />, activeColor: "bg-sky-600 dark:bg-sky-500", dotColor: "bg-sky-500" },
+  { path: "/workouts", label: "Workouts", icon: <WorkoutsIcon />, activeColor: "bg-orange-600 dark:bg-orange-500", dotColor: "bg-orange-500" },
+  { path: "/planner", label: "Meal Planner", icon: <span>📅</span>, activeColor: "bg-teal-600 dark:bg-teal-500", dotColor: "bg-teal-500" },
+  { path: "/activity-planner", label: "Activity Planner", icon: <span>🏃</span>, activeColor: "bg-amber-700 dark:bg-amber-600", dotColor: "bg-amber-600" },
+  { path: "/profile", label: "Profile", icon: <ProfileIcon />, activeColor: "bg-indigo-600 dark:bg-indigo-500", dotColor: "bg-indigo-500" },
 ];
 
 // Shared nav content used by both sidebar and drawer
@@ -136,8 +138,7 @@ const NavContent = ({
         <Logo size={36} textClassName="text-[17px]" />
       </div>
 
-      {/* Nav — button-pill-tab / button-pill-tab-active pattern: every nav
-          item is a full pill, active state is a solid dark fill (no border) */}
+      {/* Nav — each item gets its own section accent color for active state */}
       <nav className="flex-1 flex flex-col gap-1 px-3">
         {navItems.map((item) => {
           const active = !item.externalUrl && isActive(item.path);
@@ -145,8 +146,8 @@ const NavContent = ({
                 flex items-center gap-3 px-4 py-2.5 rounded-full w-full text-left text-sm font-bold
                 border transition-all duration-200 cursor-pointer
                 ${active
-                  ? "bg-ink-deep dark:bg-white border-transparent text-white dark:text-ink-deep"
-                  : "bg-transparent border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white font-normal"
+                  ? `${item.activeColor} border-transparent text-white shadow-sm`
+                  : "bg-transparent border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white hover:scale-[1.02] font-normal"
                 }
               `;
           if (item.externalUrl) {

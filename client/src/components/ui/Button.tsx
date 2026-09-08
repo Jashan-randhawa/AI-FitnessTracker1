@@ -16,12 +16,12 @@ export default function Button({ children, onClick, variant = 'primary', classNa
 
     const variants = {
         // Deep Ink fill — this system's one and only filled-action color
-        primary: 'bg-emerald-500 text-white hover:bg-emerald-600 focus:ring-emerald-500 active:scale-[0.98]',
+        primary: 'bg-emerald-500 text-white hover:bg-emerald-600 hover:scale-[1.02] focus:ring-emerald-500 active:scale-[0.98]',
         // Ghost outline — transparent fill, 1px ink border, no shadow
-        secondary: 'bg-transparent border border-ink-deep dark:border-slate-200 text-ink-deep dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 focus:ring-slate-400',
+        secondary: 'bg-transparent border border-ink-deep dark:border-slate-200 text-ink-deep dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 hover:scale-[1.02] focus:ring-slate-400 active:scale-[0.98]',
         // Critical/destructive action — the one disclosed exception to the
         // achromatic rule; still rectilinear, still no shadow
-        danger: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 focus:ring-red-400',
+        danger: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:scale-[1.02] focus:ring-red-400 active:scale-[0.98]',
     };
 
     return (

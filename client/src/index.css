@@ -413,15 +413,218 @@ body {
   animation: rest-heartbeat 0.75s ease-in-out infinite;
 }
 
+/* ── New animation keyframes ─────────────────────────────────── */
+
+/* Gentle floating motion for weather/ambient elements */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Sweeping shimmer accent on progress bars */
+@keyframes shimmer-accent {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* Animated gradient background-position for headers */
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── Page Header Gradient Classes ─────────────────────────────
+   Each page gets a distinctive saturated gradient header band
+   with a soft radial overlay for depth, matching the Dashboard's
+   existing hero pattern. Dark mode uses deeper values. */
+
+/* Dashboard — Emerald → Teal (brand hub) */
+.page-header-dashboard {
+  @apply text-white p-6 pt-12 pb-20 relative overflow-hidden;
+  background: linear-gradient(135deg, #059669 0%, #0d9488 50%, #0f766e 100%);
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+.page-header-dashboard::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 88% -10%, rgba(255,255,255,0.12) 0%, transparent 55%);
+  pointer-events: none;
+}
+.page-header-dashboard > * { position: relative; z-index: 1; }
+
+/* Food Log — Amber → Orange (nutrition, warmth) */
+.page-header-food {
+  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  background: linear-gradient(135deg, #d97706 0%, #ea580c 50%, #c2410c 100%);
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+.page-header-food::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 85% -10%, rgba(255,255,255,0.12) 0%, transparent 55%);
+  pointer-events: none;
+}
+.page-header-food > * { position: relative; z-index: 1; }
+
+/* Activity Log — Rose → Pink (energy, movement) */
+.page-header-activity {
+  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  background: linear-gradient(135deg, #e11d48 0%, #ec4899 50%, #db2777 100%);
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+.page-header-activity::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 85% -10%, rgba(255,255,255,0.15) 0%, transparent 55%);
+  pointer-events: none;
+}
+.page-header-activity > * { position: relative; z-index: 1; }
+
+/* Workouts — Orange → Red (intensity, fire) */
+.page-header-workouts {
+  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  background: linear-gradient(135deg, #ea580c 0%, #dc2626 50%, #b91c1c 100%);
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+.page-header-workouts::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 85% -10%, rgba(255,255,255,0.12) 0%, transparent 55%);
+  pointer-events: none;
+}
+.page-header-workouts > * { position: relative; z-index: 1; }
+
+/* AI Assistant — Violet → Indigo (intelligence, futuristic) */
+.page-header-ai {
+  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  background: linear-gradient(135deg, #7c3aed 0%, #6366f1 50%, #4f46e5 100%);
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+.page-header-ai::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 85% -10%, rgba(255,255,255,0.15) 0%, transparent 55%);
+  pointer-events: none;
+}
+.page-header-ai > * { position: relative; z-index: 1; }
+
+/* Weather — Sky → Blue (atmosphere, sky) */
+.page-header-weather {
+  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #1e40af 100%);
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+.page-header-weather::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 85% -10%, rgba(255,255,255,0.12) 0%, transparent 55%);
+  pointer-events: none;
+}
+.page-header-weather > * { position: relative; z-index: 1; }
+
+/* Meal Planner — Teal → Cyan (fresh, structured) */
+.page-header-planner {
+  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  background: linear-gradient(135deg, #0d9488 0%, #0891b2 50%, #0e7490 100%);
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+.page-header-planner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 85% -10%, rgba(255,255,255,0.12) 0%, transparent 55%);
+  pointer-events: none;
+}
+.page-header-planner > * { position: relative; z-index: 1; }
+
+/* Activity Planner — Amber → Yellow (warm planning) */
+.page-header-activity-planner {
+  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  background: linear-gradient(135deg, #b45309 0%, #d97706 50%, #ca8a04 100%);
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+.page-header-activity-planner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 85% -10%, rgba(255,255,255,0.12) 0%, transparent 55%);
+  pointer-events: none;
+}
+.page-header-activity-planner > * { position: relative; z-index: 1; }
+
+/* Blog — Pink → Fuchsia (editorial, creative) */
+.page-header-blog {
+  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  background: linear-gradient(135deg, #db2777 0%, #c026d3 50%, #a21caf 100%);
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+.page-header-blog::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 85% -10%, rgba(255,255,255,0.15) 0%, transparent 55%);
+  pointer-events: none;
+}
+.page-header-blog > * { position: relative; z-index: 1; }
+
+/* Profile — Indigo → Violet (personal identity) */
+.page-header-profile {
+  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6d28d9 100%);
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+.page-header-profile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 85% -10%, rgba(255,255,255,0.15) 0%, transparent 55%);
+  pointer-events: none;
+}
+.page-header-profile > * { position: relative; z-index: 1; }
+
 @media (prefers-reduced-motion: reduce) {
   .ai-orb-pulse,
   .ai-orb-organic-pulse,
-  .animate-rest-heartbeat {
+  .animate-rest-heartbeat,
+  .animate-float {
     animation: none !important;
   }
   .skeleton-shimmer-card::after {
     animation: none !important;
     display: none !important;
+  }
+  .page-header-dashboard,
+  .page-header-food,
+  .page-header-activity,
+  .page-header-workouts,
+  .page-header-ai,
+  .page-header-weather,
+  .page-header-planner,
+  .page-header-activity-planner,
+  .page-header-blog,
+  .page-header-profile {
+    animation: none !important;
   }
 }
 

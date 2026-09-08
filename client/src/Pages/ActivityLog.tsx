@@ -242,7 +242,7 @@ const ActivityRow = ({ entry, onDelete }: { entry: any; onDelete: (id: string) =
     <motion.div
       layout
       variants={StaggerItem}
-      className="flex items-center justify-between px-4 py-3.5 bg-slate-50 dark:bg-slate-900/40 hover:bg-slate-100 dark:hover:bg-slate-900/70 border-b border-slate-100 dark:border-slate-700/30 last:border-0 transition-colors duration-150"
+      className="flex items-center justify-between px-4 py-3.5 bg-slate-50 dark:bg-slate-900/40 hover:bg-slate-100 dark:hover:bg-slate-900/70 border-b border-slate-100 dark:border-slate-700/30 last:border-0 hover:-translate-y-0.5 hover:shadow-md transition-all duration-150"
       style={{ background: confirmId === entry.id ? "rgba(239,68,68,0.05)" : undefined }}
     >
       <div className="flex items-center gap-3">
@@ -348,15 +348,15 @@ export default function ActivityLog() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200 pb-60">
 
       {/* ── Header ── */}
-      <div className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800/60 px-5 pt-12 pb-5 lg:pt-8 transition-colors duration-200">
+      <div className="page-header-activity">
         <div className="flex items-start justify-between max-w-5xl mx-auto">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Activity Log</h1>
-            <p className="text-sm text-gray-400 dark:text-slate-400 mt-0.5">Track your workouts</p>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Activity Log</h1>
+            <p className="text-sm text-rose-100/80 mt-0.5">Track your workouts</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-gray-400 dark:text-slate-400">Active Today</p>
-            <p className="text-2xl font-bold text-blue-500 dark:text-blue-400">{totalMinutes} min</p>
+            <p className="text-xs text-rose-100/80">Active Today</p>
+            <p className="text-2xl font-bold text-white">{totalMinutes} min</p>
           </div>
         </div>
       </div>

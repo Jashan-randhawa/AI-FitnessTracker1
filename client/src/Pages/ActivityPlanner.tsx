@@ -196,10 +196,10 @@ Requirements:
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200 pb-10">
-      <div className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800/60 px-5 pt-12 pb-5 lg:pt-8">
+      <div className="page-header-activity-planner">
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-2xl font-bold tracking-tight">Activity Planner</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">AI-built training plans based on your profile and goals</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Activity Planner</h1>
+          <p className="text-sm text-white/70 mt-0.5">AI-built training plans based on your profile and goals</p>
         </div>
       </div>
 
@@ -324,7 +324,7 @@ Requirements:
                   const cfg = ACTIVITY_COLORS[activity.type?.toLowerCase()] ?? ACTIVITY_COLORS.custom;
                   const logged = loggedActivities.has(key);
                   return (
-                    <div key={key} className={`${cfg.bg} border rounded-2xl p-4`}>
+                    <div key={key} className={`${cfg.bg} border rounded-2xl p-4 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3">
                           <span className="text-xl mt-0.5">{cfg.icon}</span>

@@ -275,7 +275,7 @@ const FoodItemCard = ({ entry, onDelete }: {
     <motion.div
       layout
       variants={StaggerItem}
-      className={`rounded-2xl p-4 transition-all duration-150 border ${confirmId === entry.id ? "bg-rose-950/30 dark:bg-rose-950/40 border-rose-500/30" : "bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/50"}`}
+      className={`rounded-2xl p-4 transition-all duration-150 border hover:-translate-y-0.5 hover:shadow-md ${confirmId === entry.id ? "bg-rose-950/30 dark:bg-rose-950/40 border-rose-500/30" : "bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/50"}`}
     >
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -601,17 +601,19 @@ export default function FoodLog() {
   if (!isUserFetched) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200">
-        <div className="px-6 pt-10 pb-6 max-w-6xl mx-auto flex items-start justify-between border-b border-slate-200 dark:border-slate-800/60">
-          <div>
-            <h1 className="text-2xl font-bold">Food Log</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Track your daily intake</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-slate-500">Today's Total</p>
-            <div className="h-8 w-28 rounded-lg animate-pulse mt-0.5 bg-slate-200 dark:bg-slate-700" />
+        <div className="page-header-food">
+          <div className="max-w-6xl mx-auto flex items-start justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-white">Food Log</h1>
+              <p className="text-sm text-amber-100/90 mt-0.5">Track your daily intake</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-amber-100/80">Today's Total</p>
+              <div className="h-8 w-28 rounded-lg animate-pulse mt-0.5 bg-white/20" />
+            </div>
           </div>
         </div>
-        <div className="max-w-6xl mx-auto px-6 w-full lg:grid lg:grid-cols-[380px,1fr] lg:gap-6">
+        <div className="max-w-6xl mx-auto px-6 pt-6 w-full lg:grid lg:grid-cols-[380px,1fr] lg:gap-6">
           <div className="space-y-3 mb-6 lg:mb-0">
             {[1,2,3].map(i => <div key={i} className="rounded-2xl h-14 animate-pulse bg-slate-200 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />)}
           </div>
@@ -629,32 +631,34 @@ export default function FoodLog() {
       {showCamera && <CameraModal onCapture={handleCameraCapture} onClose={() => setShowCamera(false)} />}
 
       {/* ── Header ── */}
-      <div className="px-6 pt-10 pb-6 max-w-6xl mx-auto flex items-start justify-between border-b border-slate-200 dark:border-slate-800/60">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Food Log</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Track your daily intake</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-xs text-slate-500">Today's Total</p>
-            <p className="text-2xl font-bold text-emerald-400">{totalCalories} kcal</p>
+      <div className="page-header-food">
+        <div className="max-w-6xl mx-auto flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Food Log</h1>
+            <p className="text-sm text-amber-100/90 mt-0.5">Track your daily intake</p>
           </div>
-          <button
-            onClick={toggleTheme}
-            className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-200 cursor-pointer"
-            aria-label="Toggle theme"
-          >
-            {theme === "dark" ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            )}
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs text-amber-100/80">Today's Total</p>
+              <p className="text-2xl font-bold text-white">{totalCalories} kcal</p>
+            </div>
+            <button
+              onClick={toggleTheme}
+              className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/15 hover:bg-white/25 border border-white/20 text-white transition-colors duration-200 cursor-pointer backdrop-blur-sm"
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ── Body ── */}
-      <div className="max-w-6xl mx-auto px-6 pb-10 lg:grid lg:grid-cols-[380px,1fr] lg:gap-6 lg:items-start">
+      <div className="max-w-6xl mx-auto px-6 pt-6 pb-10 lg:grid lg:grid-cols-[380px,1fr] lg:gap-6 lg:items-start">
 
         {/* ── Left Panel ── */}
         <div className="space-y-3 mb-6 lg:mb-0">

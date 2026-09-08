@@ -173,11 +173,11 @@ const Blog = () => {
     <div className={`min-h-screen px-6 py-8 ${isDark ? "bg-slate-900" : "bg-slate-50"} transition-colors duration-200`}>
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="mb-7">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+        <div className="page-header-blog rounded-2xl mb-7">
+          <h1 className="text-2xl font-bold text-white mb-1">
             Fitness & Health News
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-white/70">
             Live articles from across the web on fitness, nutrition, health, and wellness.
           </p>
         </div>

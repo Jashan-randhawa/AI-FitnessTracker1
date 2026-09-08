@@ -362,7 +362,7 @@ const PlaylistModal = ({playlist, onClose}: {playlist:Playlist;onClose:()=>void}
                       className="w-full flex gap-3 p-2.5 rounded-xl hover:bg-slate-800 transition-all duration-200 group text-left cursor-pointer hover:scale-[1.01]"
                       style={{animation:`wo-slideUp .35s ease-out ${i*.06}s both`}}>
                       <div className="relative shrink-0 w-28 h-16 rounded-lg overflow-hidden bg-slate-800">
-                        <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy"/>
+                        <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy"/>
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                           <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-md scale-75 group-hover:scale-100">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="#111" className="ml-0.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -411,8 +411,8 @@ const PlaylistCard = ({playlist, onPlay, index}: {playlist:Playlist;onPlay:()=>v
 
   return (
     <button onClick={onPlay} onMouseEnter={() => setHovered(true)} onMouseLeave={() => { setHovered(false); setSparkles([]); }} onMouseMove={onMouseMove}
-      className="group text-left w-full rounded-2xl overflow-hidden cursor-pointer relative"
-      style={{animation:`wo-cardIn .55s cubic-bezier(.34,1.56,.64,1) ${index*70}ms both`,transform:hovered?"translateY(-6px) scale(1.02)":"translateY(0) scale(1)",transition:"transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease",boxShadow:hovered?"0 24px 60px -15px rgba(0,0,0,.35),0 0 0 1px rgba(16,185,129,.22)":"0 4px 20px -8px rgba(0,0,0,.2)"}}>
+      className="group text-left w-full rounded-2xl overflow-hidden cursor-pointer relative hover:scale-[1.03] hover:shadow-lg transition-all duration-200"
+      style={{animation:`wo-cardIn .55s cubic-bezier(.34,1.56,.64,1) ${index*70}ms both`}}>
       {sparkles.map(sp => (
         <div key={sp.id} className="absolute pointer-events-none z-30 text-emerald-300 text-xs font-bold select-none" style={{left:`${sp.x}%`,top:`${sp.y}%`,animation:"wo-sparkle .6s ease-out forwards",transform:"translate(-50%,-50%)"}}>✦</div>
       ))}
@@ -519,7 +519,7 @@ const PunjabiMusicModal = ({ playlist, onClose }: { playlist: PunjabiPlaylist; o
                       className="w-full flex gap-3 p-2.5 rounded-xl hover:bg-slate-800 transition-all duration-200 group text-left cursor-pointer hover:scale-[1.01]"
                       style={{ animation: `wo-slideUp .35s ease-out ${i * .06}s both` }}>
                       <div className="relative shrink-0 w-28 h-16 rounded-lg overflow-hidden bg-slate-800">
-                        <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy" />
+                        <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                           <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-md scale-75 group-hover:scale-100">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="#111" className="ml-0.5"><polygon points="5 3 19 12 5 21 5 3" /></svg>
@@ -556,8 +556,8 @@ const PunjabiMusicCard = ({ playlist, onPlay, index }: { playlist: PunjabiPlayli
     <button onClick={onPlay}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="group text-left w-full rounded-2xl overflow-hidden cursor-pointer relative"
-      style={{ animation: `wo-cardIn .55s cubic-bezier(.34,1.56,.64,1) ${index * 70}ms both`, transform: hovered ? "translateY(-5px) scale(1.02)" : "translateY(0) scale(1)", transition: "transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease", boxShadow: hovered ? "0 20px 50px -15px rgba(0,0,0,.4),0 0 0 1px rgba(251,146,60,.25)" : "0 4px 20px -8px rgba(0,0,0,.25)" }}>
+      className="group text-left w-full rounded-2xl overflow-hidden cursor-pointer relative hover:scale-[1.03] hover:shadow-lg transition-all duration-200"
+      style={{ animation: `wo-cardIn .55s cubic-bezier(.34,1.56,.64,1) ${index * 70}ms both` }}>
       <div className="absolute inset-0 rounded-2xl pointer-events-none z-10 transition-opacity duration-300" style={{ background: "linear-gradient(135deg,rgba(251,146,60,.12),rgba(239,68,68,.08))", opacity: hovered ? 1 : 0, boxShadow: hovered ? "inset 0 0 0 1px rgba(251,146,60,.28)" : "none" }} />
       {/* Card thumbnail */}
       <div className={`relative h-36 bg-gradient-to-br ${playlist.thumbnailColor} flex items-center justify-center overflow-hidden`}>
@@ -739,16 +739,16 @@ export default function Workouts() {
       <div className="relative z-10 px-6 pt-10 pb-8 max-w-6xl mx-auto">
         {(() => {
           const featured = filtered[0] || PLAYLISTS[0];
-          const heroGlow = isMusic ? "rgba(219,39,119,.65)" : "rgba(16,185,129,.65)";
+          const heroGlow = isMusic ? "rgba(219,39,119,.65)" : "rgba(234,88,12,.65)";
           const heroBg = isMusic
-            ? "from-white/80 via-pink-100/40 to-purple-100/50 dark:from-slate-900/80 dark:via-pink-900/20 dark:to-purple-900/20"
-            : "from-white/80 via-emerald-100/40 to-cyan-100/50 dark:from-slate-900/80 dark:via-emerald-900/20 dark:to-cyan-900/20";
-          const orb1 = isMusic ? "bg-pink-400/30" : "bg-emerald-400/30";
-          const orb2 = isMusic ? "bg-purple-500/25" : "bg-cyan-500/25";
-          const orb3 = isMusic ? "bg-rose-500/15" : "bg-violet-500/15";
+            ? "bg-gradient-to-br from-white/80 via-pink-100/40 to-purple-100/50 dark:from-slate-900/80 dark:via-pink-900/20 dark:to-purple-900/20"
+            : "";
+          const orb1 = isMusic ? "bg-pink-400/30" : "bg-orange-400/30";
+          const orb2 = isMusic ? "bg-purple-500/25" : "bg-red-500/25";
+          const orb3 = isMusic ? "bg-rose-500/15" : "bg-amber-500/15";
           return (
             <div
-              className={`relative overflow-hidden rounded-3xl border border-white/20 dark:border-slate-700/40 bg-gradient-to-br ${heroBg} transition-all duration-500`}
+              className={`page-header-workouts relative overflow-hidden rounded-3xl border border-white/20 dark:border-slate-700/40 ${heroBg} transition-all duration-500`}
               style={{boxShadow:`0 20px 70px -35px ${heroGlow},0 0 0 1px ${heroGlow.replace(".65","0.08")}`,animation:mounted?"wo-slideUp .6s cubic-bezier(.34,1.56,.64,1) both":"none"}}
             >
               <div className={`absolute -top-20 -left-16 w-56 h-56 rounded-full ${orb1} blur-3xl transition-all duration-500`} style={{animation:"wo-heroGlow 5s ease-in-out infinite"}}/>
