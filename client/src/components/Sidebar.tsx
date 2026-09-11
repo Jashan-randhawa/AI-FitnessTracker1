@@ -1,129 +1,92 @@
-import { useState } from "react";
-import type { ReactElement } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import {
+  Home,
+  Utensils,
+  Activity,
+  Dumbbell,
+  CalendarDays,
+  CalendarCheck,
+  Sparkles,
+  CloudSun,
+  BookOpen,
+  User,
+  Sun,
+  Moon,
+  Menu,
+  X,
+  ChevronsUpDown,
+  ArrowLeftRight,
+  LogOut,
+} from "lucide-react";
 import { useTheme } from "../Context/Themecontext";
+import { useappcontext } from "../Context/AppContext";
 import Logo from "./Logo";
 
-type NavItem = {
+type NavItemConfig = {
+  path: string;
   label: string;
-  icon: ReactElement;
-  path?: string;
-  externalUrl?: string;
-  activeColor: string;
-  dotColor: string;
+  icon: typeof Home;
+  badge?: string | null;
+  section: "TRACKING" | "PLANNING" | "INTELLIGENCE" | "ACCOUNT";
 };
 
-const HomeIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-    <path d="M9 21V12h6v9" />
-  </svg>
-);
-
-const FoodIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
-    <path d="M7 2v20" />
-    <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7" />
-  </svg>
-);
-
-const ActivityIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-  </svg>
-);
-
-const ProfileIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="8" r="4" />
-    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-  </svg>
-);
-
-const BlogIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-    <line x1="9" y1="7" x2="15" y2="7" />
-    <line x1="9" y1="11" x2="15" y2="11" />
-    <line x1="9" y1="15" x2="13" y2="15" />
-  </svg>
-);
-
-const AIIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-    <path d="M12 2a3 3 0 0 1 3 3v6H9V5a3 3 0 0 1 3-3z" />
-    <circle cx="9" cy="17" r="1" fill="currentColor" stroke="none" />
-    <circle cx="15" cy="17" r="1" fill="currentColor" stroke="none" />
-  </svg>
-);
-
-const WeatherIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
-  </svg>
-);
-
-const WorkoutsIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="5 3 19 12 5 21 5 3" />
-  </svg>
-);
-
-
-
-const SunIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="4" />
-    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-  </svg>
-);
-
-const MoonIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-  </svg>
-);
-
-const MenuIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="3" y1="6" x2="21" y2="6" />
-    <line x1="3" y1="12" x2="21" y2="12" />
-    <line x1="3" y1="18" x2="21" y2="18" />
-  </svg>
-);
-
-const CloseIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="18" y1="6" x2="6" y2="18" />
-    <line x1="6" y1="6" x2="18" y2="18" />
-  </svg>
-);
-
-const navItems: NavItem[] = [
-  { path: "/", label: "Home", icon: <HomeIcon />, activeColor: "bg-emerald-600 dark:bg-emerald-500", dotColor: "bg-emerald-500" },
-  { path: "/food", label: "Food", icon: <FoodIcon />, activeColor: "bg-amber-600 dark:bg-amber-500", dotColor: "bg-amber-500" },
-  { path: "/activity", label: "Activity", icon: <ActivityIcon />, activeColor: "bg-rose-600 dark:bg-rose-500", dotColor: "bg-rose-500" },
-  { path: "/blog", label: "Blog", icon: <BlogIcon />, activeColor: "bg-pink-600 dark:bg-pink-500", dotColor: "bg-pink-500" },
-  { path: "/ai", label: "AI Assistant", icon: <AIIcon />, activeColor: "bg-violet-600 dark:bg-violet-500", dotColor: "bg-violet-500" },
-  { path: "/weather", label: "Weather", icon: <WeatherIcon />, activeColor: "bg-sky-600 dark:bg-sky-500", dotColor: "bg-sky-500" },
-  { path: "/workouts", label: "Workouts", icon: <WorkoutsIcon />, activeColor: "bg-orange-600 dark:bg-orange-500", dotColor: "bg-orange-500" },
-  { path: "/planner", label: "Meal Planner", icon: <span>📅</span>, activeColor: "bg-teal-600 dark:bg-teal-500", dotColor: "bg-teal-500" },
-  { path: "/activity-planner", label: "Activity Planner", icon: <span>🏃</span>, activeColor: "bg-amber-700 dark:bg-amber-600", dotColor: "bg-amber-600" },
-  { path: "/profile", label: "Profile", icon: <ProfileIcon />, activeColor: "bg-indigo-600 dark:bg-indigo-500", dotColor: "bg-indigo-500" },
+const navItems: NavItemConfig[] = [
+  { path: "/", label: "Dashboard", icon: Home, section: "TRACKING" },
+  { path: "/food", label: "Food Log", icon: Utensils, section: "TRACKING" },
+  { path: "/activity", label: "Activity Log", icon: Activity, section: "TRACKING" },
+  { path: "/workouts", label: "Workouts", icon: Dumbbell, section: "TRACKING" },
+  { path: "/planner", label: "Meal Planner", icon: CalendarDays, section: "PLANNING" },
+  { path: "/activity-planner", label: "Activity Planner", icon: CalendarCheck, section: "PLANNING" },
+  { path: "/ai", label: "AI Assistant", icon: Sparkles, badge: "AI", section: "INTELLIGENCE" },
+  { path: "/weather", label: "Weather", icon: CloudSun, section: "INTELLIGENCE" },
+  { path: "/blog", label: "Blog", icon: BookOpen, section: "INTELLIGENCE" },
+  { path: "/profile", label: "Profile", icon: User, section: "ACCOUNT" },
 ];
 
-// Shared nav content used by both sidebar and drawer
-const NavContent = ({
-  onNavigate,
-}: {
-  onNavigate: (path: string) => void;
-}) => {
+const sections = [
+  { key: "TRACKING", title: "TRACKING" },
+  { key: "PLANNING", title: "PLANNING" },
+  { key: "INTELLIGENCE", title: "INTELLIGENCE" },
+  { key: "ACCOUNT", title: "ACCOUNT" },
+];
+
+const Sidebar = () => {
+  const navigate = useNavigate();
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const { user, logout } = useappcontext();
   const isLight = theme.toString() === "light";
+
+  // Desktop hover state: collapsed by default, opens only on hover
+  const [isHovered, setIsHovered] = useState(false);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Mobile drawer state
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 160);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+  }, []);
 
   const isActive = (path?: string) => {
     if (!path) return false;
@@ -131,117 +94,294 @@ const NavContent = ({
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 
-  return (
-    <>
-      {/* Logo */}
-      <div className="px-5 mb-9">
-        <Logo size={36} textClassName="text-[17px]" />
-      </div>
-
-      {/* Nav — each item gets its own section accent color for active state */}
-      <nav className="flex-1 flex flex-col gap-1 px-3">
-        {navItems.map((item) => {
-          const active = !item.externalUrl && isActive(item.path);
-          const baseClass = `
-                flex items-center gap-3 px-4 py-2.5 rounded-full w-full text-left text-sm font-bold
-                border transition-all duration-200 cursor-pointer
-                ${active
-                  ? `${item.activeColor} border-transparent text-white shadow-sm`
-                  : "bg-transparent border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white hover:scale-[1.02] font-normal"
-                }
-              `;
-          if (item.externalUrl) {
-            return (
-              <a
-                key={item.label}
-                href={item.externalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={baseClass}
-              >
-                <span>{item.icon}</span>
-                {item.label}
-              </a>
-            );
-          }
-
-          return (
-            <button
-              key={item.label}
-              onClick={() => item.path && onNavigate(item.path)}
-              className={baseClass}
-            >
-              <span>{item.icon}</span>
-              {item.label}
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* Footer */}
-      <div className="mx-3 pt-4 border-t border-slate-100 dark:border-slate-800 transition-colors duration-200">
-        <button
-          onClick={toggleTheme}
-          className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-slate-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 cursor-pointer"
-        >
-          {isLight ? <MoonIcon /> : <SunIcon />}
-          {isLight ? "Dark Mode" : "Light Mode"}
-        </button>
-      </div>
-    </>
-  );
-};
-
-const Sidebar = () => {
-  const navigate = useNavigate();
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
   const handleNavigate = (path: string) => {
     navigate(path);
-    setDrawerOpen(false);
+    setMobileOpen(false);
   };
 
   return (
     <>
-      {/* ── Desktop Sidebar (lg+) ── */}
-      <aside className="hidden lg:flex w-[220px] h-screen flex-col py-7 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 transition-colors duration-200 shrink-0">
-        <NavContent onNavigate={handleNavigate} />
+      {/* ── Desktop Spacer Rail (reserves width in layout so page content never shifts) ── */}
+      <div className="hidden lg:block w-[68px] shrink-0 pointer-events-none" />
+
+      {/* ── Desktop Sidebar: Collapsible Rail + Flyout (Opens only on hover) ── */}
+      <aside
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className="hidden lg:flex fixed top-0 left-0 h-screen z-40 select-none"
+      >
+        {/* Rail (Always visible slim column matching left image) */}
+        <div className="w-[68px] h-full bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col items-center py-3 z-20 shrink-0 transition-colors duration-200">
+          {/* macOS window traffic light dots (matching reference image) */}
+          <div className="flex items-center gap-1.5 pt-1.5 pb-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
+          </div>
+
+          {/* Logo Tile */}
+          <button
+            onClick={() => handleNavigate("/")}
+            className="mb-3 cursor-pointer transition-transform hover:scale-105 active:scale-95"
+            title="FitTrack Dashboard"
+          >
+            <Logo size={36} showText={false} />
+          </button>
+
+          {/* Rail Navigation Icons */}
+          <div className="flex-1 flex flex-col items-center gap-1.5 w-full px-2 overflow-y-auto no-scrollbar">
+            {navItems.map((item) => {
+              const active = isActive(item.path);
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => handleNavigate(item.path)}
+                  title={item.label}
+                  className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150 cursor-pointer ${
+                    active
+                      ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs font-semibold"
+                      : "text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100/70 dark:hover:bg-slate-800/60"
+                  }`}
+                >
+                  <Icon className="w-[18px] h-[18px]" strokeWidth={active ? 2.2 : 1.8} />
+                  {active && (
+                    <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-emerald-500" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Rail Bottom Action (Theme Toggle) */}
+          <div className="pt-2 pb-2 flex flex-col items-center border-t border-slate-100 dark:border-slate-800/80 w-full">
+            <button
+              onClick={toggleTheme}
+              title={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+            >
+              {isLight ? <Moon className="w-[18px] h-[18px]" /> : <Sun className="w-[18px] h-[18px]" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Expanded Panel (Flyout Drawer - opens smoothly beside rail on hover as in right image) */}
+        <div
+          className={`h-full bg-slate-50/98 dark:bg-slate-900/98 backdrop-blur-md border-r border-slate-200/80 dark:border-slate-800 shadow-2xl transition-all duration-200 ease-out flex flex-col overflow-hidden ${
+            isHovered
+              ? "w-[245px] opacity-100 pointer-events-auto border-r"
+              : "w-0 opacity-0 pointer-events-none border-r-0"
+          }`}
+        >
+          <div className="w-[245px] shrink-0 flex flex-col h-full">
+            {/* Header: App Info & Workspace */}
+            <div className="px-4 pt-4 pb-3 border-b border-slate-200/70 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-bold text-slate-900 dark:text-white truncate">FitTrack AI</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400">
+                      v2.0
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                    {user?.email || "store.fittrack.ai"}
+                  </p>
+                </div>
+                <ChevronsUpDown className="w-4 h-4 text-slate-400 shrink-0" />
+              </div>
+
+              {/* Switch view / stores sub-action matching reference */}
+              <button
+                onClick={() => handleNavigate("/profile")}
+                className="mt-2.5 flex items-center gap-2 w-full px-2 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <span>Switch view</span>
+              </button>
+            </div>
+
+            {/* Navigation Groups */}
+            <div className="flex-1 px-3 py-3 overflow-y-auto no-scrollbar space-y-3.5">
+              {sections.map((section) => {
+                const items = navItems.filter((i) => i.section === section.key);
+                return (
+                  <div key={section.key}>
+                    <div className="flex items-center justify-between px-2.5 py-1 text-[11px] font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase">
+                      <span>{section.title}</span>
+                    </div>
+                    <div className="space-y-0.5 mt-0.5">
+                      {items.map((item) => {
+                        const active = isActive(item.path);
+                        const Icon = item.icon;
+                        return (
+                          <button
+                            key={item.path}
+                            onClick={() => handleNavigate(item.path)}
+                            className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer w-full text-left ${
+                              active
+                                ? "bg-slate-200/80 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold shadow-2xs"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <Icon
+                                className={`w-4 h-4 shrink-0 ${
+                                  active ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"
+                                }`}
+                                strokeWidth={active ? 2.2 : 1.8}
+                              />
+                              <span className="truncate">{item.label}</span>
+                            </div>
+                            {item.badge && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400">
+                                {item.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer: User Details & Theme Toggle */}
+            <div className="p-3 border-t border-slate-200/70 dark:border-slate-800 space-y-1.5">
+              <button
+                onClick={toggleTheme}
+                className="flex items-center justify-between w-full px-2.5 py-2 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                  <span>{isLight ? "Dark Mode" : "Light Mode"}</span>
+                </div>
+                <span className="text-[10px] uppercase font-semibold text-slate-400">
+                  {isLight ? "OFF" : "ON"}
+                </span>
+              </button>
+
+              {user && (
+                <div className="flex items-center justify-between pt-1.5 px-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                      {(user.username || "U")[0].toUpperCase()}
+                    </div>
+                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
+                      {user.username || "Account"}
+                    </span>
+                  </div>
+                  {logout && (
+                    <button
+                      onClick={logout}
+                      title="Log Out"
+                      className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </aside>
 
       {/* ── Mobile Topbar (< lg) ── */}
       <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-14 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 transition-colors duration-200">
         <Logo size={28} textClassName="text-[15px]" />
         <button
-          onClick={() => setDrawerOpen(true)}
+          onClick={() => setMobileOpen(true)}
           className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 cursor-pointer"
         >
-          <MenuIcon />
+          <Menu className="w-5 h-5" />
         </button>
       </div>
 
       {/* ── Mobile Drawer Overlay ── */}
       <div
-        onClick={() => setDrawerOpen(false)}
-        className={`lg:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
-          drawerOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        onClick={() => setMobileOpen(false)}
+        className={`lg:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-xs transition-opacity duration-300 ${
+          mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
       />
 
       {/* ── Mobile Drawer Panel ── */}
       <div
-        className={`lg:hidden fixed top-0 left-0 z-50 h-full w-[260px] flex flex-col py-7 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 shadow-2xl transition-transform duration-300 ease-in-out ${
-          drawerOpen ? "translate-x-0" : "-translate-x-full"
+        className={`lg:hidden fixed top-0 left-0 z-50 h-full w-[260px] flex flex-col bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 shadow-2xl transition-transform duration-300 ease-in-out ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Close button */}
-        <button
-          onClick={() => setDrawerOpen(false)}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 cursor-pointer"
-        >
-          <CloseIcon />
-        </button>
+        {/* Mobile Header with traffic lights & Close */}
+        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
+            </div>
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-2">FitTrack</span>
+          </div>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-1 rounded-lg text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-        <NavContent onNavigate={handleNavigate} />
+        {/* Mobile Navigation List */}
+        <div className="flex-1 px-3 py-3 overflow-y-auto space-y-3">
+          {sections.map((section) => {
+            const items = navItems.filter((i) => i.section === section.key);
+            return (
+              <div key={section.key}>
+                <div className="px-2.5 py-1 text-[11px] font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase">
+                  {section.title}
+                </div>
+                <div className="space-y-0.5 mt-0.5">
+                  {items.map((item) => {
+                    const active = isActive(item.path);
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.path}
+                        onClick={() => handleNavigate(item.path)}
+                        className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium w-full text-left transition-colors cursor-pointer ${
+                          active
+                            ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold"
+                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className={`w-4 h-4 ${active ? "text-emerald-500" : "text-slate-400"}`} />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400">
+                            {item.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Mobile Footer Theme Toggle */}
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800">
+          <button
+            onClick={toggleTheme}
+            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            <span>{isLight ? "Dark Mode" : "Light Mode"}</span>
+          </button>
+        </div>
       </div>
     </>
   );
