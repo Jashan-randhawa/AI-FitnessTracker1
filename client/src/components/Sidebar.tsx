@@ -101,18 +101,18 @@ const Sidebar = () => {
       <aside
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`hidden lg:block fixed top-0 left-0 h-screen z-40 select-none transition-all duration-200 ease-out overflow-hidden ${
+        className={`hidden lg:block fixed top-0 left-0 h-screen z-40 select-none transition-all duration-200 ease-out overflow-hidden overflow-x-hidden ${
           isHovered ? "w-[313px] shadow-2xl" : "w-[68px] shadow-none"
         }`}
       >
-        <div className="w-[313px] h-full flex flex-col py-2.5 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 overflow-y-auto no-scrollbar relative">
+        <div className="w-[313px] h-full flex flex-col py-2.5 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 overflow-x-hidden overflow-y-auto no-scrollbar relative [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {/* Subtle tinted background for the expanded panel portion (x >= 68px) */}
           <div className="absolute top-0 left-[68px] right-0 bottom-0 bg-slate-50/98 dark:bg-slate-900/98 border-l border-slate-200/70 dark:border-slate-800 pointer-events-none" />
 
           {/* Unified Rows Container: each row has fixed height matching rail and panel */}
-          <div className="relative z-10 flex flex-col h-full justify-between">
+          <div className="relative z-10 flex flex-col h-full justify-between overflow-x-hidden">
             {/* Top section */}
-            <div>
+            <div className="overflow-x-hidden">
               {/* Row 0: Window traffic light dots */}
               <div className="flex items-center h-7 w-full mb-1">
                 <div className="w-[68px] shrink-0 flex items-center justify-center gap-1.5">
@@ -120,7 +120,7 @@ const Sidebar = () => {
                   <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
                 </div>
-                <div className="w-[245px] shrink-0 flex items-center px-4">
+                <div className="flex-1 min-w-0 flex items-center px-3">
                   <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                     Navigation
                   </span>
@@ -138,11 +138,11 @@ const Sidebar = () => {
                     <Logo size={36} showText={false} />
                   </button>
                 </div>
-                <div className="w-[245px] shrink-0 flex items-center justify-between px-3 min-w-0">
-                  <div className="min-w-0">
+                <div className="flex-1 min-w-0 h-11 flex items-center justify-between px-3">
+                  <div className="min-w-0 pr-2">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-bold text-slate-900 dark:text-white truncate">FitTrack AI</span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400">
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 shrink-0">
                         v2.0
                       </span>
                     </div>
@@ -150,7 +150,7 @@ const Sidebar = () => {
                       {user?.email || "store.fittrack.ai"}
                     </p>
                   </div>
-                  <ChevronsUpDown className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
+                  <ChevronsUpDown className="w-4 h-4 text-slate-400 shrink-0" />
                 </div>
               </div>
 
@@ -165,13 +165,13 @@ const Sidebar = () => {
                     <ArrowLeftRight className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="w-[245px] shrink-0 flex items-center px-2">
+                <div className="flex-1 min-w-0 flex items-center px-2">
                   <button
                     onClick={() => handleNavigate("/profile")}
                     className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer"
                   >
-                    <ArrowLeftRight className="w-3.5 h-3.5" />
-                    <span>Switch view</span>
+                    <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">Switch view</span>
                   </button>
                 </div>
               </div>
@@ -181,18 +181,18 @@ const Sidebar = () => {
                 <div className="w-[68px] shrink-0 flex items-center justify-center">
                   <div className="w-8 h-px bg-slate-200/80 dark:bg-slate-800" />
                 </div>
-                <div className="w-[245px] shrink-0 flex items-center px-3">
+                <div className="flex-1 min-w-0 flex items-center px-3">
                   <div className="w-full h-px bg-slate-200/70 dark:bg-slate-800" />
                 </div>
               </div>
 
               {/* Navigation Item Rows: 100% Aligned Row-by-Row */}
-              <div className="flex flex-col space-y-0.5">
+              <div className="flex flex-col space-y-0.5 overflow-x-hidden">
                 {navItems.map((item) => {
                   const active = isActive(item.path);
                   const Icon = item.icon;
                   return (
-                    <div key={item.path} className="w-full">
+                    <div key={item.path} className="w-full overflow-x-hidden">
                       <div className="flex items-center h-10 w-full">
                         {/* Rail Cell (Icon button) */}
                         <div className="w-[68px] shrink-0 flex items-center justify-center">
@@ -213,7 +213,7 @@ const Sidebar = () => {
                         </div>
 
                         {/* Panel Cell (Icon + Label button) */}
-                        <div className="w-[245px] shrink-0 flex items-center px-2">
+                        <div className="flex-1 min-w-0 flex items-center px-2">
                           <button
                             onClick={() => handleNavigate(item.path)}
                             className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer w-full text-left ${
@@ -232,7 +232,7 @@ const Sidebar = () => {
                               <span className="truncate">{item.label}</span>
                             </div>
                             {item.badge && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400 shrink-0">
                                 {item.badge}
                               </span>
                             )}
@@ -246,7 +246,7 @@ const Sidebar = () => {
                           <div className="w-[68px] shrink-0 flex items-center justify-center">
                             <div className="w-5 h-px bg-slate-100 dark:bg-slate-800" />
                           </div>
-                          <div className="w-[245px] shrink-0 flex items-center px-3">
+                          <div className="flex-1 min-w-0 flex items-center px-3">
                             <div className="w-full h-px bg-slate-200/50 dark:bg-slate-800" />
                           </div>
                         </div>
@@ -258,13 +258,13 @@ const Sidebar = () => {
             </div>
 
             {/* Bottom section (Theme toggle & User account) */}
-            <div className="mt-auto">
+            <div className="mt-auto overflow-x-hidden">
               {/* Divider before footer */}
               <div className="flex items-center h-3 w-full my-1">
                 <div className="w-[68px] shrink-0 flex items-center justify-center">
                   <div className="w-8 h-px bg-slate-200/80 dark:bg-slate-800" />
                 </div>
-                <div className="w-[245px] shrink-0 flex items-center px-3">
+                <div className="flex-1 min-w-0 flex items-center px-3">
                   <div className="w-full h-px bg-slate-200/70 dark:bg-slate-800" />
                 </div>
               </div>
@@ -280,48 +280,48 @@ const Sidebar = () => {
                     {isLight ? <Moon className="w-[18px] h-[18px]" /> : <Sun className="w-[18px] h-[18px]" />}
                   </button>
                 </div>
-                <div className="w-[245px] shrink-0 flex items-center px-2">
+                <div className="flex-1 min-w-0 flex items-center px-2">
                   <button
                     onClick={toggleTheme}
                     className="flex items-center justify-between w-full px-2.5 py-2 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                   >
-                    <div className="flex items-center gap-2.5">
-                      {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-                      <span>{isLight ? "Dark Mode" : "Light Mode"}</span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {isLight ? <Moon className="w-4 h-4 shrink-0" /> : <Sun className="w-4 h-4 shrink-0" />}
+                      <span className="truncate">{isLight ? "Dark Mode" : "Light Mode"}</span>
                     </div>
-                    <span className="text-[10px] uppercase font-semibold text-slate-400">
+                    <span className="text-[10px] uppercase font-semibold text-slate-400 shrink-0">
                       {isLight ? "OFF" : "ON"}
                     </span>
                   </button>
                 </div>
               </div>
 
-              {/* User Account Row: 100% Aligned */}
+              {/* User Account Row: 100% Aligned (Rail avatar + Panel details without duplicate avatar circle) */}
               {user && (
                 <div className="flex items-center h-10 w-full mt-0.5">
                   <div className="w-[68px] shrink-0 flex items-center justify-center">
                     <button
                       onClick={() => handleNavigate("/profile")}
                       title={user.username || "Profile"}
-                      className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shadow-xs cursor-pointer hover:opacity-90"
+                      className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shadow-xs cursor-pointer hover:opacity-90 shrink-0"
                     >
                       {(user.username || "U")[0].toUpperCase()}
                     </button>
                   </div>
-                  <div className="w-[245px] shrink-0 flex items-center justify-between px-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                        {(user.username || "U")[0].toUpperCase()}
-                      </div>
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
+                  <div className="flex-1 min-w-0 flex items-center justify-between px-3">
+                    <div className="flex flex-col min-w-0 pr-2">
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
                         {user.username || "Account"}
+                      </span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                        {user.email || "Active"}
                       </span>
                     </div>
                     {logout && (
                       <button
                         onClick={logout}
                         title="Log Out"
-                        className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                        className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0"
                       >
                         <LogOut className="w-3.5 h-3.5" />
                       </button>
