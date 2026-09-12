@@ -210,14 +210,14 @@ const WaterTracker = ({ logs, onAdd }: {
           <button
             key={ml}
             onClick={() => onAdd(ml)}
-            className="px-3 py-1.5 rounded-full text-xs font-bold bg-blue-500 hover:bg-blue-600 text-white transition-colors cursor-pointer"
+            className="flex-1 sm:flex-initial text-center px-3 py-2 rounded-xl text-xs font-bold bg-blue-500 hover:bg-blue-600 active:scale-95 text-white transition-all cursor-pointer"
           >
             +{ml} ml
           </button>
         ))}
         <button
           onClick={() => setShowCustom(!showCustom)}
-          className="px-3 py-1.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
+          className="flex-1 sm:flex-initial text-center px-3 py-2 rounded-xl text-xs font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60 active:scale-95 transition-all cursor-pointer"
         >
           Custom
         </button>
@@ -272,8 +272,20 @@ const BmiBar = ({ value }: { value: number }) => {
   );
 };
 
+// ── Responsive hook ────────────────────────────────────────
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  return isMobile;
+};
+
 // ── Dashboard ──────────────────────────────────────────────
 export default function Dashboard() {
+  const isMobile = useIsMobile();
   const { user, allFoodLogs, allActivityLogs, allWaterLogs, setAllWaterLogs, isUserFetched } = useappcontext();
   const { theme } = useTheme();
   const isLight = theme.toString() === "light";
@@ -441,7 +453,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      <motion.div variants={StaggerContainer} initial="hidden" animate="show" className="relative z-10 px-4 -mt-12 space-y-4 max-w-2xl mx-auto">
+      <motion.div variants={StaggerContainer} initial="hidden" animate="show" className="relative z-10 px-4 -mt-8 sm:-mt-12 space-y-4 max-w-2xl mx-auto">
 
         {/* Streak + Net */}
         <motion.div variants={StaggerItem} className="grid grid-cols-2 gap-4">
@@ -461,11 +473,11 @@ export default function Dashboard() {
 
         {/* ── Circular rings: calories consumed + burned ── */}
         <motion.div variants={StaggerItem} className={cardCls}>
-          <h3 className="text-sm font-bold mb-4">Today's Goals</h3>
-          <div className="flex flex-wrap justify-center gap-4 md:flex-nowrap md:justify-around">
-            <RingProgress value={totalCaloriesToday} max={calorieLimit} color="#0064e0" size={120} label="Calories In" sublabel="consumed" />
-            <RingProgress value={totalCaloriesBurnedToday} max={calorieBurnGoal} color="#f97316" size={120} label="Calories Out" sublabel="burned" />
-            <RingProgress value={totalActivityMinutes} max={60} color="#a121ce" size={120} label="Active Time" sublabel="minutes" />
+          <h3 className="text-sm font-bold mb-3 sm:mb-4">Today's Goals</h3>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 justify-items-center">
+            <RingProgress value={totalCaloriesToday} max={calorieLimit} color="#0064e0" size={isMobile ? 94 : 120} strokeWidth={isMobile ? 8 : 10} label="Calories In" sublabel="consumed" />
+            <RingProgress value={totalCaloriesBurnedToday} max={calorieBurnGoal} color="#f97316" size={isMobile ? 94 : 120} strokeWidth={isMobile ? 8 : 10} label="Calories Out" sublabel="burned" />
+            <RingProgress value={totalActivityMinutes} max={60} color="#a121ce" size={isMobile ? 94 : 120} strokeWidth={isMobile ? 8 : 10} label="Active Time" sublabel="minutes" />
           </div>
         </motion.div>
 

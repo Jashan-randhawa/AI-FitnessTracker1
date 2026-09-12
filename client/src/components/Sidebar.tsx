@@ -312,14 +312,30 @@ const Sidebar = () => {
       </aside>
 
       {/* ── Mobile Topbar (< lg) ── */}
-      <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-14 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 transition-colors duration-200">
-        <Logo size={28} textClassName="text-[15px]" />
+      <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-14 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors duration-200">
         <button
-          onClick={() => setMobileOpen(true)}
-          className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 cursor-pointer"
+          onClick={() => handleNavigate("/")}
+          className="cursor-pointer"
         >
-          <Menu className="w-5 h-5" />
+          <Logo size={28} textClassName="text-[15px]" />
         </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            title={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            aria-label="Toggle theme"
+          >
+            {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* ── Mobile Drawer Overlay ── */}
@@ -332,7 +348,7 @@ const Sidebar = () => {
 
       {/* ── Mobile Drawer Panel ── */}
       <div
-        className={`lg:hidden fixed top-0 left-0 z-50 h-full w-[260px] flex flex-col bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`lg:hidden fixed top-0 left-0 z-50 h-full w-[280px] max-w-[85vw] flex flex-col bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 shadow-2xl transition-transform duration-300 ease-in-out ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -360,37 +376,79 @@ const Sidebar = () => {
             const active = isActive(item.path);
             const Icon = item.icon;
             return (
-              <button
-                key={item.path}
-                onClick={() => handleNavigate(item.path)}
-                className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium w-full text-left transition-colors cursor-pointer ${
-                  active
-                    ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${active ? "text-emerald-500" : "text-slate-400"}`} />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400">
-                    {item.badge}
-                  </span>
+              <div key={item.path}>
+                <button
+                  onClick={() => handleNavigate(item.path)}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium w-full text-left transition-colors cursor-pointer ${
+                    active
+                      ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-4 h-4 ${active ? "text-emerald-500" : "text-slate-400"}`} />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+                {item.hasDividerAfter && (
+                  <div className="my-1.5 mx-2 border-b border-slate-100 dark:border-slate-800/80" />
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
 
-        {/* Mobile Footer Theme Toggle */}
-        <div className="p-3 border-t border-slate-100 dark:border-slate-800">
+        {/* Mobile Footer: User Profile + Logout + Theme Toggle */}
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800 space-y-2 bg-slate-50/50 dark:bg-slate-900/50">
+          {user && (
+            <div className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/50">
+              <div
+                onClick={() => handleNavigate("/profile")}
+                className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+              >
+                <div className="w-8 h-8 rounded-full bg-linear-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-xs">
+                  {user.username ? user.username.slice(0, 2).toUpperCase() : "U"}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                    {user.username || "Account"}
+                  </p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                    {user.email || "Active"}
+                  </p>
+                </div>
+              </div>
+              {logout && (
+                <button
+                  onClick={() => {
+                    logout();
+                    setMobileOpen(false);
+                  }}
+                  title="Log Out"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 ml-1"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
+
           <button
             onClick={toggleTheme}
-            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
-            {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-            <span>{isLight ? "Dark Mode" : "Light Mode"}</span>
+            <div className="flex items-center gap-2.5">
+              {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+              <span>{isLight ? "Dark Mode" : "Light Mode"}</span>
+            </div>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              {isLight ? "Light" : "Dark"}
+            </span>
           </button>
         </div>
       </div>

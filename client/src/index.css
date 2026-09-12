@@ -138,7 +138,11 @@ body {
 }
 
 .layout-container {
-  @apply min-h-screen lg:max-h-screen lg:flex bg-white dark:bg-slate-950 transition-colors duration-200;
+  @apply min-h-screen flex flex-col lg:flex-row lg:h-screen lg:max-h-screen bg-white dark:bg-slate-950 transition-colors duration-200 overflow-x-hidden;
+}
+
+.safe-area-pb {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
 .page-content-grid {
@@ -445,7 +449,7 @@ body {
 
 /* Dashboard — Emerald → Teal (brand hub) */
 .page-header-dashboard {
-  @apply text-white p-6 pt-12 pb-20 relative overflow-hidden;
+  @apply text-white px-4 py-8 pb-16 sm:p-6 sm:pt-12 sm:pb-20 relative overflow-hidden;
   background: linear-gradient(135deg, #059669 0%, #0d9488 50%, #0f766e 100%);
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
@@ -461,7 +465,7 @@ body {
 
 /* Food Log — Amber → Orange (nutrition, warmth) */
 .page-header-food {
-  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  @apply text-white px-4 py-6 sm:p-6 sm:pt-12 sm:pb-8 relative overflow-hidden;
   background: linear-gradient(135deg, #d97706 0%, #ea580c 50%, #c2410c 100%);
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
@@ -477,7 +481,7 @@ body {
 
 /* Activity Log — Rose → Pink (energy, movement) */
 .page-header-activity {
-  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  @apply text-white px-4 py-6 sm:p-6 sm:pt-12 sm:pb-8 relative overflow-hidden;
   background: linear-gradient(135deg, #e11d48 0%, #ec4899 50%, #db2777 100%);
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
@@ -493,7 +497,7 @@ body {
 
 /* Workouts — Orange → Red (intensity, fire) */
 .page-header-workouts {
-  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  @apply text-white px-4 py-6 sm:p-6 sm:pt-12 sm:pb-8 relative overflow-hidden;
   background: linear-gradient(135deg, #ea580c 0%, #dc2626 50%, #b91c1c 100%);
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
@@ -509,7 +513,7 @@ body {
 
 /* AI Assistant — Violet → Indigo (intelligence, futuristic) */
 .page-header-ai {
-  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  @apply text-white px-4 py-6 sm:p-6 sm:pt-12 sm:pb-8 relative overflow-hidden;
   background: linear-gradient(135deg, #7c3aed 0%, #6366f1 50%, #4f46e5 100%);
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
@@ -525,7 +529,7 @@ body {
 
 /* Weather — Sky → Blue (atmosphere, sky) */
 .page-header-weather {
-  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  @apply text-white px-4 py-6 sm:p-6 sm:pt-12 sm:pb-8 relative overflow-hidden;
   background: linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #1e40af 100%);
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
@@ -541,7 +545,7 @@ body {
 
 /* Meal Planner — Teal → Cyan (fresh, structured) */
 .page-header-planner {
-  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  @apply text-white px-4 py-6 sm:p-6 sm:pt-12 sm:pb-8 relative overflow-hidden;
   background: linear-gradient(135deg, #0d9488 0%, #0891b2 50%, #0e7490 100%);
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
@@ -557,7 +561,7 @@ body {
 
 /* Activity Planner — Amber → Yellow (warm planning) */
 .page-header-activity-planner {
-  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  @apply text-white px-4 py-6 sm:p-6 sm:pt-12 sm:pb-8 relative overflow-hidden;
   background: linear-gradient(135deg, #b45309 0%, #d97706 50%, #ca8a04 100%);
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
@@ -573,7 +577,7 @@ body {
 
 /* Blog — Pink → Fuchsia (editorial, creative) */
 .page-header-blog {
-  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  @apply text-white px-4 py-6 sm:p-6 sm:pt-12 sm:pb-8 relative overflow-hidden;
   background: linear-gradient(135deg, #db2777 0%, #c026d3 50%, #a21caf 100%);
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
@@ -589,7 +593,7 @@ body {
 
 /* Profile — Indigo → Violet (personal identity) */
 .page-header-profile {
-  @apply text-white p-6 pt-12 pb-8 relative overflow-hidden;
+  @apply text-white px-4 py-6 sm:p-6 sm:pt-12 sm:pb-8 relative overflow-hidden;
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6d28d9 100%);
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;

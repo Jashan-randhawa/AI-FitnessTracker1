@@ -371,7 +371,7 @@ Guidelines:
   const cardCls = `bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/50`;
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white">
+    <div className="flex flex-col h-[calc(100dvh-3.5rem-4.5rem)] lg:h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white">
 
       {/* Header */}
       <div className="page-header-ai shrink-0 shadow-md">

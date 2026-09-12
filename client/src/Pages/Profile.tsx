@@ -59,7 +59,7 @@ const EditProfileModal = ({ user, onClose, onSave }: {
     onClose();
   };
 
-  const inputCls = "w-full bg-slate-700/60 border border-slate-600 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 transition-colors";
+  const inputCls = "w-full bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -78,16 +78,16 @@ const EditProfileModal = ({ user, onClose, onSave }: {
             { label: "Daily Calories Burned Goal", val: caloriesOut, set: setCaloriesOut, type: "number" },
           ].map(({ label, val, set, type }) => (
             <div key={label}>
-              <label className="text-xs text-slate-400 mb-1 block">{label}</label>
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">{label}</label>
               <input type={type} className={inputCls} value={val} onChange={(e) => set(e.target.value)} />
             </div>
           ))}
           <div>
-            <label className="text-xs text-slate-400 mb-1 block">Goal</label>
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">Goal</label>
             <div className="grid grid-cols-3 gap-2">
               {(["lose", "maintain", "gain"] as const).map((g) => (
                 <button key={g} onClick={() => setGoal(g)}
-                  className={`py-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${goal === g ? "bg-emerald-500/20 border-emerald-500 text-emerald-400" : "bg-slate-700/50 border-slate-600 text-slate-400 hover:border-slate-500"}`}>
+                  className={`py-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${goal === g ? "bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-semibold" : "bg-slate-100 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-slate-400"}`}>
                   {GOAL_LABELS[g]}
                 </button>
               ))}
