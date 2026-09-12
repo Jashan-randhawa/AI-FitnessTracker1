@@ -315,17 +315,18 @@ const Sidebar = () => {
       </aside>
 
       {/* ── Mobile Topbar (< lg) ── */}
-      <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-14 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors duration-200">
+      <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-3.5 h-14 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors duration-200">
         <button
           onClick={() => handleNavigate("/")}
-          className="cursor-pointer"
+          className="flex items-center gap-2 cursor-pointer transition-transform active:scale-95 text-left focus:outline-none py-1"
+          aria-label="FitTrack Dashboard"
         >
-          <Logo size={28} textClassName="text-[15px]" />
+          <Logo size={32} textClassName="text-[16px]" badge="AI" />
         </button>
         <div className="flex items-center gap-1">
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all cursor-pointer"
             title={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
             aria-label="Toggle theme"
           >
@@ -333,7 +334,7 @@ const Sidebar = () => {
           </button>
           <button
             onClick={() => setMobileOpen(true)}
-            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all cursor-pointer"
             aria-label="Open menu"
           >
             <Menu className="w-5 h-5" />
@@ -355,19 +356,19 @@ const Sidebar = () => {
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Mobile Header with traffic lights & Close */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
-              <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
-              <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
-            </div>
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-2">FitTrack</span>
-          </div>
+        {/* Mobile Header with Logo & Close */}
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100 dark:border-slate-800">
+          <button
+            onClick={() => handleNavigate("/")}
+            className="flex items-center gap-2 cursor-pointer transition-transform active:scale-95 text-left focus:outline-none"
+            aria-label="FitTrack Dashboard"
+          >
+            <Logo size={30} textClassName="text-[15px]" badge="AI" />
+          </button>
           <button
             onClick={() => setMobileOpen(false)}
-            className="p-1 rounded-lg text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Close menu"
           >
             <X className="w-5 h-5" />
           </button>

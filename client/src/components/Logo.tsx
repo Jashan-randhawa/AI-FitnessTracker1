@@ -5,6 +5,8 @@ type LogoProps = {
   showText?: boolean;
   /** Tailwind text-size class for the wordmark */
   textClassName?: string;
+  /** Optional badge next to wordmark, e.g. "AI" or "v2.0" */
+  badge?: string;
 };
 
 /**
@@ -13,13 +15,18 @@ type LogoProps = {
  * gradient sweep through the bolt itself. Used anywhere the app needs its
  * icon (nav rails, drawers, splash/loading screens).
  */
-const Logo = ({ size = 36, showText = true, textClassName = "text-[17px]" }: LogoProps) => {
+const Logo = ({
+  size = 36,
+  showText = true,
+  textClassName = "text-[17px]",
+  badge,
+}: LogoProps) => {
   const boltSize = Math.round(size * 0.56);
 
   return (
     <div className="flex items-center gap-2.5 select-none">
       <div
-        className="fittrack-logo-mark relative flex items-center justify-center rounded-xl shrink-0 overflow-hidden"
+        className="fittrack-logo-mark relative flex items-center justify-center rounded-xl shrink-0 overflow-hidden shadow-xs shadow-emerald-500/20"
         style={{ width: size, height: size }}
       >
         <svg
@@ -44,10 +51,17 @@ const Logo = ({ size = 36, showText = true, textClassName = "text-[17px]" }: Log
       </div>
 
       {showText && (
-        <span className={`${textClassName} font-semibold tracking-tight text-gray-900 dark:text-white transition-colors duration-200`}>
-          Fit
-          <span className="fittrack-logo-text-grad">Track</span>
-        </span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className={`${textClassName} font-bold tracking-tight text-gray-900 dark:text-white transition-colors duration-200`}>
+            Fit
+            <span className="fittrack-logo-text-grad">Track</span>
+          </span>
+          {badge && (
+            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-300/40 dark:border-emerald-700/40 shrink-0">
+              {badge}
+            </span>
+          )}
+        </div>
       )}
     </div>
   );
