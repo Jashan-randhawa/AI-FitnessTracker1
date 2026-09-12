@@ -28,6 +28,9 @@ export default function BottomNav() {
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
+    if (path === "/ai-assistant" || path === "/ai") {
+      return location.pathname === "/ai-assistant" || location.pathname === "/ai" || location.pathname.startsWith("/ai");
+    }
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 

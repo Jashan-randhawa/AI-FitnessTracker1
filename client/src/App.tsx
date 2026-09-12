@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, Navigate } from "react-router-dom";
 import { useappcontext } from "./Context/AppContext";
 import Loading from "./components/Loading";
 
@@ -48,10 +48,12 @@ const App = () => {
                   <Route path="blog/:id" element={<BlogPost />} />
                   <Route path="profile" element={<Profile />} />
                   <Route path="ai" element={<AIAssistant />} />
+                  <Route path="ai-assistant" element={<AIAssistant />} />
                   <Route path="weather" element={<Weather />} />
                   <Route path="workouts" element={<Workouts />} />
                   <Route path="planner" element={<MealPlanner />} />
                   <Route path="activity-planner" element={<ActivityPlanner />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>
               </Routes>
             )

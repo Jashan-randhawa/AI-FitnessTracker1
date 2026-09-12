@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useappcontext } from "../Context/AppContext";
 import api from "../configs/api";
 import toast from "react-hot-toast";
+import CollapsiblePlanCard from "../components/animations/CollapsiblePlanCard";
 
 // ── Helpers ───────────────────────────────────────────────
 const resolveDate = (entry: any): string =>
@@ -45,8 +46,6 @@ const BASE_SUGGESTIONS = [
 
 const formatTime = (date: Date) =>
   date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-
-import CollapsiblePlanCard from "../components/animations/CollapsiblePlanCard";
 
 // ── Word/Token Sequential Reveal Variants ──────────────────
 // Fades in words sequentially (opacity: 0, y: 4 -> opacity: 1, y: 0)
@@ -227,11 +226,11 @@ export default function AIAssistant() {
   const token = localStorage.getItem("token");
 
   const todayFood = useMemo(
-    () => allFoodLogs.filter((l) => isToday(resolveDate(l))),
+    () => (allFoodLogs || []).filter((l) => isToday(resolveDate(l))),
     [allFoodLogs]
   );
   const todayActivity = useMemo(
-    () => allActivityLogs.filter((l) => isToday(resolveDate(l))),
+    () => (allActivityLogs || []).filter((l) => isToday(resolveDate(l))),
     [allActivityLogs]
   );
 

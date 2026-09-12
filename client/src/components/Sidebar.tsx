@@ -83,6 +83,9 @@ const Sidebar = () => {
   const isActive = (path?: string) => {
     if (!path) return false;
     if (path === "/") return location.pathname === "/";
+    if (path === "/ai" || path === "/ai-assistant") {
+      return location.pathname === "/ai" || location.pathname === "/ai-assistant" || location.pathname.startsWith("/ai");
+    }
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 
