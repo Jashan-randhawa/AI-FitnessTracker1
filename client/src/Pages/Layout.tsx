@@ -6,7 +6,7 @@ const Layout = () => {
   return (
     <div className="layout-container">
       <Sidebar />
-      <main className="flex-1 min-w-0 overflow-y-auto pb-18 lg:pb-0">
+      <main className="flex-1 min-w-0 overflow-y-auto pb-18 lg:pb-0 no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <Outlet />
       </main>
       <BottomNav />

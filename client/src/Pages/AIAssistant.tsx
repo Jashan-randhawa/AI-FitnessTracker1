@@ -1306,7 +1306,7 @@ export default function AIAssistant() {
       {/* Messages Viewport */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-4"
+        className="flex-1 overflow-y-auto px-4 py-4 no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         <div className="max-w-2xl mx-auto space-y-4">
           {messages.length === 0 && (

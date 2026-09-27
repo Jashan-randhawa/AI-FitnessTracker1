@@ -110,9 +110,65 @@
   --radius-4xl: 12px;
 }
 
+html {
+  overflow-x: hidden;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+body {
+  @apply dark:bg-slate-950 dark:text-slate-100 bg-slate-50 text-ink transition-colors duration-200;
+  overflow-x: hidden;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+#root {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
 * {
   font-family: var(--font-sans);
   letter-spacing: -0.01em;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* ── Global Scrollbar Suppression ──────────────────────────
+   Completely removes native browser scrollbars, gutters, and
+   up/down arrows across all pages and elements while keeping
+   smooth wheel, touch, and keyboard scrolling fully functional. */
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-corner {
+  display: none !important;
+  background: transparent !important;
+}
+
+*::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
 /* Editorial display treatment — Luffu's Flare signature: single weight,
@@ -121,10 +177,6 @@
   font-family: var(--font-serif);
   font-weight: 400;
   letter-spacing: -0.03em;
-}
-
-body {
-  @apply dark:bg-slate-950 dark:text-slate-100 bg-slate-50 text-ink transition-colors duration-200;
 }
 
 
