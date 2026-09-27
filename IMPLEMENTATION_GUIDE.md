@@ -1,119 +1,107 @@
-# AI Fitness Tracker — Improvements Implementation Guide
+# FitTrack AI — Architecture & Developer Guide
 
-## What's included in this patch
+## Overview
 
-### New Files (drop-in, no edits needed)
-
-| File | What it does |
-|------|-------------|
-| `server/src/api/waterlog/` | Full Strapi API for water intake tracking (schema, controller, routes, service) |
-| `server/src/api/chathistory/` | Full Strapi API for FitBot persistent memory |
-| `client/src/Pages/MealPlanner.tsx` | New AI meal planner page with one-click logging |
-| `client/src/components/CalendarHeatmap.tsx` | Reusable calendar heat-map component |
-
-### Replacement Files (replace existing files entirely)
-
-| File | Changes |
-|------|---------|
-| `server/src/index.ts` | Adds permissions for waterlog + chathistory APIs in bootstrap |
-| `client/src/Context/AppContext.tsx` | Adds `allWaterLogs` state, fetch on login, optimistic water helpers |
-| `client/src/assets/types/index.ts` | Adds `WaterEntry` type, updates `initialState` |
-| `client/src/App.tsx` | Adds `/planner` route for MealPlanner |
-| `client/src/components/Sidebar.tsx` | Adds Meal Planner nav item |
-| `client/src/Pages/Dashboard.tsx` | Circular rings, water tracker, macro chart tabs, achievements, water quick-add |
-| `client/src/Pages/AIAssistant.tsx` | FitBot memory (load past sessions, save on close, memory panel, clear memory) |
-| `client/src/Pages/Profile.tsx` | Badges shelf, CSV export, shareable progress card |
-
-### Integration instructions (manual edits needed)
-
-See `CALENDAR_INTEGRATION.md` for adding the calendar heat-map to `FoodLog.tsx` and `ActivityLog.tsx`.
+**FitTrack AI** is a full-stack, AI-powered health and fitness operating system built on a modern MERN-like stack:
+- **Frontend**: React 19, TypeScript, Tailwind CSS v4, Framer Motion, Recharts, Vite 7
+- **Backend**: Node.js (>=20.0.0), Express 4.19, MongoDB & Mongoose 8
+- **AI & Integrations**: OpenRouter LLMs (FitBot & meal planners), Open-Meteo API (weather & AQI), RapidAPI (YouTube workout streaming)
 
 ---
 
-## Installation steps
+## System Architecture
 
-### 1. Copy new server API folders
 ```
-server/src/api/waterlog/      → your server/src/api/
-server/src/api/chathistory/   → your server/src/api/
+AI-FitnessTracker1/
+├── client/                     # React 19 + TypeScript + Vite frontend
+│   ├── src/
+│   │   ├── assets/             # Types, SVGs, static assets
+│   │   ├── components/         # Reusable UI, animations, Sidebar, BottomNav
+│   │   ├── configs/            # Axios API instance with VITE_API_URL
+│   │   ├── Context/            # AppContext (auth, logs) & ThemeContext
+│   │   ├── Pages/              # Dashboard, FoodLog, ActivityLog, Workouts,
+│   │   │                       # MealPlanner, ActivityPlanner, AIAssistant,
+│   │   │                       # Weather, Profile, Blog, Login, Onboarding
+│   │   ├── App.tsx             # Route definitions & guards
+│   │   └── main.tsx            # App bootstrap
+│   ├── .env.example            # Frontend environment variable template
+│   └── package.json
+│
+└── server/                     # Express + MongoDB backend
+    ├── src/
+    │   ├── config/             # MongoDB connection (db.js)
+    │   ├── controllers/        # Express request handlers
+    │   ├── middleware/         # Auth (protect), rateLimiter, upload, errorHandler
+    │   ├── models/             # Mongoose schemas (User, FoodLog, ActivityLog, etc.)
+    │   ├── routes/             # REST route declarations
+    │   ├── services/           # Business logic, email, AI services, seeders
+    │   ├── utils/              # Token generation, response formatting
+    │   └── app.js              # Express app setup, CORS, Helmet, rate limiting
+    ├── server.js               # Entrypoint & listener
+    ├── .env.example            # Backend environment variable template
+    └── package.json
 ```
 
-### 2. Replace server/src/index.ts
-```
-server/src/index.ts  → replace existing file
+---
+
+## API Endpoints
+
+### Authentication & Users
+- `POST /api/auth/local/register` — Register a new account *(rate limited: 20 req / 15 min)*
+- `POST /api/auth/local` — Login with username/email and password *(rate limited)*
+- `GET /api/users/me` — Fetch current authenticated user profile *(JWT required)*
+- `GET /api/connect/google` — Initiate Google OAuth 2.0 flow
+- `GET/POST /api/auth/google/callback` — Exchange Google access token for app JWT
+
+### Password Reset
+- `POST /api/password-reset/request` — Request password reset email *(rate limited: 10 req / 15 min; generic response to prevent account enumeration)*
+- `GET /api/password-reset/validate?code=TOKEN` — Validate reset token
+- `POST /api/password-reset/reset` — Reset password with token
+
+### Resource Logs (User-Scoped & Authenticated)
+- `GET /api/foodlogs`, `POST /api/foodlogs`, `DELETE /api/foodlogs/:id`
+- `GET /api/activitylogs`, `POST /api/activitylogs`, `DELETE /api/activitylogs/:id`
+- `GET /api/waterlogs`, `POST /api/waterlogs`, `DELETE /api/waterlogs/:id`
+- `GET /api/chathistories`, `POST /api/chathistories`, `DELETE /api/chathistories/:id`
+
+### AI & Media Services
+- `POST /api/ai-assistant/chat` — Context-aware chat with FitBot *(JWT required, rate limited: 30 req / min)*
+- `POST /api/image-analysis` — Multimodal meal photo analysis *(JWT required, rate limited)*
+- `POST /api/food-estimate` — AI food nutrition estimation
+- `POST /api/calorie-estimate` — Activity calorie estimation
+- `GET /api/youtube/search?q=QUERY` — Workout video search proxy *(rate limited)*
+
+---
+
+## Security Architecture
+
+1. **Helmet & Cross-Origin Resource Policy**: Set to protect against common web vulnerabilities.
+2. **CORS Restrictions**: Origin whitelist restricting access to production URL, localhost, and `CLIENT_URL`.
+3. **JWT Authentication**: Secure Bearer tokens with 30-day expiration.
+4. **Rate Limiting (`express-rate-limit`)**:
+   - Authentication brute-force defense
+   - Password-reset enumeration mitigation
+   - AI and YouTube external API cost/quota exhaustion protection
+5. **No Account Enumeration**: Password reset returns identical success responses regardless of whether the email exists.
+6. **Token Leakage Prevention**: Google OAuth uses URL fragments and POST payloads to prevent access tokens from leaking via query params or referrers.
+7. **Environment-Gated Errors**: Detailed server error messages are gated behind `NODE_ENV !== 'production'`.
+
+---
+
+## Local Development Setup
+
+### 1. Backend (`/server`)
+```bash
+cd server
+npm install
+cp .env.example .env    # Configure MONGODB_URI, JWT_SECRET, OPENROUTER_API_KEY
+npm run dev             # Starts API on http://localhost:1337
 ```
 
-### 3. Copy new client files
-```
-client/src/Pages/MealPlanner.tsx         → new file
-client/src/components/CalendarHeatmap.tsx → new file
-```
-
-### 4. Replace existing client files
-```
-client/src/Context/AppContext.tsx    → replace
-client/src/assets/types/index.ts     → replace
-client/src/App.tsx                   → replace
-client/src/components/Sidebar.tsx    → replace
-client/src/Pages/Dashboard.tsx       → replace
-client/src/Pages/AIAssistant.tsx     → replace
-client/src/Pages/Profile.tsx         → replace
-```
-
-### 5. Install optional dependency (for shareable card download)
+### 2. Frontend (`/client`)
 ```bash
 cd client
-npm install html2canvas
+npm install
+cp .env.example .env    # Defaults to VITE_API_URL=http://localhost:1337
+npm run dev             # Starts Vite on http://localhost:5173
 ```
-
-### 6. Apply calendar heat-map to FoodLog and ActivityLog
-Follow the instructions in `CALENDAR_INTEGRATION.md`.
-
-### 7. Restart Strapi
-The new `waterlog` and `chathistory` content types will be auto-registered when Strapi restarts. The bootstrap will also register their permissions.
-
----
-
-## Feature summary
-
-### Dashboard
-- **Circular progress rings** — calories in, calories out, active minutes (animated SVG rings)
-- **Macro breakdown** — protein/carbs/fat totals for today with colored pills
-- **Weekly chart tabs** — switch between Calories, Protein, Carbs, Fat trends
-- **Water tracker** — quick-add buttons (+150/250/350/500ml), custom amount, daily progress bar, per-entry delete
-- **Achievements** — 7 badges that unlock automatically based on your data (streaks, log counts)
-
-### AI Assistant (FitBot)
-- **Persistent memory** — past sessions are saved to Strapi and injected as context on next visit
-- **Memory panel** — tap 🧠 Memory in the header to see what FitBot remembers
-- **Clear memory** — one-tap button to delete all past sessions
-- **Auto-save** — session saves when you start a new chat or leave the page
-- **Smarter context** — system prompt now includes today's food and activity logs
-
-### Profile
-- **Badges shelf** — all 7 badges displayed with earned/locked state
-- **Extended edit modal** — now also edits daily calorie intake/burn targets
-- **CSV export** — downloads all food and activity logs as a CSV
-- **Shareable progress card** — a visual summary card (streak, food entries, workouts, goal) downloadable as PNG
-
-### Meal Planner (new page)
-- **AI-generated plans** — choose 3, 5, or 7 days + cuisine preference
-- **One-click log** — log individual meals or "Log all meals" for a day
-- **Optimistic UI** — logged state updates instantly, syncs to server in background
-- **Regenerate** — tap to generate a fresh plan without leaving the page
-
-### Calendar Heat-map (FoodLog + ActivityLog)
-- Month-view calendar showing days with logged activity
-- Color intensity scales with the amount logged that day
-- Tap any day to jump the log view to that date
-- Navigate between months with ‹ › arrows
-
-### Water Tracking (full backend + frontend)
-- New `waterlog` Strapi content type with per-user isolation
-- State managed in AppContext alongside food/activity logs
-- Optimistic UI — entries appear instantly, sync in background
-
-### FitBot Memory (full backend + frontend)
-- New `chathistory` Strapi content type storing session summaries
-- Last 3 sessions injected as context into every new FitBot conversation
-- DELETE /api/chathistories/all endpoint for one-tap memory clearing
