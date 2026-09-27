@@ -569,6 +569,64 @@ export default function AIAssistant() {
   const [memoryLoaded, setMemoryLoaded] = useState(false);
   const [showMemory, setShowMemory] = useState(false);
   const [memorySearch, setMemorySearch] = useState("");
+  const memoryBtnRef = useRef<HTMLButtonElement>(null);
+  const [flyoutPosition, setFlyoutPosition] = useState<{ top: number; right: number; width: number } | null>(null);
+
+  const updateFlyoutPosition = useCallback(() => {
+    if (!memoryBtnRef.current) return;
+    const rect = memoryBtnRef.current.getBoundingClientRect();
+    const screenW = window.innerWidth;
+    const flyoutWidth = Math.min(384, screenW - 24);
+    let right = screenW - rect.right;
+    if (right < 12) right = 12;
+    if (screenW - right < flyoutWidth + 12) {
+      right = screenW - flyoutWidth - 12;
+    }
+    if (right < 12) right = 12;
+
+    setFlyoutPosition({
+      top: rect.bottom + 8,
+      right,
+      width: flyoutWidth,
+    });
+  }, []);
+
+  const handleToggleMemory = () => {
+    if (!showMemory && memoryBtnRef.current) {
+      const rect = memoryBtnRef.current.getBoundingClientRect();
+      const screenW = window.innerWidth;
+      const flyoutWidth = Math.min(384, screenW - 24);
+      let right = screenW - rect.right;
+      if (right < 12) right = 12;
+      if (screenW - right < flyoutWidth + 12) {
+        right = screenW - flyoutWidth - 12;
+      }
+      if (right < 12) right = 12;
+      setFlyoutPosition({
+        top: rect.bottom + 8,
+        right,
+        width: flyoutWidth,
+      });
+    }
+    setShowMemory((prev) => !prev);
+  };
+
+  useEffect(() => {
+    if (showMemory) {
+      updateFlyoutPosition();
+      const handleGlobalKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") setShowMemory(false);
+      };
+      window.addEventListener("keydown", handleGlobalKeyDown);
+      window.addEventListener("resize", updateFlyoutPosition);
+      window.addEventListener("scroll", updateFlyoutPosition, true);
+      return () => {
+        window.removeEventListener("keydown", handleGlobalKeyDown);
+        window.removeEventListener("resize", updateFlyoutPosition);
+        window.removeEventListener("scroll", updateFlyoutPosition, true);
+      };
+    }
+  }, [showMemory, updateFlyoutPosition]);
   const [sessionSaved, setSessionSaved] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
@@ -1067,7 +1125,8 @@ export default function AIAssistant() {
               {/* Memory Trigger Button */}
               {pastSessions.length > 0 && (
                 <button
-                  onClick={() => setShowMemory(!showMemory)}
+                  ref={memoryBtnRef}
+                  onClick={handleToggleMemory}
                   className={`text-xs px-2.5 py-1.5 rounded-xl border border-white/20 backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5 ${
                     showMemory ? "bg-white text-emerald-950 font-bold shadow-md" : "bg-white/10 hover:bg-white/20 text-white"
                   }`}
@@ -1095,27 +1154,46 @@ export default function AIAssistant() {
         </div>
       </div>
 
-      {/* Floating Memory Flyout Drawer (Top-Level Fixed to eliminate header clipping & overshadowing) */}
+      {/* Floating Memory Flyout Drawer (Positioned directly right below the Memory icon) */}
       <AnimatePresence>
         {showMemory && (
-          <div className="fixed inset-0 z-50 flex items-start justify-end p-3 pt-16 sm:p-6 sm:pt-20 pointer-events-none">
-            {/* Backdrop */}
+          <div className="fixed inset-0 z-50 pointer-events-none">
+            {/* Subtle Click-away Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-[2px] pointer-events-auto"
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 bg-black/25 dark:bg-black/50 backdrop-blur-[1px] pointer-events-auto"
               onClick={() => setShowMemory(false)}
             />
 
             {/* Floating Flyout Window */}
             <motion.div
-              initial={{ opacity: 0, y: -12, scale: 0.96 }}
+              initial={{ opacity: 0, y: -8, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.96 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="relative pointer-events-auto w-full sm:w-96 max-h-[calc(100vh-6rem)] flex flex-col rounded-2xl bg-slate-900/98 dark:bg-slate-900/98 border border-slate-700/80 shadow-2xl backdrop-blur-2xl text-white overflow-hidden ring-1 ring-white/10"
+              exit={{ opacity: 0, y: -8, scale: 0.96 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              style={
+                flyoutPosition
+                  ? {
+                      position: "fixed",
+                      top: `${flyoutPosition.top}px`,
+                      right: `${flyoutPosition.right}px`,
+                      width: `${flyoutPosition.width}px`,
+                      maxHeight: `calc(100vh - ${flyoutPosition.top + 20}px)`,
+                      transformOrigin: "top right",
+                    }
+                  : {
+                      position: "fixed",
+                      top: "70px",
+                      right: "16px",
+                      width: "384px",
+                      maxWidth: "calc(100vw - 24px)",
+                      transformOrigin: "top right",
+                    }
+              }
+              className="pointer-events-auto flex flex-col rounded-2xl bg-slate-900/98 dark:bg-slate-900/98 border border-slate-700/80 shadow-2xl backdrop-blur-2xl text-white overflow-hidden ring-1 ring-white/10"
             >
               {/* Header */}
               <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/60 shrink-0">
