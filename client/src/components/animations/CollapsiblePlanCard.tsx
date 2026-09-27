@@ -88,7 +88,7 @@ export const CollapsiblePlanCard = ({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden border-t border-slate-100 dark:border-slate-700/50 p-4 bg-slate-50/50 dark:bg-slate-900/30"
+            className="overflow-hidden border-t border-slate-100 dark:border-slate-700/50 p-4 bg-slate-50/50 dark:bg-slate-900/30 text-gray-900 dark:text-slate-100"
           >
             {children}
           </motion.div>

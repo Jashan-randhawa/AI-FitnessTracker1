@@ -97,26 +97,15 @@ const playCompletionChime = () => {
   }
 };
 
-// ── Word Sequential Reveal Variants ────────────────────────
-const WordContainer = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.016, delayChildren: 0.02 },
-  },
-};
-
-const WordItem = {
-  hidden: { opacity: 0, y: 3 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.16, ease: [0.16, 1, 0.3, 1] as const },
-  },
+// Helper to identify if a heading represents a structured multi-day/week plan or workout routine
+const isPlanCardHeader = (title: string): boolean => {
+  const clean = title.replace(/[:*#]/g, "").trim();
+  // Only turn substantial workout or meal routines/plans into collapsible cards
+  return /^\s*(?:\d+[- ]*(?:day|week|month)|weekly|daily|full|custom)?\s*(?:workout|meal|exercise|training|nutrition)\s*(?:plan|routine|schedule|breakdown|program)/i.test(clean);
 };
 
 // ── Markdown Parser with Tables & Plan Cards ────────────────
-const RenderMessage = React.memo(({ text, isLatest }: { text: string; isLatest: boolean }) => {
+const RenderMessage = React.memo(({ text }: { text: string; isLatest?: boolean }) => {
   const lines = text.split("\n");
   const elements: React.ReactNode[] = [];
   let listItems: string[] = [];
@@ -129,9 +118,16 @@ const RenderMessage = React.memo(({ text, isLatest }: { text: string; isLatest: 
   let tableRows: string[][] = [];
 
   const applyInline = (raw: string): React.ReactNode[] => {
-    // Matches inline code (`code`), bold (**text**), italics (*text*)
-    const parts = raw.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g);
+    if (!raw) return [];
+
+    // Tokenize by inline code (`...`), bold with optional trailing colon (**...**:?), italics (*...* or _..._)
+    const tokenRegex = /(`[^`]+`|\*\*[^*]+\*\*:?|\*[^*]+\*)/g;
+    const parts = raw.split(tokenRegex);
+
     return parts.map((part, i) => {
+      if (!part) return null;
+
+      // Inline Code: `code`
       if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
         return (
           <code
@@ -142,42 +138,50 @@ const RenderMessage = React.memo(({ text, isLatest }: { text: string; isLatest: 
           </code>
         );
       }
-      if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-        return (
-          <strong key={i} className="font-semibold text-gray-900 dark:text-white">
-            {part.slice(2, -2)}
-          </strong>
-        );
+
+      // Bold text, e.g. **text** or **text**: or **text:**
+      if (part.startsWith("**")) {
+        const endsWithColon = part.endsWith(":");
+        const cleanEnd = endsWithColon ? part.slice(0, -1) : part;
+
+        if (cleanEnd.endsWith("**") && cleanEnd.length >= 4) {
+          const innerText = cleanEnd.slice(2, -2).trim();
+          const hasColon = endsWithColon || innerText.endsWith(":");
+          const displayText = endsWithColon && !innerText.endsWith(":") ? `${innerText}:` : innerText;
+
+          if (hasColon) {
+            return (
+              <strong
+                key={i}
+                className="font-bold text-emerald-600 dark:text-emerald-400 mr-1.5 inline"
+              >
+                {displayText}
+              </strong>
+            );
+          }
+
+          return (
+            <strong key={i} className="font-bold text-gray-900 dark:text-white inline">
+              {displayText}
+            </strong>
+          );
+        }
       }
-      if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+
+      // Italics: *text*
+      if (part.startsWith("*") && part.endsWith("*") && part.length >= 2 && !part.startsWith("**")) {
         return (
-          <em key={i} className="italic text-gray-800 dark:text-slate-200">
+          <em key={i} className="italic text-gray-700 dark:text-slate-300">
             {part.slice(1, -1)}
           </em>
         );
       }
-      return part;
-    });
-  };
 
-  const renderWordsInText = (rawText: string, keyPrefix: string) => {
-    if (!isLatest) {
-      return <span>{applyInline(rawText)}</span>;
-    }
-
-    const tokens = rawText.split(/(\s+)/);
-    return tokens.map((token, wIdx) => {
-      if (/^\s+$/.test(token)) {
-        return <span key={`${keyPrefix}-${wIdx}`}>{token}</span>;
-      }
+      // Regular text (including the text that appears after **)
       return (
-        <motion.span
-          key={`${keyPrefix}-${wIdx}`}
-          variants={WordItem}
-          className="inline-block"
-        >
-          {applyInline(token)}
-        </motion.span>
+        <span key={i} className="text-gray-800 dark:text-slate-200">
+          {part}
+        </span>
       );
     });
   };
@@ -187,24 +191,28 @@ const RenderMessage = React.memo(({ text, isLatest }: { text: string; isLatest: 
     const target = inPlanCard ? planLines : elements;
     if (listType === "ul") {
       target.push(
-        <ul key={key} className="list-none space-y-1.5 my-1.5">
+        <ul key={key} className="list-none space-y-2 my-2">
           {listItems.map((item, i) => (
-            <li key={i} className="flex items-start gap-2">
-              <span className="mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span className="flex-1 leading-relaxed">{renderWordsInText(item, `ul-${i}`)}</span>
+            <li key={i} className="flex items-start gap-2.5">
+              <span className="mt-2 shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-2xs" />
+              <span className="flex-1 leading-relaxed text-gray-800 dark:text-slate-200">
+                {applyInline(item)}
+              </span>
             </li>
           ))}
         </ul>
       );
     } else {
       target.push(
-        <ol key={key} className="list-none space-y-1.5 my-1.5">
+        <ol key={key} className="list-none space-y-2 my-2">
           {listItems.map((item, i) => (
-            <li key={i} className="flex items-start gap-2">
-              <span className="shrink-0 font-semibold text-emerald-500 text-xs min-w-[18px]">
+            <li key={i} className="flex items-start gap-2.5">
+              <span className="shrink-0 font-bold text-emerald-500 text-xs min-w-[20px] mt-0.5">
                 {i + 1}.
               </span>
-              <span className="flex-1 leading-relaxed">{renderWordsInText(item, `ol-${i}`)}</span>
+              <span className="flex-1 leading-relaxed text-gray-800 dark:text-slate-200">
+                {applyInline(item)}
+              </span>
             </li>
           ))}
         </ol>
@@ -259,7 +267,7 @@ const RenderMessage = React.memo(({ text, isLatest }: { text: string; isLatest: 
     if (inPlanCard && planLines.length > 0) {
       elements.push(
         <CollapsiblePlanCard key={key} title={planTitle || "Suggested Plan"} defaultOpen={true}>
-          <div className="space-y-1 text-xs sm:text-sm">
+          <div className="space-y-1.5 text-xs sm:text-sm text-gray-800 dark:text-slate-200">
             {planLines}
           </div>
         </CollapsiblePlanCard>
@@ -299,17 +307,59 @@ const RenderMessage = React.memo(({ text, isLatest }: { text: string; isLatest: 
       flushTable(`table-end-${idx}`);
     }
 
-    // Check for plan headers: e.g. "### Workout Routine" or "**Weekly Meal Plan**"
-    const headerMatch = trimmed.match(/^###?\s+(.+)/);
-    const planBlockMatch = trimmed.match(/^\*\*(.+plan|.+routine|.+breakdown|.+workout|.+schedule)\*\*/i);
+    // Check for H1, H2, H3 or standalone bold headers
+    const h1Match = trimmed.match(/^#\s+(.+)/);
+    const h2Match = trimmed.match(/^##\s+(.+)/);
+    const h3Match = trimmed.match(/^###\s+(.+)/);
+    const boldHeaderMatch = trimmed.match(/^\*\*([^*]+)\*\*$/);
 
-    if (headerMatch || planBlockMatch) {
-      flushList(`list-pre-${idx}`);
-      flushTable(`tbl-pre-${idx}`);
-      flushPlanCard(`plan-pre-${idx}`);
-      inPlanCard = true;
-      planTitle = headerMatch ? headerMatch[1] : planBlockMatch![1];
+    if (h1Match) {
+      flushList(`list-h1-${idx}`);
+      flushTable(`tbl-h1-${idx}`);
+      flushPlanCard(`plan-h1-${idx}`);
+      elements.push(
+        <h1 key={`h1-${idx}`} className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mt-3 mb-1.5 pb-1 border-b border-slate-200 dark:border-slate-700">
+          {applyInline(h1Match[1])}
+        </h1>
+      );
       return;
+    }
+
+    if (h2Match) {
+      flushList(`list-h2-${idx}`);
+      flushTable(`tbl-h2-${idx}`);
+      flushPlanCard(`plan-h2-${idx}`);
+      elements.push(
+        <h2 key={`h2-${idx}`} className="text-sm sm:text-base font-bold text-gray-900 dark:text-white mt-3 mb-1.5">
+          {applyInline(h2Match[1])}
+        </h2>
+      );
+      return;
+    }
+
+    if (h3Match || boldHeaderMatch) {
+      const headerText = h3Match ? h3Match[1] : boldHeaderMatch![1];
+      if (isPlanCardHeader(headerText)) {
+        flushList(`list-pre-${idx}`);
+        flushTable(`tbl-pre-${idx}`);
+        flushPlanCard(`plan-pre-${idx}`);
+        inPlanCard = true;
+        planTitle = headerText.replace(/[:*]/g, "").trim();
+        return;
+      } else {
+        flushList(`list-h3-${idx}`);
+        flushTable(`tbl-h3-${idx}`);
+        flushPlanCard(`plan-h3-${idx}`);
+        elements.push(
+          <div key={`h3-${idx}`} className="mt-3 mb-1.5 flex items-center gap-1.5">
+            <span className="w-1.5 h-3.5 rounded-full bg-emerald-500 shrink-0" />
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+              {applyInline(headerText)}
+            </h3>
+          </div>
+        );
+        return;
+      }
     }
 
     // Check for blockquotes: e.g. "> Tip: Drink plenty of water"
@@ -322,7 +372,7 @@ const RenderMessage = React.memo(({ text, isLatest }: { text: string; isLatest: 
           key={`quote-${idx}`}
           className="my-2 pl-3 border-l-2 border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 py-1.5 text-xs sm:text-sm text-emerald-900 dark:text-emerald-200 rounded-r-lg"
         >
-          {renderWordsInText(quoteText, `quote-text-${idx}`)}
+          {applyInline(quoteText)}
         </blockquote>
       );
       if (inPlanCard) planLines.push(quoteNode);
@@ -345,8 +395,8 @@ const RenderMessage = React.memo(({ text, isLatest }: { text: string; isLatest: 
       flushList(`flush-${idx}`);
       if (trimmed) {
         const paragraphNode = (
-          <p key={idx} className="my-1.5 leading-relaxed">
-            {renderWordsInText(trimmed, `p-${idx}`)}
+          <p key={idx} className="my-1.5 leading-relaxed text-gray-800 dark:text-slate-200">
+            {applyInline(trimmed)}
           </p>
         );
         if (inPlanCard) {
@@ -362,20 +412,7 @@ const RenderMessage = React.memo(({ text, isLatest }: { text: string; isLatest: 
   flushTable("final-table");
   flushPlanCard("final-plan");
 
-  if (!isLatest) {
-    return <div className="text-sm leading-relaxed">{elements}</div>;
-  }
-
-  return (
-    <motion.div
-      className="text-sm leading-relaxed"
-      variants={WordContainer}
-      initial="hidden"
-      animate="show"
-    >
-      {elements}
-    </motion.div>
-  );
+  return <div className="text-sm leading-relaxed space-y-1">{elements}</div>;
 });
 
 RenderMessage.displayName = "RenderMessage";
