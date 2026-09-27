@@ -42,7 +42,7 @@ interface PunjabiPlaylist {
   tags: string[];
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:1337").replace(/\/$/, "");
+const API_BASE_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "http://localhost:1337").replace(/\/$/, "");
 
 const PLAYLISTS: Playlist[] = [
   { id: "1", title: "Beginner Full Body Strength", channel: "Heather Robertson", category: "strength", level: "beginner", description: "Complete beginner-friendly strength workouts targeting every muscle group with dumbbells.", videoCount: 12, emoji: "🏋️", youtubePlaylistId: "PLt4lS6MZ6JJoFQvfp2RlqDzOFGDJWbm4X", thumbnailColor: "from-rose-500 to-orange-500", searchQuery: "beginner full body strength workout Heather Robertson" },
