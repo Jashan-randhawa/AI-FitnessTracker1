@@ -14,7 +14,7 @@
     "axios": "^1.13.5",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.34.2",
-    "jspdf": "^2.5.2",
+    "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.574.0",
     "react": "^19.2.0",
