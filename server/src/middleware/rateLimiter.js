@@ -52,6 +52,26 @@ const aiLimiter = rateLimit({
 });
 
 /**
+ * Secondary per-user rate limiter for AI chat (FitBot Plan §4 #3).
+ * Keyed on req.user.id post-JWT-auth to prevent NAT budget exhaustion
+ * and contain abusive single accounts.
+ * 20 requests per minute per user account.
+ */
+const aiUserLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20,
+  keyGenerator: (req) => String(req.user?.id || req.user?._id || req.ip || 'anonymous'),
+  validate: { keyGeneratorIpFallback: false },
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: {
+      message: 'You have reached your personal AI request limit. Please wait a moment before sending more requests.',
+    },
+  },
+});
+
+/**
  * Rate limiter for YouTube proxy searches.
  * Protects RapidAPI quotas.
  * 30 requests per minute per IP.
@@ -72,5 +92,7 @@ module.exports = {
   authLimiter,
   passwordResetLimiter,
   aiLimiter,
+  aiUserLimiter,
   youtubeLimiter,
 };
+

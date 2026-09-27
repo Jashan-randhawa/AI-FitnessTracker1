@@ -1,53 +1,140 @@
-const { chatCompletion } = require('./openrouter.service');
+const crypto = require('crypto');
+const { chatCompletionDetailed } = require('./openrouter.service');
+const { buildFitBotPrompt, PROMPT_VERSION } = require('../prompts/fitbot.prompt');
+const logger = require('../utils/logger');
 
-const SYSTEM_PROMPT = `You are FitBot, an expert AI fitness and nutrition assistant built into FitTrack, a health tracking app.
+// In-memory 5-minute TTL cache for identical prompt queries (FitBot Plan §4 #5)
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const responseCache = new Map();
 
-Your role:
-- Answer questions about fitness, nutrition, exercise, weight management, and general wellness
-- Provide personalized advice based on user context when provided (their goals, weight, activity level)
-- Suggest meal plans, workout routines, and healthy habits
-- Explain concepts in fitness and nutrition in a clear, friendly way
-- Motivate and support users in reaching their health goals
+const cleanExpiredCache = () => {
+  const now = Date.now();
+  for (const [key, value] of responseCache.entries()) {
+    if (now - value.timestamp > CACHE_TTL_MS) {
+      responseCache.delete(key);
+    }
+  }
+};
 
-When user context is provided, you MUST use it actively:
-- Reference what the user has already eaten today when giving nutrition advice
-- Factor in calories already consumed and remaining when suggesting meals
-- Acknowledge exercises already done when recommending workouts
-- If they are over their calorie target, be supportive and constructive — never shame them
-- If they haven't logged food or exercise yet, gently encourage them to do so
-- Tailor ALL recommendations to their specific goal (lose / maintain / gain weight)
-- Use their weight and height for any calculations (BMR, TDEE, macros)
-
-Guidelines:
-- Be concise but thorough — use bullet points and structure when helpful
-- Always prioritize safety: recommend consulting a doctor for medical concerns
-- Be positive and encouraging
-- If asked something outside fitness/nutrition/wellness, politely redirect to your area of expertise
-- Use metric units by default but adapt to user preference
-- When referencing the user's today data, always say "today" to make it feel real-time`;
+const extractCleanJson = (text) => {
+  if (!text || typeof text !== 'string') return null;
+  const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  const candidate = match ? match[1].trim() : text.trim();
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    return null;
+  }
+};
 
 /**
- * @param {{ role: 'user'|'model', parts: { text: string }[] }[]} messages
+ * Communicates with FitBot AI via OpenRouter with caching, fallback,
+ * and JSON parse validation retry for structured Activity Planner plans.
+ *
+ * @param {Array<{ role: 'user'|'model'|'assistant', parts?: { text: string }[], content?: string }>} messages
  * @param {string} [userContext]
- * @returns {Promise<string>}
+ * @param {Object} [options]
+ * @param {boolean} [options.expectJson]
+ * @returns {Promise<{ reply: string, usage: object, model: string, cached: boolean }>}
  */
-const chatWithAssistant = async (messages, userContext) => {
-  const systemInstruction = userContext ? `${SYSTEM_PROMPT}\n\nUser context: ${userContext}` : SYSTEM_PROMPT;
+const chatWithAssistant = async (messages, userContext, options = {}) => {
+  cleanExpiredCache();
+
+  const systemInstruction = buildFitBotPrompt(userContext);
 
   const openRouterMessages = [
     { role: 'system', content: systemInstruction },
-    ...messages.map((m) => ({
-      role: m.role === 'model' ? 'assistant' : 'user',
-      content: m.parts.map((p) => p.text).join(''),
-    })),
+    ...messages.map((m) => {
+      let text = '';
+      if (Array.isArray(m.parts)) {
+        text = m.parts.map((p) => (p && typeof p.text === 'string' ? p.text : '')).join('');
+      } else if (typeof m.content === 'string') {
+        text = m.content;
+      }
+      return {
+        role: m.role === 'model' || m.role === 'assistant' ? 'assistant' : 'user',
+        content: text,
+      };
+    }),
   ];
 
-  console.log('[AI] Using OpenRouter for chat...');
-  // This endpoint is shared by the short FitBot chat replies AND larger
-  // structured JSON requests (e.g. the Activity Planner's multi-day plan),
-  // so the cap has to fit the biggest legitimate payload, not just typical chat.
-  const content = await chatCompletion({ messages: openRouterMessages, title: 'FitTrack AI Assistant', maxTokens: 4000 });
-  return content || 'Sorry, I could not generate a response.';
+  // Check if query requests structured JSON (e.g. Activity Planner)
+  const lastUserMsg = openRouterMessages[openRouterMessages.length - 1]?.content || '';
+  const isJsonRequest = options.expectJson || /return (only )?valid json/i.test(lastUserMsg);
+
+  // Compute cache key based on prompt messages and user context
+  const cacheKey = crypto
+    .createHash('sha256')
+    .update(JSON.stringify({ messages: openRouterMessages, isJsonRequest, version: PROMPT_VERSION }))
+    .digest('hex');
+
+  const cachedEntry = responseCache.get(cacheKey);
+  if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_TTL_MS) {
+    logger.debug(`[AI Assistant] Cache hit for prompt hash ${cacheKey.slice(0, 8)}`);
+    return { ...cachedEntry.data, cached: true };
+  }
+
+  logger.info('[AI Assistant] Dispatching request to OpenRouter', {
+    messageCount: openRouterMessages.length,
+    isJsonRequest,
+    promptVersion: PROMPT_VERSION,
+  });
+
+  let result = await chatCompletionDetailed({
+    messages: openRouterMessages,
+    title: 'FitTrack AI Assistant',
+    maxTokens: 4000,
+    returnUsage: true,
+  });
+
+  // Gap 6: Structured JSON validation guard with 1 repair retry
+  if (isJsonRequest && !extractCleanJson(result.content)) {
+    logger.warn('[AI Assistant] Model returned unparseable JSON for structured request; attempting repair retry...');
+    const repairMessages = [
+      ...openRouterMessages,
+      { role: 'assistant', content: result.content },
+      {
+        role: 'user',
+        content: 'Your previous response could not be parsed as valid JSON. Return ONLY valid, well-formed JSON matching the requested structure. Do not include markdown formatting or explanation.',
+      },
+    ];
+
+    try {
+      const repairedResult = await chatCompletionDetailed({
+        messages: repairMessages,
+        title: 'FitTrack AI Assistant (JSON Repair)',
+        maxTokens: 4000,
+        returnUsage: true,
+      });
+
+      if (extractCleanJson(repairedResult.content)) {
+        logger.info('[AI Assistant] JSON repair succeeded.');
+        result = repairedResult;
+      }
+    } catch (repairErr) {
+      logger.warn(`[AI Assistant] JSON repair attempt failed: ${repairErr.message}`);
+    }
+  }
+
+  const responsePayload = {
+    reply: result.content || 'Sorry, I could not generate a response.',
+    usage: result.usage,
+    model: result.model,
+    cached: false,
+  };
+
+  // Cache successful responses
+  responseCache.set(cacheKey, {
+    data: responsePayload,
+    timestamp: Date.now(),
+  });
+
+  return responsePayload;
 };
 
-module.exports = { chatWithAssistant };
+module.exports = {
+  chatWithAssistant,
+  extractCleanJson,
+  responseCache,
+  CACHE_TTL_MS,
+};

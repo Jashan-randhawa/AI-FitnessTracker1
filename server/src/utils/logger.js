@@ -28,6 +28,14 @@ const SENSITIVE_KEYS = new Set([
   'secret',
 ]);
 
+const TOKEN_METRICS_KEYS = new Set([
+  'prompttokens',
+  'completiontokens',
+  'totaltokens',
+  'tokencount',
+  'tokens',
+]);
+
 /**
  * Recursively redacts sensitive keys from an object or array.
  * @param {any} obj
@@ -41,8 +49,8 @@ const scrubSecrets = (obj) => {
     if (/Bearer\s+[A-Za-z0-9-_.]+/i.test(obj)) {
       return obj.replace(/Bearer\s+[A-Za-z0-9-_.]+/gi, 'Bearer [REDACTED]');
     }
-    // Mask JWT-like strings (three base64 chunks separated by dots)
-    if (/^[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_.+/=]+$/.test(obj)) {
+    // Mask JWT-like strings (three base64 chunks separated by dots, each >= 8 chars)
+    if (/^[A-Za-z0-9-_=]{8,}\.[A-Za-z0-9-_=]{8,}\.[A-Za-z0-9-_.+/=]{8,}$/.test(obj)) {
       return '[REDACTED_JWT]';
     }
     return obj;
@@ -56,7 +64,15 @@ const scrubSecrets = (obj) => {
     const cleaned = {};
     for (const [key, value] of Object.entries(obj)) {
       const lowerKey = key.toLowerCase().replace(/[-_]/g, '');
-      if (SENSITIVE_KEYS.has(lowerKey) || lowerKey.includes('password') || lowerKey.includes('secret') || lowerKey.includes('token') || lowerKey.includes('apikey')) {
+      const isSecret =
+        !TOKEN_METRICS_KEYS.has(lowerKey) &&
+        (SENSITIVE_KEYS.has(lowerKey) ||
+          lowerKey.includes('password') ||
+          lowerKey.includes('secret') ||
+          lowerKey.includes('token') ||
+          lowerKey.includes('apikey'));
+
+      if (isSecret) {
         cleaned[key] = '[REDACTED]';
       } else {
         cleaned[key] = scrubSecrets(value);

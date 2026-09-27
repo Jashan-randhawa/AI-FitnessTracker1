@@ -342,15 +342,19 @@ Guidelines:
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messages: geminiHistory, systemInstruction: systemPrompt }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `AI assistant request failed (${res.status})`);
+      }
       const reply = data.reply || "I couldn't generate a response. Please try again.";
       const assistantMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", text: reply, timestamp: new Date() };
       const finalMessages = [...newMessages, assistantMsg];
       setMessages(finalMessages);
       // Auto-save after every 6th message
       if (finalMessages.length % 6 === 0) saveSession(finalMessages);
-    } catch {
-      toast.error("Failed to get response. Check your connection.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to get response. Check your connection.";
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }

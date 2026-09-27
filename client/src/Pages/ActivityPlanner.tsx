@@ -49,6 +49,26 @@ const normalizeActivityEntry = (raw: unknown): ActivityEntry | null => {
 };
 
 const planFromReply = (reply: string) => {
+  // First attempt to extract fenced code block
+  const fenced = reply.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (fenced && fenced[1]) {
+    try {
+      return JSON.parse(fenced[1].trim()) as ActivityDayPlan[];
+    } catch {
+      // Fall through to broader extract
+    }
+  }
+
+  // Next attempt to extract outermost JSON array
+  const arrayMatch = reply.match(/\[\s*\{[\s\S]*\}\s*\]/);
+  if (arrayMatch) {
+    try {
+      return JSON.parse(arrayMatch[0]) as ActivityDayPlan[];
+    } catch {
+      // Fall through
+    }
+  }
+
   const cleaned = reply.replace(/```json|```/g, "").trim();
   return JSON.parse(cleaned) as ActivityDayPlan[];
 };
@@ -118,13 +138,16 @@ Requirements:
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messages: [{ role: "user", parts: [{ text: prompt }] }] }),
       });
-      if (!res.ok) throw new Error(`AI assistant: ${res.status}`);
-      const data = (await res.json()) as { reply?: string };
-      if (!data.reply) throw new Error("Empty AI response");
+      const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string };
+      if (!res.ok) {
+        throw new Error(data.error || `AI assistant request failed (${res.status})`);
+      }
+      if (!data.reply) throw new Error("Empty AI response received.");
       const parsed = planFromReply(data.reply);
       setPlan(parsed);
-    } catch {
-      toast.error("Failed to generate activity plan. Please try again.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to generate activity plan. Please try again.";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
