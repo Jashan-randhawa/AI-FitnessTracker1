@@ -11,7 +11,7 @@
 [![Express](https://img.shields.io/badge/Express-4.19-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E=20.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tests](https://img.shields.io/badge/Unit_Tests-23_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
+[![Tests](https://img.shields.io/badge/Unit_Tests-35_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
 [![Audit](https://img.shields.io/badge/Vulnerabilities-0-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://ai-fitness-tracker1.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
@@ -44,11 +44,16 @@
 
 ### 🧠 1. Artificial Intelligence Core
 - **FitBot Personal Coach (`/ai-assistant` & `/ai`):** Chat with a context-aware fitness assistant powered by OpenRouter LLMs. FitBot references your profile (weight, target calories, training goal) and remembers past sessions.
+- **Resilient AI Architecture & Transient Retries:** Integrated exponential backoff retry mechanism (1–2 retries) on network timeouts, provider hiccups, and 429/5xx status codes.
+- **Automated Model Fallback (`OPENROUTER_FALLBACK_MODEL`):** Automatic failover to secondary fallback models (e.g., Gemini 2.0 Flash) if the primary model (`openai/gpt-4o-mini`) is temporarily unavailable.
+- **Dual-Tier Rate Limiting:** 30 req/min per IP (`aiLimiter`) plus 20 req/min per authenticated user (`aiUserLimiter`) keyed on `req.user.id` to prevent NAT starvation and credit exhaustion.
+- **Structured JSON Validation & Repair Retry:** Automated parse verification and repair retry specifically on Activity Planner calls, ensuring valid multi-day workout JSON plans.
+- **In-Memory Query Cache:** 5-minute short-TTL caching on identical prompt hashes, saving API credits and accelerating repeat advice queries.
 - **AI Food Snap (Vision Analysis):** Upload or capture a meal photo directly from your camera for instant dish recognition and nutritional estimation.
 - **Smart Natural Language Nutrition Estimator:** Type `"Grilled salmon with brown rice and broccoli"` and receive automated calorie and macronutrient breakdowns (Protein, Carbs, Fat).
-- **AI Workout Planner:** Generates 3, 5, or 7-day workout routines based on training focus (Fat Loss, Strength, Endurance, Balanced, Mobility), equipment, and fitness level.
-- **AI Meal Planner:** Creates multi-day dietary plans with direct one-click meal addition into your daily Food Log.
-- **Prompt Injection & Token Guardrails:** Strict payload size limits (50 messages max, 4,000 chars per message, 5,000 chars user context) preventing prompt flooding and LLM token exhaustion.
+- **AI Workout & Meal Planners:** Generates 3, 5, or 7-day workout and diet routines customized by equipment, focus, and daily calorie burn target.
+- **Graceful Degradation:** Production outage handling delivering clear, user-friendly status responses (`503 Service Unavailable`) instead of raw stack traces.
+- **Prompt Injection & Token Guardrails:** Server-side message history bounds (50 messages max), per-message length limits (8,000 chars), and graceful sliding-window conversation truncation.
 
 ### 📊 2. Health Analytics & Daily Tracking
 - **Interactive Dashboard:** 
@@ -137,17 +142,18 @@ graph TD
 - **Runtime:** Node.js `>=20.0.0`
 - **Framework:** Express.js 4.19
 - **Database & ODM:** MongoDB & Mongoose 8.x
-- **Security & Reliability:** Helmet, CORS, `express-rate-limit`, bcryptjs, JSON Web Tokens (JWT)
+- **Security & Reliability:** Helmet, CORS, `express-rate-limit` (dual IP and per-user limiters), bcryptjs, JSON Web Tokens (JWT)
 - **Media Ingestion:** Multer 2.4.x (multipart form handling for vision analysis)
-- **Logging:** Morgan 1.12.x
-- **External Providers:** OpenRouter, Brevo API, NewsAPI, RapidAPI
+- **Logging & Tracing:** Structured JSON Logger (`LOG_LEVEL`), automated secret scrubber (passwords, tokens, API keys), request ID correlation middleware (`X-Request-Id`), and HTTP access logging
+- **Health & Monitoring:** Production uptime monitoring endpoint (`GET /api/health`) with live MongoDB connection state inspection
+- **External Providers:** OpenRouter (GPT-4o-mini & Gemini fallback), Brevo HTTP API, NewsAPI, RapidAPI
 
 ---
 
 ## 🧪 Testing & CI/CD
 
 ### Automated Test Suite
-The backend contains a unit test suite built with Node.js's native test runner (`node --test`), requiring zero external test framework dependencies:
+The backend contains an automated unit test suite built with Node.js's native test runner (`node --test`), requiring zero external test framework dependencies:
 
 ```bash
 # Run server test suite
@@ -155,12 +161,15 @@ cd server
 npm test
 ```
 
-Test coverage includes 23 unit tests across:
+Test coverage includes **35 unit tests** across **13 suites**:
 - **Auth & JWT (`test/auth.test.js`):** Token generation, signature validation, payload integrity, username/email/password registration validators, and login validation.
+- **AI Assistant Guardrails & Truncation (`test/aiAssistant.test.js`):** Message array boundary checks, maximum character length limits, graceful sliding-window history truncation, and friendly outage responses (`503`).
+- **OpenRouter Resilience & Prompts (`test/openrouter.test.js`):** Transient error detection (429/5xx/timeouts), primary/fallback model defaults, JSON code fence extraction, and versioned FitBot prompt generation.
+- **Structured Logger & Secret Scrubber (`test/logger.test.js`):** Automated redaction of passwords, tokens, API keys, Bearer tokens, and JWTs while preserving token usage metrics.
+- **Health Endpoint & Request ID (`test/health.test.js`):** `GET /api/health` status, database connection state, uptime tracking, and UUID `X-Request-Id` assignment and preservation.
+- **Error Handling & Production Masking (`test/errorHandler.test.js`):** Multer errors, Mongoose validation/cast/duplicate key errors, and production internal database error masking.
 - **Nutrition & Calorie Estimation (`test/estimates.test.js`):** Input validation for duration, activity name, food items, and numeric boundaries.
 - **Password Reset (`test/passwordReset.test.js`):** Email format verification and non-string/missing payload handling.
-- **AI Assistant Guardrails (`test/aiAssistant.test.js`):** Message array boundary checks, maximum character length limits, and user context validation.
-- **Error Handling & Production Masking (`test/errorHandler.test.js`):** Multer errors, Mongoose validation/cast/duplicate key errors, and production internal error masking.
 
 ### Continuous Integration (GitHub Actions)
 The repository includes a GitHub Actions CI workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) running on Node.js 20:
@@ -215,11 +224,14 @@ AI-FitnessTracker1/
 │
 ├── server/                              # Express + MongoDB API
 │   ├── server.js                        # Server entry point
-│   ├── test/                            # Unit tests (node --test)
-│   │   ├── aiAssistant.test.js          # AI payload caps validation tests
+│   ├── test/                            # Unit tests (node --test - 35 tests)
+│   │   ├── aiAssistant.test.js          # AI payload caps & truncation tests
 │   │   ├── auth.test.js                 # Auth & JWT unit tests
 │   │   ├── errorHandler.test.js         # Error handling & production masking tests
 │   │   ├── estimates.test.js            # Calorie & food estimate tests
+│   │   ├── health.test.js               # Health check & request-ID tests
+│   │   ├── logger.test.js               # Logger & secret scrubber tests
+│   │   ├── openrouter.test.js           # OpenRouter resilience & prompt tests
 │   │   └── passwordReset.test.js        # Password reset validation tests
 │   └── src/
 │       ├── app.js                       # Express configuration & middleware
@@ -227,8 +239,10 @@ AI-FitnessTracker1/
 │       ├── models/                      # Mongoose schemas (User, Food, Activity, Water, Blog, Chat)
 │       ├── controllers/                 # Business logic controllers
 │       ├── routes/                      # API endpoint definitions
-│       ├── middleware/                  # JWT auth, rateLimiter, multer, error handlers
-│       └── services/                    # OpenRouter AI, Brevo email services
+│       ├── prompts/                     # Versioned AI system prompts (fitbot.prompt.js)
+│       ├── middleware/                  # JWT auth, rateLimiter, requestId, httpLogger, errorHandler
+│       ├── utils/                       # Structured JSON logger & secret scrubber
+│       └── services/                    # OpenRouter AI with fallback, Brevo email services
 │
 ├── IMPLEMENTATION_GUIDE.md              # Technical architecture & deployment guide
 └── LICENSE                              # MIT License
@@ -350,13 +364,18 @@ All requests requiring authorization must include the header:
 | `POST` | `/api/waterlogs` | Log water consumption (amount in ml) | — | Private |
 | `DELETE` | `/api/waterlogs/:id` | Delete water entry | — | Private |
 
+### System & Health Monitoring
+| Method | Endpoint | Description | Rate Limit | Access |
+|---|---|---|---|---|
+| `GET` | `/api/health` | Uptime health check (MongoDB status, process uptime, timestamp) | — | Public |
+
 ### Generative AI & Media
 | Method | Endpoint | Description | Rate Limit | Access |
 |---|---|---|---|---|
-| `POST` | `/api/ai-assistant/chat` | Send message to FitBot Coach | 20 req / 1m | Private |
-| `POST` | `/api/image-analysis` | Analyze meal photo for nutrition | 20 req / 1m | Private |
-| `POST` | `/api/food-estimate` | Natural language text nutrition estimator | 20 req / 1m | Private |
-| `POST` | `/api/calorie-estimate` | Estimate calories burned from exercise | 20 req / 1m | Private |
+| `POST` | `/api/ai-assistant/chat` | Send message to FitBot Coach (with model fallback & retry) | 30 req/m (IP) + 20 req/m (User) | Private |
+| `POST` | `/api/image-analysis` | Analyze meal photo for nutrition | 30 req / 1m | Private |
+| `POST` | `/api/food-estimate` | Natural language text nutrition estimator | 30 req / 1m | Private |
+| `POST` | `/api/calorie-estimate` | Estimate calories burned from exercise | 30 req / 1m | Private |
 | `GET` | `/api/youtube/search` | Search workout videos via RapidAPI proxy | 30 req / 1m | Private |
 
 ---

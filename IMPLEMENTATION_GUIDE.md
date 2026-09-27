@@ -64,27 +64,33 @@ AI-FitnessTracker1/
 - `GET /api/waterlogs`, `POST /api/waterlogs`, `DELETE /api/waterlogs/:id`
 - `GET /api/chathistories`, `POST /api/chathistories`, `DELETE /api/chathistories/:id`
 
+### System & Health Monitoring
+- `GET /api/health` — Live health check returning MongoDB status (`connected`/`degraded`), uptime, and timestamp
+
 ### AI & Media Services
-- `POST /api/ai-assistant/chat` — Context-aware chat with FitBot *(JWT required, rate limited: 30 req / min)*
-- `POST /api/image-analysis` — Multimodal meal photo analysis *(JWT required, rate limited)*
-- `POST /api/food-estimate` — AI food nutrition estimation
-- `POST /api/calorie-estimate` — Activity calorie estimation
-- `GET /api/youtube/search?q=QUERY` — Workout video search proxy *(rate limited)*
+- `POST /api/ai-assistant/chat` — Context-aware chat with FitBot *(JWT required; dual rate limited: 30 req/min per IP + 20 req/min per user account; exponential backoff retries on transient errors; automatic fallback to `OPENROUTER_FALLBACK_MODEL`; 5-min TTL cache; and structured JSON repair for Activity Planner)*
+- `POST /api/image-analysis` — Multimodal meal photo analysis *(JWT required, rate limited: 30 req / min)*
+- `POST /api/food-estimate` — AI food nutrition estimation *(rate limited: 30 req / min)*
+- `POST /api/calorie-estimate` — Activity calorie estimation *(rate limited: 30 req / min)*
+- `GET /api/youtube/search?q=QUERY` — Workout video search proxy *(rate limited: 30 req / min)*
 
 ---
 
-## Security Architecture
+## Security & Reliability Architecture
 
 1. **Helmet & Cross-Origin Resource Policy**: Set to protect against common web vulnerabilities.
-2. **CORS Restrictions**: Origin whitelist restricting access to production URL, localhost, and `CLIENT_URL`.
+2. **CORS Restrictions**: Origin whitelist restricting access to production URL, localhost, and `CLIENT_URL`. Exposes `X-Request-Id` header.
 3. **JWT Authentication**: Secure Bearer tokens with 30-day expiration.
-4. **Rate Limiting (`express-rate-limit`)**:
-   - Authentication brute-force defense
-   - Password-reset enumeration mitigation
-   - AI and YouTube external API cost/quota exhaustion protection
+4. **Dual-Tier Rate Limiting (`express-rate-limit`)**:
+   - Authentication brute-force defense (20 req / 15 min per IP)
+   - Password-reset enumeration mitigation (10 req / 15 min per IP)
+   - AI endpoints quota protection: 30 req/min per IP and 20 req/min per authenticated user (`aiUserLimiter`) to prevent NAT exhaustion
+   - YouTube search proxy quota protection (30 req / min)
 5. **No Account Enumeration**: Password reset returns identical success responses regardless of whether the email exists.
 6. **Token Leakage Prevention**: Google OAuth uses URL fragments and POST payloads to prevent access tokens from leaking via query params or referrers.
-7. **Environment-Gated Errors**: Detailed server error messages are gated behind `NODE_ENV !== 'production'`.
+7. **Environment-Gated Errors & Production Masking**: Detailed server error messages are gated behind `NODE_ENV !== 'production'`. Internal database driver errors are masked.
+8. **Structured Logging & Secret Scrubbing**: Zero raw `console.log` in production; all logs use structured JSON formatting, correlation `X-Request-Id` headers, and automated redaction of passwords, tokens, and API keys.
+9. **AI Resilience & Model Fallback**: Automatic retry on transient provider errors (429/5xx/timeouts) and seamless failover to fallback models before erroring gracefully with `503`.
 
 ---
 
