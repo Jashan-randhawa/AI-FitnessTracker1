@@ -72,7 +72,7 @@ export default function ActivityPlanner() {
     setActiveDay(0);
     setLoggedActivities(new Set());
     try {
-      const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
+      const API_URL = (import.meta.env.VITE_API_URL as string)?.replace(/\/$/, "");
       const token = localStorage.getItem("token");
       const prompt = `Create a detailed ${days}-day workout and activity plan for this user:
 - Goal: ${user?.goal ?? "maintain"} weight

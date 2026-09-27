@@ -32,7 +32,7 @@ export default function MealPlanner() {
     setPlan([]);
     setLoggedMeals(new Set());
     try {
-      const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
+      const API_URL = (import.meta.env.VITE_API_URL as string)?.replace(/\/$/, "");
       const token = localStorage.getItem("token");
 
       const prompt = `Generate a ${days}-day meal plan for someone with the following profile:

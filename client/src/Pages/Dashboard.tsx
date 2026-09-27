@@ -390,7 +390,7 @@ export default function Dashboard() {
     const fetchTip = async () => {
       setTipLoading(true);
       try {
-        const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
+        const API_URL = (import.meta.env.VITE_API_URL as string)?.replace(/\/$/, "");
         const token = localStorage.getItem("token");
         const userCtx = [
           user?.goal ? `goal: ${user.goal} weight` : "",
