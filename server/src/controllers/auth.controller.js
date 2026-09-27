@@ -112,20 +112,21 @@ const googleConnectCallback = asyncHandler(async (req, res) => {
       throw new Error(tokenData.error_description || 'Google token exchange failed');
     }
 
-    res.redirect(`${clientUrl}/google-callback?access_token=${tokenData.access_token}`);
+    // Use URL fragment (#access_token=) so the token is not sent across the wire
+    // to reverse proxies, browser history logs, or HTTP Referer headers.
+    res.redirect(`${clientUrl}/google-callback#access_token=${tokenData.access_token}`);
   } catch (err) {
     console.error('[auth] Google connect callback failed:', err);
     res.redirect(`${clientUrl}/google-callback?error=oauth_failed`);
   }
 });
 
-// Step 3: GET /api/auth/google/callback?access_token=<google_access_token>
-// Called by the client with the Google access_token — exchanges it for our
-// own JWT, exactly like Strapi's `/api/auth/:provider/callback`.
+// Step 3: POST /api/auth/google/callback — body: { access_token } (GET supported for backwards compatibility)
+// Called by the client with the Google access_token — exchanges it for our JWT.
 const googleAuthCallback = asyncHandler(async (req, res) => {
-  const googleAccessToken = req.query.access_token;
+  const googleAccessToken = req.body?.access_token || req.query?.access_token;
   if (!googleAccessToken) {
-    return sendError(res, 400, 'access_token query parameter is required');
+    return sendError(res, 400, 'access_token parameter is required');
   }
 
   const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {

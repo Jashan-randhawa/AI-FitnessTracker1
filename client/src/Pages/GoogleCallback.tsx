@@ -8,13 +8,16 @@ const GoogleCallback = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    // Extract token from URL fragment (#access_token=) first to avoid query param exposure
+    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+    const hashParams = new URLSearchParams(hash);
+    const queryParams = new URLSearchParams(window.location.search);
 
-    // Google OAuth sends access_token; older versions may send id_token
-    const accessToken = params.get("access_token") || params.get("id_token");
+    const accessToken = hashParams.get("access_token") || queryParams.get("access_token") || queryParams.get("id_token");
 
-    if (import.meta.env.DEV) {
-      console.log("Token found:", accessToken ? accessToken.substring(0, 20) + "..." : "NONE");
+    // Immediately scrub sensitive tokens from the URL bar
+    if (window.location.hash || window.location.search) {
+      window.history.replaceState(null, "", window.location.pathname);
     }
 
     if (!accessToken) {
@@ -25,7 +28,7 @@ const GoogleCallback = () => {
     googleLogin(accessToken)
       .then(() => navigate("/"))
       .catch(() => setError("Google login failed. Please check your Google OAuth provider settings."));
-  }, []);
+  }, [googleLogin, navigate]);
 
   if (error) {
     return (

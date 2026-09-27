@@ -85,7 +85,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       setAllWaterLogs([]);
       setUser(null);
 
-      const { data } = await api.get(`/api/auth/google/callback?access_token=${googleAccessToken}`);
+      const { data } = await api.post("/api/auth/google/callback", {
+        access_token: googleAccessToken,
+      });
       const jwtToken = data.jwt;
 
       localStorage.setItem("token", jwtToken);

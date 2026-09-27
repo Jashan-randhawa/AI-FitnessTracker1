@@ -16,9 +16,10 @@ router.post('/auth/local/register', authLimiter, register);
 router.post('/auth/local', authLimiter, login);
 router.get('/users/me', protect, me);
 
-// Google OAuth 3-hop flow
+// Google OAuth flow
 router.get('/connect/google', googleConnect);
 router.get('/connect/google/callback', googleConnectCallback);
+router.post('/auth/google/callback', googleAuthCallback);
 router.get('/auth/google/callback', googleAuthCallback);
 
 module.exports = router;
