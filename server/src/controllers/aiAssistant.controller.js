@@ -62,9 +62,9 @@ const prepareMessages = (rawMessages) => {
   return { valid: true, messages: sanitized, totalChars };
 };
 
-// POST /api/ai-assistant/chat — body: { messages, userContext? }
+// POST /api/ai-assistant/chat — body: { messages, userContext?, systemInstruction?, expectJson? }
 const chat = asyncHandler(async (req, res) => {
-  const { messages: rawMessages, userContext: rawUserContext } = req.body;
+  const { messages: rawMessages, userContext: rawUserContext, systemInstruction, expectJson, options } = req.body;
   const startTime = Date.now();
   const userId = req.user?.id || req.user?._id;
   const requestId = req.id || req.requestId;
@@ -74,16 +74,22 @@ const chat = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: prepared.error });
   }
 
-  // Gracefully truncate user context to boundary
-  let userContext = rawUserContext;
+  // Gracefully accept userContext or legacy systemInstruction from client
+  let userContext = typeof rawUserContext === 'string' && rawUserContext.trim().length > 0
+    ? rawUserContext
+    : (typeof systemInstruction === 'string' ? systemInstruction : undefined);
+
   if (userContext && typeof userContext === 'string' && userContext.length > MAX_USER_CONTEXT_CHARS) {
     userContext = userContext.slice(0, MAX_USER_CONTEXT_CHARS);
   }
 
   const { messages, totalChars } = prepared;
+  const chatOptions = {
+    expectJson: Boolean(expectJson || options?.expectJson),
+  };
 
   try {
-    const result = await chatWithAssistant(messages, userContext);
+    const result = await chatWithAssistant(messages, userContext, chatOptions);
     const latencyMs = Date.now() - startTime;
 
     // AI-Specific Structured Metric Logging (FitBot Plan §5.3)

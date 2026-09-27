@@ -65,16 +65,43 @@ Requirements:
       const res = await fetch(`${API_URL}/api/ai-assistant/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ messages: [{ role: "user", parts: [{ text: prompt }] }] }),
+        body: JSON.stringify({
+          messages: [{ role: "user", parts: [{ text: prompt }] }],
+          options: { expectJson: true },
+        }),
       });
-      const data = await res.json();
-      const raw = data.reply ?? "";
-      const cleaned = raw.replace(/```json|```/g, "").trim();
-      const parsed: DayPlan[] = JSON.parse(cleaned);
+      const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string };
+      if (!res.ok) {
+        throw new Error(data.error || `AI assistant request failed (${res.status})`);
+      }
+      if (!data.reply) throw new Error("Empty meal plan received from AI.");
+
+      // Robust extraction from code fences or raw JSON
+      let parsed: DayPlan[] | null = null;
+      const fenced = data.reply.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (fenced && fenced[1]) {
+        try {
+          parsed = JSON.parse(fenced[1].trim()) as DayPlan[];
+        } catch { /* fallback */ }
+      }
+      if (!parsed) {
+        const arrayMatch = data.reply.match(/\[\s*\{[\s\S]*\}\s*\]/);
+        if (arrayMatch) {
+          try {
+            parsed = JSON.parse(arrayMatch[0]) as DayPlan[];
+          } catch { /* fallback */ }
+        }
+      }
+      if (!parsed) {
+        const cleaned = data.reply.replace(/```json|```/g, "").trim();
+        parsed = JSON.parse(cleaned) as DayPlan[];
+      }
+
       setPlan(parsed);
       setActiveDay(0);
-    } catch {
-      toast.error("Failed to generate plan. Please try again.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to generate meal plan. Please try again.";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
