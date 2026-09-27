@@ -61,6 +61,7 @@
   - Streak tracking (current & max streak), interactive day selection, and tooltip summaries for past 90 days.
 - **Interactive Water Intake Tracker:** Visual hydration progress with quick-add presets (`+150ml`, `+250ml`, `+350ml`, `+500ml`) and custom volume input.
 - **Filterable Date Selector:** Historic log inspection with date-by-date nutritional breakdown.
+- **Data Exports (PDF & CSV):** Download comprehensive progress reports in formatted PDF or export raw CSV spreadsheets of your food and activity logs directly from the Profile page.
 
 ### 🏋️ 3. Workout Studio & Music Player
 - **Curated Workout Categories:** Strength, Cardio, HIIT, Yoga, and Mobility.
@@ -147,11 +148,12 @@ cd server
 npm test
 ```
 
-Test coverage includes:
+Test coverage includes 23 unit tests across:
 - **Auth & JWT (`test/auth.test.js`):** Token generation, signature validation, payload integrity, username/email/password registration validators, and login validation.
 - **Nutrition & Calorie Estimation (`test/estimates.test.js`):** Input validation for duration, activity name, food items, and numeric boundaries.
 - **Password Reset (`test/passwordReset.test.js`):** Email format verification and non-string/missing payload handling.
 - **AI Assistant Guardrails (`test/aiAssistant.test.js`):** Message array boundary checks, maximum character length limits, and user context validation.
+- **Error Handling & Production Masking (`test/errorHandler.test.js`):** Multer errors, Mongoose validation/cast/duplicate key errors, and production internal error masking.
 
 ### Continuous Integration (GitHub Actions)
 The repository includes a GitHub Actions CI workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) running on Node.js 20:
@@ -181,7 +183,7 @@ AI-FitnessTracker1/
 │   │   │   ├── ActivityPlanner.tsx      # Multi-day workout generator
 │   │   │   ├── Weather.tsx              # Live forecast & AQI
 │   │   │   ├── Blog.tsx / BlogPost.tsx  # Fitness articles & news feed
-│   │   │   ├── Profile.tsx              # User metrics & PDF export
+│   │   │   ├── Profile.tsx              # User metrics, PDF & CSV export
 │   │   │   ├── Login.tsx                # Auth form (Sign in / Sign up)
 │   │   │   ├── GoogleCallback.tsx       # Secure fragment-based OAuth handler
 │   │   │   ├── ForgotPassword.tsx       # Password reset request view
@@ -209,6 +211,7 @@ AI-FitnessTracker1/
 │   ├── test/                            # Unit tests (node --test)
 │   │   ├── aiAssistant.test.js          # AI payload caps validation tests
 │   │   ├── auth.test.js                 # Auth & JWT unit tests
+│   │   ├── errorHandler.test.js         # Error handling & production masking tests
 │   │   ├── estimates.test.js            # Calorie & food estimate tests
 │   │   └── passwordReset.test.js        # Password reset validation tests
 │   └── src/
