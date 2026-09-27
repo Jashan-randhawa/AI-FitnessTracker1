@@ -11,6 +11,8 @@
 [![Express](https://img.shields.io/badge/Express-4.19-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E=20.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Tests](https://img.shields.io/badge/Unit_Tests-23_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
+[![Audit](https://img.shields.io/badge/Vulnerabilities-0-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://ai-fitness-tracker1.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
 
@@ -61,7 +63,10 @@
   - Streak tracking (current & max streak), interactive day selection, and tooltip summaries for past 90 days.
 - **Interactive Water Intake Tracker:** Visual hydration progress with quick-add presets (`+150ml`, `+250ml`, `+350ml`, `+500ml`) and custom volume input.
 - **Filterable Date Selector:** Historic log inspection with date-by-date nutritional breakdown.
-- **Data Exports (PDF & CSV):** Download comprehensive progress reports in formatted PDF or export raw CSV spreadsheets of your food and activity logs directly from the Profile page.
+- **Data Exports (PDF, CSV & PNG):**
+  - **Formatted PDF Report:** Multi-page PDF report with stats summary, profile metrics, food logs, and activity records powered by jsPDF and AutoTable.
+  - **Raw CSV Spreadsheets:** Downloadable comma-separated records of food and activity history with timestamps, categories, and nutritional values.
+  - **PNG Progress Card:** Shareable visual progress cards generated client-side with html2canvas for streak milestones and stats.
 
 ### 🏋️ 3. Workout Studio & Music Player
 - **Curated Workout Categories:** Strength, Cardio, HIIT, Yoga, and Mobility.
@@ -74,11 +79,12 @@
 - **Curated Fitness Blog:** Informative fitness articles with search and category tags.
 
 ### 🔐 5. Security & Authentication Hardening
-- **Secure JWT Auth:** Token-based authentication with encrypted password hashing via bcryptjs.
+- **Zero-Vulnerability Security Baseline:** Continuous dependency audits with `npm audit` ensuring 0 known vulnerabilities across client and server packages. Critical advisories (e.g. transitive `dompurify` XSS) resolved by upgrading `jspdf` to `^4.2.1`.
+- **Secure JWT Auth:** Stateless token-based authentication with encrypted password hashing via bcryptjs.
 - **IP Rate Limiting:** Enforced via `express-rate-limit` on auth (`5 req/15m`), password reset (`3 req/hour`), AI endpoints (`20 req/min`), and YouTube search (`30 req/min`).
 - **Secure Google OAuth 2.0:** Tokens transferred via URL fragment (`#access_token=`) and exchanged over POST body to prevent token leakage in browser history and HTTP Referer headers.
-- **Anti-Enumeration Password Recovery:** Generic responses on password reset requests to prevent user/email enumeration; debug logs stripped and token hashes kept secure. Expiring reset tokens delivered via Brevo HTTPS API.
-- **Environment-Gated Errors:** Internal database error messages and stack traces gated behind `NODE_ENV !== 'production'`.
+- **Anti-Enumeration Password Recovery:** Uniform responses across all scenarios — including non-existent accounts, third-party OAuth providers, and upstream email delivery errors — ensuring no observable timing or oracle leaks exist.
+- **Production Error Masking:** All database errors (`MongoServerError`, Mongoose internals) and unhandled 5xx exceptions are strictly masked with generic client messages in production (`NODE_ENV === 'production'`), shielding database topologies and credentials from client disclosure.
 
 ---
 
@@ -123,6 +129,7 @@ graph TD
 - **Routing:** React Router v7 (`react-router-dom` 7.18+)
 - **Motion & Micro-interactions:** Framer Motion 12.x
 - **Data Charts:** Recharts 3.x
+- **Document & Data Export:** jsPDF 4.2.x (patched DOMPurify), jsPDF-AutoTable 5.x, html2canvas
 - **Icons:** Lucide React
 - **Notifications:** React Hot Toast
 
