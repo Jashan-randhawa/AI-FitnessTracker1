@@ -44,10 +44,17 @@
 
 ### 🧠 1. Artificial Intelligence Core
 - **FitBot Personal Coach (`/ai-assistant` & `/ai`):** Chat with a context-aware fitness assistant powered by OpenRouter LLMs. FitBot references your profile (weight, target calories, training goal) and remembers past sessions.
+  - **Hands-Free Voice Experience:** Integrated Speech-to-Text (STT) for hands-free workout/diet queries, plus Text-to-Speech (TTS) read-aloud playback via the Web Speech API.
+  - **Dynamic Input & Stop Controls:** Auto-resizing textarea (up to 140px) with single-tap instant generation abortion via `AbortController`.
+  - **Rich Markdown Tables & Collapsible Cards:** Native rendering of markdown tables for multi-day workout splits and macro breakdowns, along with interactive collapsible plan cards.
+  - **Resilience & Inline Error Retry:** Automatic fallback, retry on 429/5xx, and inline chat retry button for immediate one-click prompt re-dispatch.
+  - **One-Click Export & Clipboard:** Download full workout and nutrition plans as formatted Markdown files or copy specific messages with checkmark confirmation.
+  - **Audio Completion Cue:** Gentle dual-tone Web Audio API completion chime with quick mute/unmute header toggle.
+  - **Ultra-Smooth 60fps UX:** Memoized message items and animated word reveal restricted strictly to the newest response, eliminating re-render stagger on past chat history.
 - **Resilient AI Architecture & Transient Retries:** Integrated exponential backoff retry mechanism (1–2 retries) on network timeouts, provider hiccups, and 429/5xx status codes.
 - **Automated Model Fallback (`OPENROUTER_FALLBACK_MODEL`):** Automatic failover to secondary fallback models (e.g., Gemini 2.0 Flash) if the primary model (`openai/gpt-4o-mini`) is temporarily unavailable.
 - **Dual-Tier Rate Limiting:** 30 req/min per IP (`aiLimiter`) plus 20 req/min per authenticated user (`aiUserLimiter`) keyed on `req.user.id` to prevent NAT starvation and credit exhaustion.
-- **Structured JSON Validation & Repair Retry:** Automated parse verification and repair retry specifically on Activity Planner calls, ensuring valid multi-day workout JSON plans.
+- **Structured JSON Validation & Repair Retry:** Automated parse verification and repair retry on Activity Planner and Meal Planner calls, ensuring valid multi-day workout JSON plans.
 - **In-Memory Query Cache:** 5-minute short-TTL caching on identical prompt hashes, saving API credits and accelerating repeat advice queries.
 - **AI Food Snap (Vision Analysis):** Upload or capture a meal photo directly from your camera for instant dish recognition and nutritional estimation.
 - **Smart Natural Language Nutrition Estimator:** Type `"Grilled salmon with brown rice and broccoli"` and receive automated calorie and macronutrient breakdowns (Protein, Carbs, Fat).

@@ -136,7 +136,10 @@ Requirements:
       const res = await fetch(`${API_URL}/api/ai-assistant/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ messages: [{ role: "user", parts: [{ text: prompt }] }] }),
+        body: JSON.stringify({
+          messages: [{ role: "user", parts: [{ text: prompt }] }],
+          options: { expectJson: true },
+        }),
       });
       const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string };
       if (!res.ok) {

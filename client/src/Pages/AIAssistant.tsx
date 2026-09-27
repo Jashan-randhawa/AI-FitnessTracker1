@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Copy,
@@ -13,6 +13,10 @@ import {
   Send,
   Bot,
   User as UserIcon,
+  Volume2,
+  VolumeX,
+  Square,
+  Download,
 } from "lucide-react";
 import { useappcontext } from "../Context/AppContext";
 import api from "../configs/api";
@@ -27,7 +31,14 @@ const isToday = (dateStr: string) =>
   new Date(dateStr).toDateString() === new Date().toDateString();
 
 // ── Types ─────────────────────────────────────────────────
-type Message = { id: string; role: "user" | "assistant"; text: string; timestamp: Date };
+type Message = {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  timestamp: Date;
+  isError?: boolean;
+};
+
 type GeminiMessage = { role: "user" | "model"; parts: { text: string }[] };
 
 const BASE_SUGGESTIONS = [
@@ -50,12 +61,48 @@ const QUICK_ACTIONS = [
 const formatTime = (date: Date) =>
   date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
-// ── Word/Token Sequential Reveal Variants ──────────────────
+// ── Web Audio API Subtle Chime ─────────────────────────────
+const playCompletionChime = () => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+
+    // First note: E5 (659.25 Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0.035, now);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.14);
+
+    // Second note: B5 (987.77 Hz)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(987.77, now + 0.08);
+    gain2.gain.setValueAtTime(0.035, now + 0.08);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.08);
+    osc2.stop(now + 0.24);
+  } catch {
+    // Audio context may be restricted by autoplay policy
+  }
+};
+
+// ── Word Sequential Reveal Variants ────────────────────────
 const WordContainer = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: { staggerChildren: 0.018, delayChildren: 0.02 },
+    transition: { staggerChildren: 0.016, delayChildren: 0.02 },
   },
 };
 
@@ -64,12 +111,12 @@ const WordItem = {
   show: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] as const },
+    transition: { duration: 0.16, ease: [0.16, 1, 0.3, 1] as const },
   },
 };
 
-// ── Markdown Parser & Formatter with Plan Cards ─────────────
-const RenderMessage = ({ text, isLatest }: { text: string; isLatest: boolean }) => {
+// ── Markdown Parser with Tables & Plan Cards ────────────────
+const RenderMessage = React.memo(({ text, isLatest }: { text: string; isLatest: boolean }) => {
   const lines = text.split("\n");
   const elements: React.ReactNode[] = [];
   let listItems: string[] = [];
@@ -77,6 +124,9 @@ const RenderMessage = ({ text, isLatest }: { text: string; isLatest: boolean }) 
   let inPlanCard = false;
   let planTitle = "";
   let planLines: React.ReactNode[] = [];
+  let inTable = false;
+  let tableHeaders: string[] = [];
+  let tableRows: string[][] = [];
 
   const applyInline = (raw: string): React.ReactNode[] => {
     // Matches inline code (`code`), bold (**text**), italics (*text*)
@@ -164,7 +214,48 @@ const RenderMessage = ({ text, isLatest }: { text: string; isLatest: boolean }) 
     listType = null;
   };
 
+  const flushTable = (key: string) => {
+    if (!inTable || tableHeaders.length === 0) {
+      inTable = false;
+      tableHeaders = [];
+      tableRows = [];
+      return;
+    }
+    const target = inPlanCard ? planLines : elements;
+    target.push(
+      <div key={key} className="overflow-x-auto my-2.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+        <table className="w-full text-xs text-left border-collapse">
+          <thead className="bg-slate-100/90 dark:bg-slate-700/60 text-slate-800 dark:text-slate-200 font-semibold">
+            <tr>
+              {tableHeaders.map((header, hIdx) => (
+                <th key={hIdx} className="px-3 py-2 border-b border-slate-200 dark:border-slate-700">
+                  {applyInline(header)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+            {tableRows.map((row, rIdx) => (
+              <tr key={rIdx} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                {row.map((cell, cIdx) => (
+                  <td key={cIdx} className="px-3 py-1.5 text-slate-700 dark:text-slate-300">
+                    {applyInline(cell)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+    inTable = false;
+    tableHeaders = [];
+    tableRows = [];
+  };
+
   const flushPlanCard = (key: string) => {
+    flushList(`plan-inner-list-${key}`);
+    flushTable(`plan-inner-tbl-${key}`);
     if (inPlanCard && planLines.length > 0) {
       elements.push(
         <CollapsiblePlanCard key={key} title={planTitle || "Suggested Plan"} defaultOpen={true}>
@@ -182,12 +273,39 @@ const RenderMessage = ({ text, isLatest }: { text: string; isLatest: boolean }) 
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
 
+    // Check for markdown table row: e.g. "| Day | Workout | Sets |"
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+      flushList(`tbl-list-${idx}`);
+      const rawCols = trimmed
+        .slice(1, -1)
+        .split("|")
+        .map((c) => c.trim());
+
+      // Check if this is separator row like "|---|---|---|"
+      const isSeparator = rawCols.every((col) => /^:?-+:?$/.test(col));
+      if (isSeparator) {
+        inTable = true;
+        return;
+      }
+
+      if (!inTable && tableHeaders.length === 0) {
+        tableHeaders = rawCols;
+        inTable = true;
+      } else {
+        tableRows.push(rawCols);
+      }
+      return;
+    } else {
+      flushTable(`table-end-${idx}`);
+    }
+
     // Check for plan headers: e.g. "### Workout Routine" or "**Weekly Meal Plan**"
     const headerMatch = trimmed.match(/^###?\s+(.+)/);
     const planBlockMatch = trimmed.match(/^\*\*(.+plan|.+routine|.+breakdown|.+workout|.+schedule)\*\*/i);
 
     if (headerMatch || planBlockMatch) {
       flushList(`list-pre-${idx}`);
+      flushTable(`tbl-pre-${idx}`);
       flushPlanCard(`plan-pre-${idx}`);
       inPlanCard = true;
       planTitle = headerMatch ? headerMatch[1] : planBlockMatch![1];
@@ -197,6 +315,7 @@ const RenderMessage = ({ text, isLatest }: { text: string; isLatest: boolean }) 
     // Check for blockquotes: e.g. "> Tip: Drink plenty of water"
     if (trimmed.startsWith(">")) {
       flushList(`quote-list-${idx}`);
+      flushTable(`quote-tbl-${idx}`);
       const quoteText = trimmed.replace(/^>\s*/, "");
       const quoteNode = (
         <blockquote
@@ -240,6 +359,7 @@ const RenderMessage = ({ text, isLatest }: { text: string; isLatest: boolean }) 
   });
 
   flushList("final-list");
+  flushTable("final-table");
   flushPlanCard("final-plan");
 
   if (!isLatest) {
@@ -256,7 +376,147 @@ const RenderMessage = ({ text, isLatest }: { text: string; isLatest: boolean }) 
       {elements}
     </motion.div>
   );
-};
+});
+
+RenderMessage.displayName = "RenderMessage";
+
+// ── Memoized Chat Message Item ─────────────────────────────
+interface ChatMessageItemProps {
+  msg: Message;
+  isLast: boolean;
+  isLoading: boolean;
+  copiedId: string | null;
+  speakingId: string | null;
+  onCopy: (id: string, text: string) => void;
+  onRegenerate: () => void;
+  onSpeakToggle: (id: string, text: string) => void;
+  onRetry: () => void;
+}
+
+const ChatMessageItem = React.memo(({
+  msg,
+  isLast,
+  isLoading,
+  copiedId,
+  speakingId,
+  onCopy,
+  onRegenerate,
+  onSpeakToggle,
+  onRetry,
+}: ChatMessageItemProps) => {
+  const isAssistant = msg.role === "assistant";
+  const isSpeakingThis = speakingId === msg.id;
+
+  return (
+    <motion.div
+      key={msg.id}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className={`flex gap-3 group ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+    >
+      <div
+        className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-xs ${
+          msg.role === "user"
+            ? "bg-emerald-500"
+            : msg.isError
+            ? "bg-rose-500"
+            : "bg-violet-600 dark:bg-violet-500"
+        }`}
+      >
+        {msg.role === "user" ? <UserIcon className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+      </div>
+
+      <div
+        className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-3 shadow-xs relative ${
+          msg.role === "user"
+            ? "bg-emerald-500 text-white rounded-tr-sm"
+            : msg.isError
+            ? "bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200 rounded-tl-sm"
+            : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-tl-sm text-gray-900 dark:text-slate-100"
+        }`}
+      >
+        {msg.isError ? (
+          <div>
+            <p className="text-sm font-medium leading-relaxed">{msg.text}</p>
+            <button
+              onClick={onRetry}
+              disabled={isLoading}
+              className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Retry Request</span>
+            </button>
+          </div>
+        ) : isAssistant ? (
+          <RenderMessage text={msg.text} isLatest={isLast && !isLoading} />
+        ) : (
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+        )}
+
+        {!msg.isError && (
+          <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 dark:border-slate-700/40 text-[10px]">
+            <div className="flex items-center gap-2">
+              <span className={msg.role === "user" ? "text-emerald-100" : "text-gray-400 dark:text-slate-500"}>
+                {formatTime(msg.timestamp)}
+              </span>
+              {isSpeakingThis && (
+                <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-medium animate-pulse">
+                  <Volume2 className="w-3 h-3" />
+                  <span>Speaking…</span>
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+              {/* Copy message button */}
+              <button
+                onClick={() => onCopy(msg.id, msg.text)}
+                className={`p-1 rounded-md transition-colors cursor-pointer ${
+                  msg.role === "user"
+                    ? "hover:bg-emerald-600 text-emerald-100"
+                    : "hover:bg-slate-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400"
+                }`}
+                title="Copy text"
+              >
+                {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+
+              {/* Text-to-Speech (FitBot Read Aloud) */}
+              {isAssistant && (
+                <button
+                  onClick={() => onSpeakToggle(msg.id, msg.text)}
+                  className={`p-1 rounded-md transition-colors cursor-pointer ${
+                    isSpeakingThis
+                      ? "bg-emerald-500/20 text-emerald-500"
+                      : "hover:bg-slate-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400"
+                  }`}
+                  title={isSpeakingThis ? "Stop speaking" : "Listen (Read aloud)"}
+                >
+                  {isSpeakingThis ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                </button>
+              )}
+
+              {/* Regenerate latest assistant response */}
+              {isAssistant && isLast && !isLoading && (
+                <button
+                  onClick={onRegenerate}
+                  className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 transition-colors cursor-pointer"
+                  title="Regenerate response"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+});
+
+ChatMessageItem.displayName = "ChatMessageItem";
 
 // ── Main AIAssistant Component ─────────────────────────────
 export default function AIAssistant() {
@@ -270,16 +530,39 @@ export default function AIAssistant() {
   const [showMemory, setShowMemory] = useState(false);
   const [sessionSaved, setSessionSaved] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    return localStorage.getItem("fitbot_sound") !== "false";
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const speechRecognitionRef = useRef<any>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "")?.replace(/\/$/, "");
   const token = localStorage.getItem("token");
+
+  // Cleanup speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const toggleSound = () => {
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      localStorage.setItem("fitbot_sound", String(next));
+      if (next) playCompletionChime();
+      return next;
+    });
+  };
 
   // Filter today's dynamic logs
   const todayFood = useMemo(
@@ -327,8 +610,9 @@ export default function AIAssistant() {
   // Save session when leaving or upon conversation milestone
   const saveSession = useCallback(
     async (msgs: Message[]) => {
-      if (sessionSaved || msgs.length < 2) return;
-      const summary = msgs
+      const validMsgs = msgs.filter((m) => !m.isError);
+      if (sessionSaved || validMsgs.length < 2) return;
+      const summary = validMsgs
         .slice(-6)
         .map((m) => `${m.role === "user" ? "User" : "FitBot"}: ${m.text.slice(0, 120)}`)
         .join("\n");
@@ -336,7 +620,7 @@ export default function AIAssistant() {
         await api.post(
           "/api/chathistories",
           {
-            data: { summary, messages: msgs.map((m) => ({ role: m.role, text: m.text })) },
+            data: { summary, messages: validMsgs.map((m) => ({ role: m.role, text: m.text })) },
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -425,16 +709,18 @@ export default function AIAssistant() {
     setShowScrollBottom(isFar);
   };
 
-  const scrollToBottom = (smooth = true) => {
+  const scrollToBottom = useCallback((smooth = true) => {
     messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
-  };
+  }, []);
 
   useEffect(() => {
-    scrollToBottom(true);
-  }, [messages, isLoading]);
+    if (!showScrollBottom) {
+      scrollToBottom(true);
+    }
+  }, [messages, isLoading, showScrollBottom, scrollToBottom]);
 
   // Copy message text
-  const handleCopy = async (id: string, text: string) => {
+  const handleCopy = useCallback(async (id: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedId(id);
@@ -443,7 +729,39 @@ export default function AIAssistant() {
     } catch {
       toast.error("Failed to copy text");
     }
-  };
+  }, []);
+
+  // Text-to-Speech (FitBot Read Aloud)
+  const toggleSpeakMessage = useCallback((id: string, text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      toast.error("Text-to-speech is not supported in this browser.");
+      return;
+    }
+    if (speakingId === id) {
+      window.speechSynthesis.cancel();
+      setSpeakingId(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+
+    // Strip markdown formatting & tables for clean, natural speech
+    const cleanText = text
+      .replace(/```[\s\S]*?```/g, "")
+      .replace(/\|[^\n]+\|/g, "")
+      .replace(/[#*`_~>[\]]/g, "")
+      .trim();
+
+    if (!cleanText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.onend = () => setSpeakingId(null);
+    utterance.onerror = () => setSpeakingId(null);
+
+    setSpeakingId(id);
+    window.speechSynthesis.speak(utterance);
+  }, [speakingId]);
 
   // Speech-to-Text Voice Input (Web Speech API)
   const isSpeechSupported =
@@ -497,10 +815,20 @@ export default function AIAssistant() {
     }
   };
 
+  // Stop generation in flight
+  const stopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    toast("Stopped generating response", { icon: "⏹️" });
+  };
+
   // Send message to AI
   const sendMessage = async (text: string, customHistory?: Message[]) => {
     if (!text.trim() || isLoading) return;
-    const currentMessages = customHistory || messages;
+    const currentMessages = (customHistory || messages).filter((m) => !m.isError);
     const userMsg: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -511,6 +839,7 @@ export default function AIAssistant() {
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
+    scrollToBottom(true);
 
     const historyPayload: GeminiMessage[] = newMessages.map((m) => ({
       role: m.role === "user" ? "user" : "model",
@@ -518,6 +847,7 @@ export default function AIAssistant() {
     }));
 
     const combinedContext = [userContext, memoryContext].filter(Boolean).join("\n\n");
+    abortControllerRef.current = new AbortController();
 
     try {
       const res = await fetch(`${API_URL}/api/ai-assistant/chat`, {
@@ -527,6 +857,7 @@ export default function AIAssistant() {
           messages: historyPayload,
           userContext: combinedContext,
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       const data = await res.json().catch(() => ({}));
@@ -544,39 +875,97 @@ export default function AIAssistant() {
       const finalMessages = [...newMessages, assistantMsg];
       setMessages(finalMessages);
 
+      if (soundEnabled) playCompletionChime();
       if (finalMessages.length % 6 === 0) saveSession(finalMessages);
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
       const msg = err instanceof Error ? err.message : "Failed to get response. Check your connection.";
+      const errorMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        text: `⚠️ I had trouble connecting (${msg}).`,
+        timestamp: new Date(),
+        isError: true,
+      };
+      setMessages([...newMessages, errorMsg]);
       toast.error(msg);
     } finally {
+      abortControllerRef.current = null;
       setIsLoading(false);
     }
   };
 
-  const regenerateLastMessage = () => {
+  const retryLastMessage = useCallback(() => {
+    const valid = messages.filter((m) => !m.isError);
+    const lastUser = [...valid].reverse().find((m) => m.role === "user");
+    if (!lastUser) return;
+    const history = valid.slice(0, valid.length - 1);
+    sendMessage(lastUser.text, history);
+  }, [messages]);
+
+  const regenerateLastMessage = useCallback(() => {
     if (isLoading || messages.length < 2) return;
-    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+    const valid = messages.filter((m) => !m.isError);
+    const lastUserMsg = [...valid].reverse().find((m) => m.role === "user");
     if (!lastUserMsg) return;
 
     // Remove the last assistant message and re-send
-    const trimmed = messages.slice(0, messages.length - 1);
+    const trimmed = valid.slice(0, valid.length - 1);
     setMessages(trimmed);
     sendMessage(lastUserMsg.text, trimmed.slice(0, trimmed.length - 1));
-  };
+  }, [isLoading, messages]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage(input);
+    } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      sendMessage(input);
+    } else if (e.key === "Escape") {
+      if (isListening) toggleListening();
+      if (showMemory) setShowMemory(false);
     }
   };
 
   const startNewChat = () => {
     if (messages.length >= 2) saveSession(messages);
+    if (speakingId) {
+      window.speechSynthesis?.cancel();
+      setSpeakingId(null);
+    }
     setMessages([]);
     setSessionSaved(false);
     setInput("");
     toast.success("Started new chat session");
+  };
+
+  const exportConversation = () => {
+    const valid = messages.filter((m) => !m.isError);
+    if (valid.length === 0) {
+      toast("No messages to export", { icon: "ℹ️" });
+      return;
+    }
+    const dateStr = new Date().toISOString().split("T")[0];
+    let exportContent = `# FitBot AI Fitness & Nutrition Coaching Session (${dateStr})\n\n`;
+    if (user?.username) exportContent += `User: ${user.username}\n`;
+    if (user?.goal) exportContent += `Goal: ${user.goal} weight\n`;
+    exportContent += `\n---\n\n`;
+
+    valid.forEach((m) => {
+      exportContent += `### ${m.role === "user" ? "You" : "FitBot"} (${formatTime(m.timestamp)})\n\n${m.text}\n\n`;
+    });
+
+    const blob = new Blob([exportContent], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `FitBot-Coaching-${dateStr}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Exported conversation as Markdown!");
   };
 
   const cardCls = "bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/50";
@@ -610,22 +999,46 @@ export default function AIAssistant() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Sound Toggle */}
+              <button
+                onClick={toggleSound}
+                className="text-xs p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5"
+                title={soundEnabled ? "Mute response chime" : "Unmute response chime"}
+              >
+                {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5 opacity-60" />}
+              </button>
+
+              {/* Export Conversation */}
+              {messages.length > 0 && (
+                <button
+                  onClick={exportConversation}
+                  className="text-xs p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5"
+                  title="Export chat as Markdown"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Export</span>
+                </button>
+              )}
+
+              {/* Memory Drawer Toggle */}
               {pastSessions.length > 0 && (
                 <button
                   onClick={() => setShowMemory(!showMemory)}
-                  className={`text-xs px-3 py-1.5 rounded-xl border border-white/20 backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5 ${
+                  className={`text-xs px-2.5 py-1.5 rounded-xl border border-white/20 backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5 ${
                     showMemory ? "bg-white text-emerald-950 font-bold" : "bg-white/10 hover:bg-white/20 text-white"
                   }`}
                   title="View remembered past sessions"
                 >
                   <History className="w-3.5 h-3.5" />
-                  <span>Memory</span>
+                  <span className="hidden sm:inline">Memory</span>
                 </button>
               )}
+
+              {/* New Chat */}
               {messages.length > 0 && (
                 <button
                   onClick={startNewChat}
-                  className="text-xs px-3 py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer"
+                  className="text-xs px-2.5 py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer"
                 >
                   New Chat
                 </button>
@@ -722,69 +1135,20 @@ export default function AIAssistant() {
           <AnimatePresence initial={false}>
             {messages.map((msg, idx) => {
               const isLast = idx === messages.length - 1;
-              const isAssistant = msg.role === "assistant";
 
               return (
-                <motion.div
+                <ChatMessageItem
                   key={msg.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className={`flex gap-3 group ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
-                >
-                  <div
-                    className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-xs ${
-                      msg.role === "user" ? "bg-emerald-500" : "bg-violet-600 dark:bg-violet-500"
-                    }`}
-                  >
-                    {msg.role === "user" ? <UserIcon className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                  </div>
-
-                  <div
-                    className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-3 shadow-xs relative ${
-                      msg.role === "user"
-                        ? "bg-emerald-500 text-white rounded-tr-sm"
-                        : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-tl-sm text-gray-900 dark:text-slate-100"
-                    }`}
-                  >
-                    {isAssistant ? (
-                      <RenderMessage text={msg.text} isLatest={isLast && !isLoading} />
-                    ) : (
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                    )}
-
-                    <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 dark:border-slate-700/40 text-[10px]">
-                      <span className={msg.role === "user" ? "text-emerald-100" : "text-gray-400 dark:text-slate-500"}>
-                        {formatTime(msg.timestamp)}
-                      </span>
-
-                      <div className="flex items-center gap-1.5 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleCopy(msg.id, msg.text)}
-                          className={`p-1 rounded-md transition-colors cursor-pointer ${
-                            msg.role === "user"
-                              ? "hover:bg-emerald-600 text-emerald-100"
-                              : "hover:bg-slate-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400"
-                          }`}
-                          title="Copy text"
-                        >
-                          {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        </button>
-
-                        {isAssistant && isLast && !isLoading && (
-                          <button
-                            onClick={regenerateLastMessage}
-                            className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 transition-colors cursor-pointer"
-                            title="Regenerate response"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
+                  msg={msg}
+                  isLast={isLast}
+                  isLoading={isLoading}
+                  copiedId={copiedId}
+                  speakingId={speakingId}
+                  onCopy={handleCopy}
+                  onRegenerate={regenerateLastMessage}
+                  onSpeakToggle={toggleSpeakMessage}
+                  onRetry={retryLastMessage}
+                />
               );
             })}
           </AnimatePresence>
@@ -887,16 +1251,28 @@ export default function AIAssistant() {
               </motion.button>
             )}
 
-            {/* Send Button */}
-            <motion.button
-              whileTap={{ scale: 0.92 }}
-              onClick={() => sendMessage(input)}
-              disabled={!input.trim() || isLoading}
-              className="shrink-0 w-11 h-11 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
-              title="Send message (Enter)"
-            >
-              <Send className="w-4 h-4" />
-            </motion.button>
+            {/* Send or Stop Generation Button */}
+            {isLoading ? (
+              <motion.button
+                whileTap={{ scale: 0.92 }}
+                onClick={stopGeneration}
+                type="button"
+                className="shrink-0 w-11 h-11 bg-rose-500 hover:bg-rose-600 rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
+                title="Stop generating response"
+              >
+                <Square className="w-4 h-4 fill-current" />
+              </motion.button>
+            ) : (
+              <motion.button
+                whileTap={{ scale: 0.92 }}
+                onClick={() => sendMessage(input)}
+                disabled={!input.trim()}
+                className="shrink-0 w-11 h-11 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
+                title="Send message (Enter)"
+              >
+                <Send className="w-4 h-4" />
+              </motion.button>
+            )}
           </div>
 
           <div className="flex items-center justify-between text-[10px] text-gray-400 dark:text-slate-500 mt-2 px-1">
