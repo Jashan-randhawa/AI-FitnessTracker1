@@ -25,6 +25,7 @@ import { useappcontext } from "../Context/AppContext";
 import api from "../configs/api";
 import toast from "react-hot-toast";
 import CollapsiblePlanCard from "../components/animations/CollapsiblePlanCard";
+import jsPDF from "jspdf";
 
 // ── Helpers ───────────────────────────────────────────────
 const resolveDate = (entry: any): string =>
@@ -1050,24 +1051,153 @@ export default function AIAssistant() {
       toast("No messages to export", { icon: "ℹ️" });
       return;
     }
-    const dateStr = new Date().toISOString().split("T")[0];
-    let exportContent = `# FitBot AI Fitness & Nutrition Coaching Session (${dateStr})\n\n`;
-    if (user?.username) exportContent += `User: ${user.username}\n`;
-    if (user?.goal) exportContent += `Goal: ${user.goal} weight\n`;
-    exportContent += `\n---\n\n`;
 
-    valid.forEach((m) => {
-      exportContent += `### ${m.role === "user" ? "You" : "FitBot"} (${formatTime(m.timestamp)})\n\n${m.text}\n\n`;
-    });
+    try {
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const marginX = 14;
+      const contentW = pageW - marginX * 2;
+      const dateStr = new Date().toISOString().split("T")[0];
+      const displayDate = new Date().toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
 
-    const blob = new Blob([exportContent], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `FitBot-Coaching-${dateStr}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Exported conversation as Markdown!");
+      // ── Header Banner ──
+      doc.setFillColor(124, 58, 237); // violet-600
+      doc.rect(0, 0, pageW, 26, "F");
+
+      // FitBot Title & Subtitle
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("FitBot — AI Coaching Consultation", marginX, 11);
+
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "normal");
+      const userSubtitle = user?.username ? `${user.username}  ·  ` : "";
+      doc.text(`${userSubtitle}Personal Fitness & Nutrition Consultation Report  ·  ${displayDate}`, marginX, 19);
+
+      // ── User Context Cards ──
+      const stats = [
+        { label: "USER", val: user?.username || "Athlete" },
+        { label: "GOAL", val: user?.goal ? `${user.goal} weight` : "Fitness & Health" },
+        { label: "DAILY TARGET", val: user?.dailycaloriesintake ? `${user.dailycaloriesintake} kcal` : "Adaptive" },
+        { label: "MESSAGES", val: `${valid.length} items` },
+      ];
+      const boxW = contentW / 4;
+      let bx = marginX;
+      stats.forEach((s) => {
+        doc.setFillColor(248, 250, 252); // slate-50
+        doc.setDrawColor(226, 232, 240); // slate-200
+        doc.roundedRect(bx, 31, boxW - 2, 16, 2, 2, "FD");
+
+        doc.setTextColor(100, 116, 139); // slate-500
+        doc.setFontSize(6.5);
+        doc.setFont("helvetica", "bold");
+        doc.text(s.label, bx + (boxW - 2) / 2, 36.5, { align: "center" });
+
+        doc.setTextColor(15, 23, 42); // slate-900
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "bold");
+        doc.text(s.val, bx + (boxW - 2) / 2, 42.5, { align: "center" });
+
+        bx += boxW;
+      });
+
+      let currentY = 53;
+
+      // ── Render Each Message ──
+      valid.forEach((m) => {
+        const isUser = m.role === "user";
+        const roleLabel = isUser ? (user?.username ? user.username.toUpperCase() : "YOU") : "FITBOT AI";
+        const timeStr = formatTime(new Date(m.timestamp));
+
+        // Clean raw markdown syntax for clean PDF presentation
+        const cleanedText = m.text
+          .replace(/^###\s+/gm, "")
+          .replace(/^##\s+/gm, "")
+          .replace(/^#\s+/gm, "")
+          .replace(/\*\*(.*?)\*\*/g, "$1")
+          .replace(/\*(.*?)\*/g, "$1")
+          .replace(/__(.*?)__/g, "$1")
+          .replace(/_(.*?)_/g, "$1")
+          .replace(/`([^`]+)`/g, "$1")
+          .trim();
+
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "normal");
+        const lines: string[] = doc.splitTextToSize(cleanedText, contentW - 6);
+        const lineHeight = 4.2;
+
+        // If not enough room for header and at least 2 lines, advance page
+        if (currentY + 20 > pageH - 18) {
+          doc.addPage();
+          currentY = 16;
+        }
+
+        // Message Sender Badge & Timestamp
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "bold");
+        const badgeW = Math.max(20, doc.getTextWidth(roleLabel) + 6);
+
+        doc.setFillColor(isUser ? 241 : 243, isUser ? 245 : 232, isUser ? 249 : 255);
+        doc.roundedRect(marginX, currentY, badgeW, 6, 1.5, 1.5, "F");
+
+        doc.setTextColor(isUser ? 71 : 109, isUser ? 85 : 40, isUser ? 105 : 217);
+        doc.text(roleLabel, marginX + badgeW / 2, currentY + 4.2, { align: "center" });
+
+        doc.setTextColor(148, 163, 184); // slate-400
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.text(timeStr, pageW - marginX, currentY + 4.2, { align: "right" });
+
+        currentY += 9;
+
+        // Message Body Lines (handles multi-page overflow cleanly)
+        doc.setTextColor(30, 41, 59); // slate-800
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "normal");
+
+        for (let i = 0; i < lines.length; i++) {
+          if (currentY + lineHeight > pageH - 18) {
+            doc.addPage();
+            currentY = 16;
+          }
+          doc.text(lines[i], marginX + 2, currentY);
+          currentY += lineHeight;
+        }
+
+        // Light divider after message
+        currentY += 4;
+        if (currentY < pageH - 18) {
+          doc.setDrawColor(241, 245, 249); // slate-100
+          doc.line(marginX, currentY, pageW - marginX, currentY);
+          currentY += 5;
+        }
+      });
+
+      // ── Footer on all pages ──
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(148, 163, 184); // slate-400
+        doc.setDrawColor(226, 232, 240); // slate-200
+        doc.line(marginX, pageH - 12, pageW - marginX, pageH - 12);
+        doc.text("FitTrack · FitBot Coaching Consultation Report", marginX, pageH - 7);
+        doc.text(`Page ${i} of ${totalPages}`, pageW - marginX, pageH - 7, { align: "right" });
+      }
+
+      doc.save(`FitBot-Coaching-Session-${dateStr}.pdf`);
+      toast.success("Exported conversation as PDF!");
+    } catch (err) {
+      console.error("PDF export failed:", err);
+      toast.error("Failed to generate PDF");
+    }
   };
 
   const cardCls = "bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/50";
@@ -1110,15 +1240,15 @@ export default function AIAssistant() {
                 {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5 opacity-60" />}
               </button>
 
-              {/* Export Conversation */}
+              {/* Export Conversation (PDF) */}
               {messages.length > 0 && (
                 <button
                   onClick={exportConversation}
                   className="text-xs p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5"
-                  title="Export chat as Markdown"
+                  title="Export chat as PDF"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Export</span>
+                  <span className="hidden sm:inline">Export PDF</span>
                 </button>
               )}
 
