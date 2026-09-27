@@ -623,7 +623,9 @@ export default function AIAssistant() {
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = "auto";
-      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 140)}px`;
+      const newHeight = Math.min(inputRef.current.scrollHeight, 140);
+      inputRef.current.style.height = `${newHeight}px`;
+      inputRef.current.style.overflowY = inputRef.current.scrollHeight > 140 ? "auto" : "hidden";
     }
   }, [input]);
 
@@ -1263,12 +1265,16 @@ export default function AIAssistant() {
               onKeyDown={handleKeyDown}
               placeholder={isListening ? "Listening... speak now" : "Ask FitBot anything (workouts, meal ideas, macros)…"}
               rows={1}
-              className={`flex-1 resize-none bg-slate-100 dark:bg-slate-700/60 border rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all ${
+              className={`flex-1 resize-none bg-slate-100 dark:bg-slate-700/60 border rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${
                 isListening
                   ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/20 dark:bg-emerald-950/20"
                   : "border-slate-200 dark:border-slate-600 focus:border-emerald-400 dark:focus:border-emerald-500"
               }`}
-              style={{ maxHeight: 140 }}
+              style={{
+                maxHeight: 140,
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
             />
 
             {/* Voice Input Button */}
