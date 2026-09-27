@@ -42,8 +42,10 @@ const ResetPassword = () => {
   // ── On mount: validate the ?code= token before showing the form ────────────
   useEffect(() => {
     if (!code) {
-      setInvalidReason("No reset code found in this link. Please request a new one.");
-      setPageState("invalid");
+      queueMicrotask(() => {
+        setInvalidReason("No reset code found in this link. Please request a new one.");
+        setPageState("invalid");
+      });
       return;
     }
 

@@ -174,10 +174,16 @@ function useYouTubeSearch(query: string, enabled: boolean) {
 
   useEffect(() => {
     if (!enabled || !query) return;
-    setLoading(true);
-    setError(null);
+    let isSubscribed = true;
     const ctrl = new AbortController();
     const token = localStorage.getItem("token");
+
+    queueMicrotask(() => {
+      if (isSubscribed) {
+        setLoading(true);
+        setError(null);
+      }
+    });
 
     fetch(`${API_BASE_URL}/api/youtube/search?q=${encodeURIComponent(query)}`, {
       signal: ctrl.signal,
@@ -185,6 +191,7 @@ function useYouTubeSearch(query: string, enabled: boolean) {
     })
       .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json(); })
       .then(data => {
+        if (!isSubscribed) return;
         setVideos(
           (data.contents || [])
             .filter((i: any) => i.type === "video" && i.video)
@@ -201,10 +208,13 @@ function useYouTubeSearch(query: string, enabled: boolean) {
             }))
         );
       })
-      .catch(e => { if (e.name !== "AbortError") setError(e.message); })
-      .finally(() => setLoading(false));
+      .catch(e => { if (isSubscribed && e.name !== "AbortError") setError(e.message); })
+      .finally(() => { if (isSubscribed) setLoading(false); });
 
-    return () => ctrl.abort();
+    return () => {
+      isSubscribed = false;
+      ctrl.abort();
+    };
   }, [query, enabled]);
 
   return { videos, loading, error };
@@ -218,10 +228,16 @@ function usePunjabiMusicSearch(query: string, enabled: boolean) {
 
   useEffect(() => {
     if (!enabled || !query) return;
-    setLoading(true);
-    setError(null);
+    let isSubscribed = true;
     const ctrl = new AbortController();
     const token = localStorage.getItem("token");
+
+    queueMicrotask(() => {
+      if (isSubscribed) {
+        setLoading(true);
+        setError(null);
+      }
+    });
 
     fetch(`${API_BASE_URL}/api/youtube/search?q=${encodeURIComponent(query)}`, {
       signal: ctrl.signal,
@@ -229,6 +245,7 @@ function usePunjabiMusicSearch(query: string, enabled: boolean) {
     })
       .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json(); })
       .then(data => {
+        if (!isSubscribed) return;
         setTracks(
           (data.contents || [])
             .filter((i: any) => i.type === "video" && i.video)
@@ -245,10 +262,13 @@ function usePunjabiMusicSearch(query: string, enabled: boolean) {
             }))
         );
       })
-      .catch(e => { if (e.name !== "AbortError") setError(e.message); })
-      .finally(() => setLoading(false));
+      .catch(e => { if (isSubscribed && e.name !== "AbortError") setError(e.message); })
+      .finally(() => { if (isSubscribed) setLoading(false); });
 
-    return () => ctrl.abort();
+    return () => {
+      isSubscribed = false;
+      ctrl.abort();
+    };
   }, [query, enabled]);
 
   return { tracks, loading, error };
@@ -718,8 +738,6 @@ export default function Workouts() {
   const [activeLevel, setActiveLevel] = useState<string>("all levels");
   const [search, setSearch] = useState("");
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist|null>(null);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
 
   const isMusic = activeMode === "music";
 
@@ -750,7 +768,7 @@ export default function Workouts() {
           return (
             <div
               className={`relative overflow-hidden rounded-3xl border border-white/20 dark:border-slate-700/40 bg-gradient-to-br ${heroBg} transition-all duration-500`}
-              style={{boxShadow:`0 20px 70px -35px ${heroGlow},0 0 0 1px ${heroGlow.replace(".65","0.08")}`,animation:mounted?"wo-slideUp .6s cubic-bezier(.34,1.56,.64,1) both":"none"}}
+              style={{boxShadow:`0 20px 70px -35px ${heroGlow},0 0 0 1px ${heroGlow.replace(".65","0.08")}`,animation:"wo-slideUp .6s cubic-bezier(.34,1.56,.64,1) both"}}
             >
               <div className={`absolute -top-20 -left-16 w-56 h-56 rounded-full ${orb1} blur-3xl transition-all duration-500`} style={{animation:"wo-heroGlow 5s ease-in-out infinite"}}/>
               <div className={`absolute -bottom-24 -right-12 w-64 h-64 rounded-full ${orb2} blur-3xl transition-all duration-500`} style={{animation:"wo-heroGlow 6s ease-in-out 2s infinite"}}/>

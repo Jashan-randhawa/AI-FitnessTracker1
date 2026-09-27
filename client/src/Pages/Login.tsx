@@ -28,7 +28,7 @@ const Login = () => {
       } else {
         await signup({ username, email, password });
       }
-    } catch (error) {
+    } catch {
       setErrors({ general: 'Something went wrong. Please try again.' });
     } finally {
       setIsSubmitting(false);

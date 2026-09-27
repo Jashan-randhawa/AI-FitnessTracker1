@@ -21,7 +21,9 @@ const GoogleCallback = () => {
     }
 
     if (!accessToken) {
-      setError("No access token received from Google. Please try again.");
+      queueMicrotask(() => {
+        setError("No access token received from Google. Please try again.");
+      });
       return;
     }
 

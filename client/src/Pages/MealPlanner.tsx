@@ -73,7 +73,7 @@ Requirements:
       const parsed: DayPlan[] = JSON.parse(cleaned);
       setPlan(parsed);
       setActiveDay(0);
-    } catch (e) {
+    } catch {
       toast.error("Failed to generate plan. Please try again.");
     } finally {
       setLoading(false);
