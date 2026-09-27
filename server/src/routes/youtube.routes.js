@@ -1,10 +1,11 @@
 const express = require('express');
+const { protect } = require('../middleware/auth');
 const { youtubeLimiter } = require('../middleware/rateLimiter');
 const { search } = require('../controllers/youtube.controller');
 
 const router = express.Router();
 
-// Rate-limited to prevent RapidAPI quota exhaustion.
-router.get('/youtube/search', youtubeLimiter, search);
+// Authenticated & rate-limited to prevent RapidAPI quota exhaustion.
+router.get('/youtube/search', protect, youtubeLimiter, search);
 
 module.exports = router;

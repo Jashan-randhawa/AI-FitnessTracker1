@@ -177,9 +177,11 @@ function useYouTubeSearch(query: string, enabled: boolean) {
     setLoading(true);
     setError(null);
     const ctrl = new AbortController();
+    const token = localStorage.getItem("token");
 
     fetch(`${API_BASE_URL}/api/youtube/search?q=${encodeURIComponent(query)}`, {
       signal: ctrl.signal,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json(); })
       .then(data => {
@@ -219,9 +221,11 @@ function usePunjabiMusicSearch(query: string, enabled: boolean) {
     setLoading(true);
     setError(null);
     const ctrl = new AbortController();
+    const token = localStorage.getItem("token");
 
     fetch(`${API_BASE_URL}/api/youtube/search?q=${encodeURIComponent(query)}`, {
       signal: ctrl.signal,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json(); })
       .then(data => {

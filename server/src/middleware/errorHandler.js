@@ -22,7 +22,13 @@ const errorHandler = (err, req, res, next) => {
 
   console.error(err);
   const status = res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
-  sendError(res, status, err?.message || 'Something went wrong. Please try again.');
+  const isProd = process.env.NODE_ENV === 'production';
+  const message =
+    isProd && status === 500
+      ? 'Internal server error. Please try again later.'
+      : err?.message || 'Something went wrong. Please try again.';
+
+  sendError(res, status, message);
 };
 
 module.exports = { notFound, errorHandler };
