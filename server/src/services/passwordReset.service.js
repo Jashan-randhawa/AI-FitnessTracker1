@@ -78,9 +78,9 @@ const requestPasswordReset = async (email) => {
   if (!emailResult.sent) {
     console.error('[password-reset] email not delivered, reason:', emailResult.reason);
     return {
-      success: false,
-      type: 'email_failed',
-      message: "We couldn't send the reset email right now. Please try again in a moment.",
+      success: true,
+      type: 'sent',
+      message: 'If an account exists with this email address, a password reset link has been sent.',
     };
   }
 
