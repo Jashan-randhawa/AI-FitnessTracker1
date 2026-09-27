@@ -1064,148 +1064,21 @@ export default function AIAssistant() {
                 </button>
               )}
 
-              {/* Memory Flyout Trigger & Floating Drawer */}
+              {/* Memory Trigger Button */}
               {pastSessions.length > 0 && (
-                <div className="relative">
-                  <button
-                    onClick={() => setShowMemory(!showMemory)}
-                    className={`text-xs px-2.5 py-1.5 rounded-xl border border-white/20 backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5 ${
-                      showMemory ? "bg-white text-emerald-950 font-bold shadow-md" : "bg-white/10 hover:bg-white/20 text-white"
-                    }`}
-                    title="View remembered past sessions"
-                  >
-                    <History className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Memory</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-400 text-emerald-950 font-bold">
-                      {pastSessions.length}
-                    </span>
-                  </button>
-
-                  <AnimatePresence>
-                    {showMemory && (
-                      <>
-                        {/* Backdrop to dismiss on click outside */}
-                        <div
-                          className="fixed inset-0 z-40 bg-black/30 dark:bg-black/50 backdrop-blur-[2px]"
-                          onClick={() => setShowMemory(false)}
-                        />
-
-                        {/* Floating Flyout Drawer (Edge / Browser Style) */}
-                        <motion.div
-                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                          className="absolute right-0 top-full mt-2.5 w-[calc(100vw-2rem)] sm:w-96 max-h-[75vh] flex flex-col z-50 rounded-2xl bg-slate-900/98 dark:bg-slate-900/98 border border-slate-700/80 shadow-2xl backdrop-blur-2xl text-white overflow-hidden ring-1 ring-white/10"
-                        >
-                          {/* Header */}
-                          <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/50 shrink-0">
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                                <Sparkles className="w-3.5 h-3.5" />
-                              </div>
-                              <h3 className="text-sm font-bold text-white tracking-wide">
-                                FitBot Memory
-                              </h3>
-                            </div>
-
-                            <div className="flex items-center gap-1.5">
-                              {pastSessions.length > 0 && (
-                                <button
-                                  onClick={clearMemory}
-                                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
-                                  title="Clear all memory"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => setShowMemory(false)}
-                                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                                title="Close"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Search bar inside Flyout */}
-                          {pastSessions.length > 1 && (
-                            <div className="p-3 border-b border-slate-800/80 shrink-0 bg-slate-950/20">
-                              <div className="relative">
-                                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                                <input
-                                  type="text"
-                                  value={memorySearch}
-                                  onChange={(e) => setMemorySearch(e.target.value)}
-                                  placeholder="Search past coaching sessions…"
-                                  className="w-full bg-slate-800/80 border border-slate-700/60 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 transition-all"
-                                />
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Session List */}
-                          <div className="p-2.5 overflow-y-auto space-y-1.5 no-scrollbar max-h-96 flex-1">
-                            {filteredSessions.length === 0 ? (
-                              <div className="py-8 text-center px-4">
-                                <MessageSquare className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-60" />
-                                <p className="text-xs font-medium text-slate-400">
-                                  {memorySearch ? "No sessions match your search" : "No past sessions remembered yet"}
-                                </p>
-                                <p className="text-[11px] text-slate-500 mt-1">
-                                  FitBot automatically remembers your chats and goals as you talk.
-                                </p>
-                              </div>
-                            ) : (
-                              filteredSessions.map((s: any, i: number) => {
-                                const sessionDate = s.createdAt
-                                  ? new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
-                                  : `Session ${i + 1}`;
-                                const previewText = s.summary?.split("\n")[0] || s.messages?.[0]?.text || "Coaching consultation";
-                                const msgCount = Array.isArray(s.messages) ? s.messages.length : null;
-
-                                return (
-                                  <div
-                                    key={s._id || i}
-                                    onClick={() => loadPastSessionIntoChat(s)}
-                                    className="p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800 border border-slate-800/80 hover:border-slate-700 transition-all cursor-pointer group flex items-start gap-3"
-                                  >
-                                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 group-hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 transition-colors">
-                                      <MessageSquare className="w-3.5 h-3.5" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center justify-between mb-0.5">
-                                        <span className="text-[10px] font-semibold text-emerald-400">
-                                          {sessionDate}
-                                        </span>
-                                        {msgCount && (
-                                          <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-slate-700 text-slate-300">
-                                            {msgCount} msgs
-                                          </span>
-                                        )}
-                                      </div>
-                                      <p className="text-xs text-slate-200 group-hover:text-white line-clamp-2 leading-relaxed transition-colors">
-                                        {previewText}
-                                      </p>
-                                    </div>
-                                    <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-300 shrink-0 self-center transition-colors" />
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-
-                          {/* Footer */}
-                          <div className="px-4 py-2 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between text-[10px] text-slate-400 shrink-0">
-                            <span>Click to load into chat</span>
-                            <span className="text-emerald-400 font-medium">{pastSessions.length} total saved</span>
-                          </div>
-                        </motion.div>
-                      </>
-                    )}
-                  </AnimatePresence>
-                </div>
+                <button
+                  onClick={() => setShowMemory(!showMemory)}
+                  className={`text-xs px-2.5 py-1.5 rounded-xl border border-white/20 backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5 ${
+                    showMemory ? "bg-white text-emerald-950 font-bold shadow-md" : "bg-white/10 hover:bg-white/20 text-white"
+                  }`}
+                  title="View remembered past sessions"
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Memory</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-400 text-emerald-950 font-bold">
+                    {pastSessions.length}
+                  </span>
+                </button>
               )}
 
               {/* New Chat */}
@@ -1221,6 +1094,136 @@ export default function AIAssistant() {
           </div>
         </div>
       </div>
+
+      {/* Floating Memory Flyout Drawer (Top-Level Fixed to eliminate header clipping & overshadowing) */}
+      <AnimatePresence>
+        {showMemory && (
+          <div className="fixed inset-0 z-50 flex items-start justify-end p-3 pt-16 sm:p-6 sm:pt-20 pointer-events-none">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-[2px] pointer-events-auto"
+              onClick={() => setShowMemory(false)}
+            />
+
+            {/* Floating Flyout Window */}
+            <motion.div
+              initial={{ opacity: 0, y: -12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.96 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="relative pointer-events-auto w-full sm:w-96 max-h-[calc(100vh-6rem)] flex flex-col rounded-2xl bg-slate-900/98 dark:bg-slate-900/98 border border-slate-700/80 shadow-2xl backdrop-blur-2xl text-white overflow-hidden ring-1 ring-white/10"
+            >
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/60 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </div>
+                  <h3 className="text-sm font-bold text-white tracking-wide">
+                    FitBot Memory
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {pastSessions.length > 0 && (
+                    <button
+                      onClick={clearMemory}
+                      className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
+                      title="Clear all memory"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowMemory(false)}
+                    className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    title="Close"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Search bar inside Flyout */}
+              {pastSessions.length > 1 && (
+                <div className="p-3 border-b border-slate-800/80 shrink-0 bg-slate-950/20">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={memorySearch}
+                      onChange={(e) => setMemorySearch(e.target.value)}
+                      placeholder="Search past coaching sessions…"
+                      className="w-full bg-slate-800/80 border border-slate-700/60 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 transition-all"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Session List */}
+              <div className="p-2.5 overflow-y-auto space-y-1.5 no-scrollbar max-h-96 flex-1">
+                {filteredSessions.length === 0 ? (
+                  <div className="py-8 text-center px-4">
+                    <MessageSquare className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-60" />
+                    <p className="text-xs font-medium text-slate-400">
+                      {memorySearch ? "No sessions match your search" : "No past sessions remembered yet"}
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      FitBot automatically remembers your chats and goals as you talk.
+                    </p>
+                  </div>
+                ) : (
+                  filteredSessions.map((s: any, i: number) => {
+                    const sessionDate = s.createdAt
+                      ? new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                      : `Session ${i + 1}`;
+                    const previewText = s.summary?.split("\n")[0] || s.messages?.[0]?.text || "Coaching consultation";
+                    const msgCount = Array.isArray(s.messages) ? s.messages.length : null;
+
+                    return (
+                      <div
+                        key={s._id || i}
+                        onClick={() => loadPastSessionIntoChat(s)}
+                        className="p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800 border border-slate-800/80 hover:border-slate-700 transition-all cursor-pointer group flex items-start gap-3"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-emerald-500/10 group-hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 transition-colors">
+                          <MessageSquare className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[10px] font-semibold text-emerald-400">
+                              {sessionDate}
+                            </span>
+                            {msgCount && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-slate-700 text-slate-300">
+                                {msgCount} msgs
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-200 group-hover:text-white line-clamp-2 leading-relaxed transition-colors">
+                            {previewText}
+                          </p>
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-300 shrink-0 self-center transition-colors" />
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-4 py-2 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between text-[10px] text-slate-400 shrink-0">
+                <span>Click to load into chat</span>
+                <span className="text-emerald-400 font-medium">{pastSessions.length} total saved</span>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Messages Viewport */}
       <div
