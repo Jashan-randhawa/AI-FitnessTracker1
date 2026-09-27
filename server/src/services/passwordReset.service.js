@@ -45,13 +45,23 @@ const requestPasswordReset = async (email) => {
 
   const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
-    return { success: false, type: 'not_found', message: 'No account found with this email address.' };
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[password-reset] No account found with email:', email);
+    }
+    return {
+      success: true,
+      type: 'sent',
+      message: 'If an account exists with this email address, a password reset link has been sent.',
+    };
   }
   if (user.provider && user.provider !== 'local') {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[password-reset] Account uses non-local provider:', user.provider);
+    }
     return {
-      success: false,
-      type: 'google',
-      message: 'This account uses Google sign-in. Please use the "Sign in with Google" button instead.',
+      success: true,
+      type: 'sent',
+      message: 'If an account exists with this email address, a password reset link has been sent.',
     };
   }
 
@@ -66,9 +76,6 @@ const requestPasswordReset = async (email) => {
   const emailResult = await sendPasswordResetEmail({ to: user.email, resetUrl, plainToken });
 
   if (!emailResult.sent) {
-    // Token is already saved, but the user was never actually notified — don't
-    // tell the frontend "sent" when it wasn't. Let them know delivery failed
-    // so they can retry instead of waiting on an email that's never coming.
     console.error('[password-reset] email not delivered, reason:', emailResult.reason);
     return {
       success: false,
@@ -77,7 +84,11 @@ const requestPasswordReset = async (email) => {
     };
   }
 
-  return { success: true, type: 'sent', message: 'Password reset email sent successfully.' };
+  return {
+    success: true,
+    type: 'sent',
+    message: 'If an account exists with this email address, a password reset link has been sent.',
+  };
 };
 
 /**
