@@ -1,5 +1,6 @@
 const express = require('express');
 const { protect } = require('../middleware/auth');
+const { authLimiter } = require('../middleware/rateLimiter');
 const {
   register,
   login,
@@ -11,8 +12,8 @@ const {
 
 const router = express.Router();
 
-router.post('/auth/local/register', register);
-router.post('/auth/local', login);
+router.post('/auth/local/register', authLimiter, register);
+router.post('/auth/local', authLimiter, login);
 router.get('/users/me', protect, me);
 
 // Google OAuth 3-hop flow

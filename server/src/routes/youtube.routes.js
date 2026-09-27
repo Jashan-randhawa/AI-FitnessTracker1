@@ -1,9 +1,10 @@
 const express = require('express');
+const { youtubeLimiter } = require('../middleware/rateLimiter');
 const { search } = require('../controllers/youtube.controller');
 
 const router = express.Router();
 
-// Public in the original (`auth: false`) — left as-is.
-router.get('/youtube/search', search);
+// Rate-limited to prevent RapidAPI quota exhaustion.
+router.get('/youtube/search', youtubeLimiter, search);
 
 module.exports = router;
