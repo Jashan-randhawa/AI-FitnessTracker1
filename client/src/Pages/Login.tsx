@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useappcontext } from "../Context/AppContext";
 import { Toaster } from "react-hot-toast";
 
-const STRAPI_URL = (import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, '');
+const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, '');
 
 const Login = () => {
   const [state, setState] = useState('login');
@@ -36,7 +36,7 @@ const Login = () => {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = `${STRAPI_URL}/api/connect/google`;
+    window.location.href = `${API_URL}/api/connect/google`;
   };
 
   useEffect(() => {

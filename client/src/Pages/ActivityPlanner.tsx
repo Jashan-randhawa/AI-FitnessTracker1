@@ -39,7 +39,7 @@ const ACTIVITY_COLORS: Record<string, { bg: string; text: string; icon: string }
   custom: { bg: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/40", text: "text-emerald-600 dark:text-emerald-400", icon: "⚡" },
 };
 
-const normalizeStrapiEntry = (raw: unknown): ActivityEntry | null => {
+const normalizeActivityEntry = (raw: unknown): ActivityEntry | null => {
   if (!raw || typeof raw !== "object") return null;
   const item = raw as { id?: string; attributes?: Record<string, unknown> };
   if (item.attributes && typeof item.attributes === "object") {
@@ -72,7 +72,7 @@ export default function ActivityPlanner() {
     setActiveDay(0);
     setLoggedActivities(new Set());
     try {
-      const STRAPI_URL = (import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
+      const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
       const token = localStorage.getItem("token");
       const prompt = `Create a detailed ${days}-day workout and activity plan for this user:
 - Goal: ${user?.goal ?? "maintain"} weight
@@ -113,7 +113,7 @@ Requirements:
 - Match level and equipment constraints.
 - Keep daily totalCaloriesBurned close to ${calorieBurnTarget}.`;
 
-      const res = await fetch(`${STRAPI_URL}/api/ai-assistant/chat`, {
+      const res = await fetch(`${API_URL}/api/ai-assistant/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messages: [{ role: "user", parts: [{ text: prompt }] }] }),
@@ -144,7 +144,7 @@ Requirements:
         },
       }, { headers: { Authorization: `Bearer ${token}` } });
 
-      const entry = normalizeStrapiEntry(raw);
+      const entry = normalizeActivityEntry(raw);
       if (!entry) throw new Error("Invalid activity response");
       setAllActivityLogs((prev: ActivityEntry[]) => {
         if (prev.some((log) => log.id === entry.id)) return prev;
@@ -178,7 +178,7 @@ Requirements:
             date: new Date().toISOString(),
           },
         }, { headers: { Authorization: `Bearer ${token}` } });
-        const entry = normalizeStrapiEntry(raw);
+        const entry = normalizeActivityEntry(raw);
         if (!entry) continue;
         setAllActivityLogs((prev: ActivityEntry[]) => {
           if (prev.some((log) => log.id === entry.id)) return prev;

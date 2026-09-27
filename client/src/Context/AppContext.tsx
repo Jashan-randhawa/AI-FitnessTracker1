@@ -85,20 +85,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       setAllWaterLogs([]);
       setUser(null);
 
-      const STRAPI_URL = (import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
-      const { data } = await api.get(`${STRAPI_URL}/api/auth/google/callback?access_token=${googleAccessToken}`);
-      const strapiJwt = data.jwt;
+      const { data } = await api.get(`/api/auth/google/callback?access_token=${googleAccessToken}`);
+      const jwtToken = data.jwt;
 
-      localStorage.setItem("token", strapiJwt);
-      api.defaults.headers.common["Authorization"] = `Bearer ${strapiJwt}`;
-      setUser({ ...data.user, token: strapiJwt });
+      localStorage.setItem("token", jwtToken);
+      api.defaults.headers.common["Authorization"] = `Bearer ${jwtToken}`;
+      setUser({ ...data.user, token: jwtToken });
 
       if (data.user?.age && data.user?.weight && data.user?.goal) setOnboardingCompleted(true);
 
       const [foodRes, activityRes, waterRes] = await Promise.allSettled([
-        api.get("/api/foodlogs", { headers: { Authorization: `Bearer ${strapiJwt}` } }),
-        api.get("/api/activitylogs", { headers: { Authorization: `Bearer ${strapiJwt}` } }),
-        api.get("/api/waterlogs", { headers: { Authorization: `Bearer ${strapiJwt}` } }),
+        api.get("/api/foodlogs", { headers: { Authorization: `Bearer ${jwtToken}` } }),
+        api.get("/api/activitylogs", { headers: { Authorization: `Bearer ${jwtToken}` } }),
+        api.get("/api/waterlogs", { headers: { Authorization: `Bearer ${jwtToken}` } }),
       ]);
 
       if (foodRes.status === "fulfilled") setAllFoodLogs(normalizeCollectionResponse<FoodEntry>(foodRes.value.data));

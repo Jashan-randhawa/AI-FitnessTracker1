@@ -18,13 +18,13 @@ const MEAL_CONFIG: Record<MealType, { label: string; icon: string; color: string
 
 const MEAL_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 
-// Controller returns entity directly (no attributes wrapper)
-const normalizeStrapiEntry = (raw: any) => {
+// Controller returns entity directly (with backward-compatible support for attributes wrapper)
+const normalizeFoodEntry = (raw: any) => {
   if (!raw) return null;
   if (raw.attributes && typeof raw.attributes === "object") {
     return { id: raw.id, ...raw.attributes };
   }
-  // Strapi stores as lowercase — normalize mealtype → mealType
+  // Normalize mealtype → mealType
   if (raw.mealtype && !raw.mealType) raw.mealType = raw.mealtype;
   return raw;
 };
@@ -32,7 +32,7 @@ const normalizeStrapiEntry = (raw: any) => {
 const resolveDate = (entry: any): string =>
   entry.date ?? entry.createdAt ?? new Date().toISOString();
 
-// Resolve mealType from either casing Strapi might return
+// Resolve mealType from either casing (mealType or legacy mealtype)
 const resolveMealType = (entry: any): MealType => {
   const m = entry.mealType ?? entry.mealtype ?? "snack";
   return MEAL_ORDER.includes(m) ? m : "snack";
@@ -124,7 +124,7 @@ const AddFoodModal = ({
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      onAdd(normalizeStrapiEntry(raw));
+      onAdd(normalizeFoodEntry(raw));
       setShowForm(false);
       toast.success("Entry added!");
     } catch (error: any) {
@@ -572,7 +572,7 @@ export default function FoodLog() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      handleAdd(normalizeStrapiEntry(raw));
+      handleAdd(normalizeFoodEntry(raw));
       toast.success(`Logged: ${name} · ${calories} kcal`);
 
     } catch (error: any) {

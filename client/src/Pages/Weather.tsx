@@ -429,10 +429,10 @@ const Weather = () => {
     setAiLoading(true);
     setAiSuggestion("");
     try {
-      const STRAPI_URL = (import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
+      const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
       const token = localStorage.getItem("token");
       const prompt = `Weather in ${w.locationName}: ${w.current.phrase}, ${w.current.temperature}°C, feels like ${w.current.feelsLike}°C, humidity ${w.current.humidity}%, wind ${w.current.windSpeed} km/h, UV index ${w.current.uvIndex} (${w.current.uvPhrase}).${w.aqi ? ` Air Quality AQI: ${w.aqi.usAqi}.` : ""} Suggest 3 specific workouts perfectly suited for these conditions today. For each, include: name, duration, intensity, and why it's ideal for this weather. Be concise and practical.`;
-      const res = await fetch(`${STRAPI_URL}/api/ai-assistant/chat`, {
+      const res = await fetch(`${API_URL}/api/ai-assistant/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messages: [{ role: "user", parts: [{ text: prompt }] }] }),

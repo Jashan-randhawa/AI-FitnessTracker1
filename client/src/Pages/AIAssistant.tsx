@@ -222,7 +222,7 @@ export default function AIAssistant() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const STRAPI_URL = (import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
+  const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
   const token = localStorage.getItem("token");
 
   const todayFood = useMemo(
@@ -242,7 +242,7 @@ export default function AIAssistant() {
     return total.slice(0, 6);
   }, [todayFood, todayActivity]);
 
-  // ── Load past sessions from Strapi ───────────────────────
+  // ── Load past sessions ────────────────────────────────────
   useEffect(() => {
     const load = async () => {
       try {
@@ -337,7 +337,7 @@ Guidelines:
     }));
 
     try {
-      const res = await fetch(`${STRAPI_URL}/api/ai-assistant/chat`, {
+      const res = await fetch(`${API_URL}/api/ai-assistant/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messages: geminiHistory, systemInstruction: systemPrompt }),

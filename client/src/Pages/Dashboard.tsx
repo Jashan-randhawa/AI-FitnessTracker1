@@ -368,7 +368,7 @@ export default function Dashboard() {
         { data: { amount: ml, date: new Date().toISOString() } },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      // Normalise Strapi response — may be nested under .data or flat
+      // Normalise response — may be nested under .data or flat
       const saved = raw?.data ?? raw;
       const entry = saved?.attributes
         ? { id: saved.id, ...saved.attributes }
@@ -390,7 +390,7 @@ export default function Dashboard() {
     const fetchTip = async () => {
       setTipLoading(true);
       try {
-        const STRAPI_URL = (import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
+        const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
         const token = localStorage.getItem("token");
         const userCtx = [
           user?.goal ? `goal: ${user.goal} weight` : "",
@@ -399,7 +399,7 @@ export default function Dashboard() {
           totalCaloriesBurnedToday ? `burned today: ${totalCaloriesBurnedToday} kcal` : "",
         ].filter(Boolean).join(", ");
         const prompt = `Give me ONE short, actionable fitness tip for today (max 2 sentences). ${userCtx ? `User context: ${userCtx}.` : ""}`;
-        const res = await fetch(`${STRAPI_URL}/api/ai-assistant/chat`, {
+        const res = await fetch(`${API_URL}/api/ai-assistant/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ messages: [{ role: "user", parts: [{ text: prompt }] }] }),

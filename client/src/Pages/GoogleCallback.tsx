@@ -10,7 +10,7 @@ const GoogleCallback = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
-    // Strapi v4 sends access_token; older versions may send id_token
+    // Google OAuth sends access_token; older versions may send id_token
     const accessToken = params.get("access_token") || params.get("id_token");
 
     if (import.meta.env.DEV) {
@@ -24,7 +24,7 @@ const GoogleCallback = () => {
 
     googleLogin(accessToken)
       .then(() => navigate("/"))
-      .catch(() => setError("Google login failed. Please check your Strapi Google provider settings."));
+      .catch(() => setError("Google login failed. Please check your Google OAuth provider settings."));
   }, []);
 
   if (error) {

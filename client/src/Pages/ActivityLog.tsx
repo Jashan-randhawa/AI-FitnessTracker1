@@ -9,7 +9,7 @@ import { StaggerContainer, StaggerItem } from "../components/animations/StaggerL
 const resolveDate = (entry: any): string =>
   entry.date ?? entry.createdAt ?? new Date().toISOString();
 
-const normalizeStrapiEntry = (raw: any) => {
+const normalizeActivityEntry = (raw: any) => {
   if (!raw) return null;
   if (raw.attributes && typeof raw.attributes === "object") {
     return { id: raw.id, ...raw.attributes };
@@ -318,7 +318,7 @@ export default function ActivityLog() {
         { data: { name, duration, caloriesBurned, date: new Date().toISOString() } },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const entry = normalizeStrapiEntry(raw);
+      const entry = normalizeActivityEntry(raw);
       if (!entry) return;
       const normalized = { ...entry, date: resolveDate(entry) };
       setAllActivityLogs((prev: any[]) => {

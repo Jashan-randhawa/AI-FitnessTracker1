@@ -32,7 +32,7 @@ export default function MealPlanner() {
     setPlan([]);
     setLoggedMeals(new Set());
     try {
-      const STRAPI_URL = (import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
+      const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL as string)?.replace(/\/$/, "");
       const token = localStorage.getItem("token");
 
       const prompt = `Generate a ${days}-day meal plan for someone with the following profile:
@@ -62,7 +62,7 @@ Requirements:
 - Vary the meals across days (no exact repeats)
 - Match the ${cuisine} cuisine preference where possible`;
 
-      const res = await fetch(`${STRAPI_URL}/api/ai-assistant/chat`, {
+      const res = await fetch(`${API_URL}/api/ai-assistant/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messages: [{ role: "user", parts: [{ text: prompt }] }] }),

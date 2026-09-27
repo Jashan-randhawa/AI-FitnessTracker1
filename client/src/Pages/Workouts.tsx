@@ -42,7 +42,7 @@ interface PunjabiPlaylist {
   tags: string[];
 }
 
-const STRAPI_API_BASE_URL = (import.meta.env.VITE_STRAPI_API_URL ?? "http://localhost:1337").replace(/\/$/, "");
+const API_BASE_URL = (import.meta.env.VITE_API_URL ?? import.meta.env.VITE_STRAPI_API_URL ?? "http://localhost:1337").replace(/\/$/, "");
 
 const PLAYLISTS: Playlist[] = [
   { id: "1", title: "Beginner Full Body Strength", channel: "Heather Robertson", category: "strength", level: "beginner", description: "Complete beginner-friendly strength workouts targeting every muscle group with dumbbells.", videoCount: 12, emoji: "🏋️", youtubePlaylistId: "PLt4lS6MZ6JJoFQvfp2RlqDzOFGDJWbm4X", thumbnailColor: "from-rose-500 to-orange-500", searchQuery: "beginner full body strength workout Heather Robertson" },
@@ -166,7 +166,7 @@ const ANIMATION_STYLES = `
 }
 `;
 
-// ── Strapi-proxied YouTube Search Hook ─────────────────────
+// ── YouTube Search Hook ───────────────────────────────────
 function useYouTubeSearch(query: string, enabled: boolean) {
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -178,7 +178,7 @@ function useYouTubeSearch(query: string, enabled: boolean) {
     setError(null);
     const ctrl = new AbortController();
 
-    fetch(`${STRAPI_API_BASE_URL}/api/youtube/search?q=${encodeURIComponent(query)}`, {
+    fetch(`${API_BASE_URL}/api/youtube/search?q=${encodeURIComponent(query)}`, {
       signal: ctrl.signal,
     })
       .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json(); })
@@ -220,7 +220,7 @@ function usePunjabiMusicSearch(query: string, enabled: boolean) {
     setError(null);
     const ctrl = new AbortController();
 
-    fetch(`${STRAPI_API_BASE_URL}/api/youtube/search?q=${encodeURIComponent(query)}`, {
+    fetch(`${API_BASE_URL}/api/youtube/search?q=${encodeURIComponent(query)}`, {
       signal: ctrl.signal,
     })
       .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json(); })
