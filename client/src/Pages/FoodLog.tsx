@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import api from "../configs/api";
 import { useTheme } from "../Context/Themecontext";
 import DateDropdown from "../components/DateDropdown";
+import CalendarHeatmap from "../components/CalendarHeatmap";
 import { StaggerContainer, StaggerItem } from "../components/animations/StaggerList";
 
 type MealType = "breakfast" | "lunch" | "dinner" | "snack";
@@ -679,6 +680,15 @@ export default function FoodLog() {
               </button>
             </div>
           )}
+
+          <CalendarHeatmap
+            logs={allFoodLogs}
+            selectedDate={filterDate}
+            onSelectDate={(dateStr) => setFilterDate(dateStr)}
+            colorTheme="emerald"
+            type="food"
+          />
+
           <div className="rounded-2xl p-5 bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50">
             <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Quick Add</p>
             <div className="flex flex-wrap gap-2">

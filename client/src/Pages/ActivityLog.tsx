@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import DateDropdown from "../components/DateDropdown";
+import CalendarHeatmap from "../components/CalendarHeatmap";
 import { useappcontext } from "../Context/AppContext";
 import toast from "react-hot-toast";
 import api from "../configs/api";
@@ -383,6 +384,15 @@ export default function ActivityLog() {
               </button>
             </div>
           )}
+
+          <CalendarHeatmap
+            logs={allActivityLogs}
+            selectedDate={filterDate}
+            onSelectDate={(dateStr) => setFilterDate(dateStr)}
+            colorTheme="orange"
+            type="activity"
+          />
+
           {/* Quick Add */}
           <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5 transition-colors duration-200">
             <p className="text-sm font-semibold mb-3">Quick Add</p>
