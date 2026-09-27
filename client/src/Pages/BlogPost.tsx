@@ -43,6 +43,7 @@ const BlogPost = () => {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const isDark = theme.toString() === "dark";
+  const [imgError, setImgError] = useState(false);
 
   const article = location.state?.article as NewsArticle | undefined;
 
@@ -67,7 +68,6 @@ const BlogPost = () => {
   }
 
   const style = CATEGORY_STYLES[article.category] ?? CATEGORY_STYLES.all;
-  const [imgError, setImgError] = useState(false);
   const content = cleanContent(article.content || article.excerpt || "");
   const isTruncated = article.content?.includes("[+") ?? false;
 

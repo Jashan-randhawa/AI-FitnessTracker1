@@ -126,21 +126,27 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { data } = await api.get("/api/foodlogs", { headers: { Authorization: `Bearer ${token}` } });
       setAllFoodLogs(normalizeCollectionResponse<FoodEntry>(data));
-    } catch {}
+    } catch {
+      // Ignore background fetch failure
+    }
   };
 
   const fetchActivityLogs = async (token: string) => {
     try {
       const { data } = await api.get("/api/activitylogs", { headers: { Authorization: `Bearer ${token}` } });
       setAllActivityLogs(normalizeCollectionResponse<ActivityEntry>(data));
-    } catch {}
+    } catch {
+      // Ignore background fetch failure
+    }
   };
 
   const fetchWaterLogs = async (token: string) => {
     try {
       const { data } = await api.get("/api/waterlogs", { headers: { Authorization: `Bearer ${token}` } });
       setAllWaterLogs(normalizeCollectionResponse<WaterEntry>(data));
-    } catch {}
+    } catch {
+      // Ignore background fetch failure
+    }
   };
 
   const logout = () => {
@@ -183,4 +189,5 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   return <Appcontext.Provider value={value}>{children}</Appcontext.Provider>;
 };
 
-export const useappcontext = () => useContext(Appcontext);
+export const useAppContext = () => useContext(Appcontext);
+export const useappcontext = useAppContext;

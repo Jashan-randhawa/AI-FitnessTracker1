@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  client:
+    name: Client Lint & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./client
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run typecheck & build
+        run: npm run build
+
+  server:
+    name: Server Syntax & Sanity Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./server
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check JavaScript syntax
+        run: |
+          node -c server.js
+          node -c src/app.js
+          node -c src/config/db.js
+          for file in src/controllers/*.js src/middleware/*.js src/models/*.js src/routes/*.js src/services/*.js; do
+            node -c "$file"
+          done
+
+      - name: Test server module loading
+        run: node -e "require('./src/app.js'); console.log('Server app modules resolved cleanly');"
+        env:
+          JWT_SECRET: "ci_test_secret_32_characters_long_min"
+          NODE_ENV: "test"
