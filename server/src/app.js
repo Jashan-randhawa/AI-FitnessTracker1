@@ -1,11 +1,17 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const morgan = require('morgan');
+const mongoose = require('mongoose');
 const routes = require('./routes');
+const requestId = require('./middleware/requestId');
+const httpLogger = require('./middleware/httpLogger');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
+
+// Assign request ID header and property early in request lifecycle
+app.use(requestId);
+app.use(httpLogger);
 
 // Roughly equivalent to Strapi's `strapi::security` middleware.
 app.use(
@@ -32,13 +38,10 @@ app.use(
       callback(new Error(`Not allowed by CORS: ${origin}`));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Request-Id'],
+    exposedHeaders: ['X-Request-Id'],
   })
 );
-
-if (process.env.NODE_ENV !== 'production') {
-  app.use(morgan('dev'));
-}
 
 // JSON body limit generous enough for chat history payloads; image uploads
 // go through multer separately (see middleware/upload.js) and aren't
@@ -49,7 +52,18 @@ app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.get('/', (_req, res) => {
   res.json({ status: 'ok', service: 'AI Fitness Tracker API' });
 });
-app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+
+app.get('/api/health', (_req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const dbStatus = dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
+  const isHealthy = dbState === 1 || process.env.NODE_ENV === 'test';
+  res.status(isHealthy ? 200 : 503).json({
+    status: isHealthy ? 'ok' : 'degraded',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    database: dbStatus,
+  });
+});
 
 app.use('/api', routes);
 

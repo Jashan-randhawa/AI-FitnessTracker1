@@ -1,4 +1,5 @@
 const sendError = require('../utils/sendError');
+const logger = require('../utils/logger');
 
 const notFound = (req, res) => {
   sendError(res, 404, `Route not found: ${req.method} ${req.originalUrl}`);
@@ -25,7 +26,14 @@ const errorHandler = (err, req, res, next) => {
   }
 
   if (process.env.NODE_ENV !== 'test') {
-    console.error(err);
+    logger.error('Unhandled application error', {
+      requestId: req?.id || req?.requestId,
+      method: req?.method,
+      url: req?.originalUrl,
+      errorName: err?.name,
+      errorMessage: err?.message,
+      stack: err?.stack,
+    });
   }
 
   const status =
