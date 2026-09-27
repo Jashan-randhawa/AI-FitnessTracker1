@@ -401,6 +401,57 @@ const exportPDF = (allFoodLogs: any[], allActivityLogs: any[], user: any, streak
   }
 };
 
+// ── CSV Export ───────────────────────────────────────────────
+const exportCSV = (allFoodLogs: any[], allActivityLogs: any[]) => {
+  try {
+    const escapeCsv = (val: any) => {
+      const str = String(val ?? "").replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows: string[] = [];
+
+    // Food logs section
+    rows.push("--- FOOD LOGS ---");
+    rows.push(["Date", "Meal Type", "Food Name", "Calories", "Protein (g)", "Carbs (g)", "Fat (g)"].map(escapeCsv).join(","));
+    allFoodLogs.forEach((l) => {
+      rows.push([
+        new Date(resolveDate(l)).toLocaleDateString("en-CA"),
+        l.mealType ?? "",
+        l.name ?? "",
+        l.calories ?? 0,
+        l.protein ?? 0,
+        l.carbs ?? 0,
+        l.fat ?? 0,
+      ].map(escapeCsv).join(","));
+    });
+
+    rows.push("");
+    // Activity logs section
+    rows.push("--- ACTIVITY LOGS ---");
+    rows.push(["Date", "Activity Name", "Duration (min)", "Calories Burned"].map(escapeCsv).join(","));
+    allActivityLogs.forEach((l) => {
+      rows.push([
+        new Date(resolveDate(l)).toLocaleDateString("en-CA"),
+        l.name ?? l.type ?? "",
+        l.duration ?? 0,
+        l.calories ?? l.caloriesBurned ?? 0,
+      ].map(escapeCsv).join(","));
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(rows.join("\n"));
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    link.setAttribute("download", `fittrack-export-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("CSV export downloaded!");
+  } catch {
+    toast.error("Could not export CSV data.");
+  }
+};
+
 // ── Main Profile Page ─────────────────────────────────────────
 export default function Profile() {
   const { user, setUser, allFoodLogs, allActivityLogs, logout } = useappcontext();
@@ -535,13 +586,21 @@ export default function Profile() {
           {/* Data export */}
           <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5">
             <p className="text-sm font-bold mb-1">Export Your Data</p>
-            <p className="text-xs text-slate-400 mb-3">Download a full PDF report with your profile, food logs and activity history.</p>
-            <button
-              onClick={() => exportPDF(allFoodLogs, allActivityLogs, user, streak, earnedBadges)}
-              className="w-full py-3 bg-slate-200 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 text-sm font-semibold rounded-xl transition-all cursor-pointer"
-            >
-              📥 Download PDF
-            </button>
+            <p className="text-xs text-slate-400 mb-3">Download a full PDF report or export raw CSV data of your nutrition and activity logs.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => exportPDF(allFoodLogs, allActivityLogs, user, streak, earnedBadges)}
+                className="w-full py-3 bg-slate-200 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 text-sm font-semibold rounded-xl transition-all cursor-pointer text-center"
+              >
+                📥 Download PDF
+              </button>
+              <button
+                onClick={() => exportCSV(allFoodLogs, allActivityLogs)}
+                className="w-full py-3 bg-slate-200 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 text-sm font-semibold rounded-xl transition-all cursor-pointer text-center"
+              >
+                📊 Download CSV
+              </button>
+            </div>
           </div>
 
           {/* Theme */}
