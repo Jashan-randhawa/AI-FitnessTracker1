@@ -1,0 +1,35 @@
+{
+  "name": "@jashan-randhawa/openrouter-resilient-client",
+  "version": "0.1.0",
+  "description": "Resilient, dependency-free Node.js client for OpenRouter chat completions with retries, timeouts, and model fallback.",
+  "license": "MIT",
+  "author": "Jashan Randhawa",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run"
+  }
+}

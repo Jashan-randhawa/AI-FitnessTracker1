@@ -1,0 +1,65 @@
+{
+  "name": "@jashan-randhawa/fitness-utils",
+  "version": "0.1.0",
+  "description": "Framework-agnostic fitness calculations, RFC-compliant CSV export, Web Audio chimes, Web Speech hooks, and styled PDF reports.",
+  "license": "MIT",
+  "author": "Jashan Randhawa",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js",
+      "require": "./dist/react/index.cjs"
+    },
+    "./pdf": {
+      "types": "./dist/pdf/index.d.ts",
+      "import": "./dist/pdf/index.js",
+      "require": "./dist/pdf/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "jspdf": ">=2.5.0",
+    "jspdf-autotable": ">=3.8.0",
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "jspdf": {
+      "optional": true
+    },
+    "jspdf-autotable": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run"
+  }
+}
