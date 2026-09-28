@@ -20,6 +20,7 @@ import {
   Search,
   MessageSquare,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { useappcontext } from "../Context/AppContext";
 import api from "../configs/api";
@@ -235,12 +236,12 @@ const RenderMessage = React.memo(({ text }: { text: string; isLatest?: boolean }
     }
     const target = inPlanCard ? planLines : elements;
     target.push(
-      <div key={key} className="overflow-x-auto my-2.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-        <table className="w-full text-xs text-left border-collapse">
+      <div key={key} className="overflow-x-auto my-2.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs -mx-0.5 sm:mx-0 [webkit-overflow-scrolling:touch]">
+        <table className="w-full text-[11px] sm:text-xs text-left border-collapse min-w-full">
           <thead className="bg-slate-100/90 dark:bg-slate-700/60 text-slate-800 dark:text-slate-200 font-semibold">
             <tr>
               {tableHeaders.map((header, hIdx) => (
-                <th key={hIdx} className="px-3 py-2 border-b border-slate-200 dark:border-slate-700">
+                <th key={hIdx} className="px-2.5 py-1.5 sm:px-3 sm:py-2 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap sm:whitespace-normal">
                   {applyInline(header)}
                 </th>
               ))}
@@ -250,7 +251,7 @@ const RenderMessage = React.memo(({ text }: { text: string; isLatest?: boolean }
             {tableRows.map((row, rIdx) => (
               <tr key={rIdx} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                 {row.map((cell, cIdx) => (
-                  <td key={cIdx} className="px-3 py-1.5 text-slate-700 dark:text-slate-300">
+                  <td key={cIdx} className="px-2.5 py-1.5 sm:px-3 sm:py-2 text-slate-700 dark:text-slate-300">
                     {applyInline(cell)}
                   </td>
                 ))}
@@ -455,10 +456,10 @@ const ChatMessageItem = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className={`flex gap-3 group ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+      className={`flex gap-2 sm:gap-3 group ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
     >
       <div
-        className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-xs ${
+        className={`shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-white shadow-xs ${
           msg.role === "user"
             ? "bg-emerald-500"
             : msg.isError
@@ -466,25 +467,25 @@ const ChatMessageItem = React.memo(({
             : "bg-violet-600 dark:bg-violet-500"
         }`}
       >
-        {msg.role === "user" ? <UserIcon className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+        {msg.role === "user" ? <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
       </div>
 
       <div
-        className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-3 shadow-xs relative ${
+        className={`max-w-[88%] sm:max-w-[80%] rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-xs relative ${
           msg.role === "user"
-            ? "bg-emerald-500 text-white rounded-tr-sm"
+            ? "bg-emerald-500 text-white rounded-tr-xs"
             : msg.isError
-            ? "bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200 rounded-tl-sm"
-            : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-tl-sm text-gray-900 dark:text-slate-100"
+            ? "bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200 rounded-tl-xs"
+            : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-tl-xs text-gray-900 dark:text-slate-100"
         }`}
       >
         {msg.isError ? (
           <div>
-            <p className="text-sm font-medium leading-relaxed">{msg.text}</p>
+            <p className="text-xs sm:text-sm font-medium leading-relaxed">{msg.text}</p>
             <button
               onClick={onRetry}
               disabled={isLoading}
-              className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-colors"
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs cursor-pointer active:scale-95 transition-all"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Retry Request</span>
@@ -493,28 +494,28 @@ const ChatMessageItem = React.memo(({
         ) : isAssistant ? (
           <RenderMessage text={msg.text} isLatest={isLast && !isLoading} />
         ) : (
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+          <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
         )}
 
         {!msg.isError && (
-          <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 dark:border-slate-700/40 text-[10px]">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 dark:border-slate-700/40 text-[10px] gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
               <span className={msg.role === "user" ? "text-emerald-100" : "text-gray-400 dark:text-slate-500"}>
                 {formatTime(msg.timestamp)}
               </span>
               {isSpeakingThis && (
-                <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-medium animate-pulse">
-                  <Volume2 className="w-3 h-3" />
+                <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-medium animate-pulse truncate">
+                  <Volume2 className="w-3 h-3 shrink-0" />
                   <span>Speaking…</span>
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center gap-1 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
               {/* Copy message button */}
               <button
                 onClick={() => onCopy(msg.id, msg.text)}
-                className={`p-1 rounded-md transition-colors cursor-pointer ${
+                className={`p-1.5 rounded-md transition-all cursor-pointer active:scale-90 ${
                   msg.role === "user"
                     ? "hover:bg-emerald-600 text-emerald-100"
                     : "hover:bg-slate-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400"
@@ -528,7 +529,7 @@ const ChatMessageItem = React.memo(({
               {isAssistant && (
                 <button
                   onClick={() => onSpeakToggle(msg.id, msg.text)}
-                  className={`p-1 rounded-md transition-colors cursor-pointer ${
+                  className={`p-1.5 rounded-md transition-all cursor-pointer active:scale-90 ${
                     isSpeakingThis
                       ? "bg-emerald-500/20 text-emerald-500"
                       : "hover:bg-slate-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400"
@@ -543,7 +544,7 @@ const ChatMessageItem = React.memo(({
               {isAssistant && isLast && !isLoading && (
                 <button
                   onClick={onRegenerate}
-                  className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 transition-all cursor-pointer active:scale-90"
                   title="Regenerate response"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -813,9 +814,18 @@ export default function AIAssistant() {
     });
   }, [pastSessions, memorySearch]);
 
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+
   // Smooth scroll management
   const scrollToBottom = useCallback((smooth = true) => {
     messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    setShowScrollBottom(distanceFromBottom > 160);
   }, []);
 
   useEffect(() => {
@@ -1203,25 +1213,25 @@ export default function AIAssistant() {
   const cardCls = "bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/50";
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-3.5rem-4.5rem)] lg:h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white relative">
+    <div className="flex-1 flex flex-col h-full min-h-0 bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white relative overflow-hidden">
       {/* Header */}
       <div className="page-header-ai shrink-0 shadow-md z-10">
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white border border-white/20 shadow-inner">
-                <Bot className="w-5 h-5" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white border border-white/20 shadow-inner shrink-0">
+                <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <div>
-                <h1 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-lg font-bold text-white flex items-center gap-1.5 leading-tight">
                   FitBot
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-400/25 border border-emerald-300/30 text-emerald-100">
+                  <span className="text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-emerald-400/25 border border-emerald-300/30 text-emerald-100 shrink-0">
                     AI Coach
                   </span>
                 </h1>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                  <span className="text-xs text-white/90">
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-400 rounded-full animate-pulse shrink-0" />
+                  <span className="text-[11px] sm:text-xs text-white/90 truncate max-w-[110px] sm:max-w-none">
                     {memoryLoaded && pastSessions.length > 0
                       ? `${pastSessions.length} session${pastSessions.length > 1 ? "s" : ""} remembered`
                       : "Online & context-aware"}
@@ -1230,11 +1240,11 @@ export default function AIAssistant() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               {/* Sound Toggle */}
               <button
                 onClick={toggleSound}
-                className="text-xs p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5"
+                className="w-8 h-8 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
                 title={soundEnabled ? "Mute response chime" : "Unmute response chime"}
               >
                 {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5 opacity-60" />}
@@ -1244,11 +1254,11 @@ export default function AIAssistant() {
               {messages.length > 0 && (
                 <button
                   onClick={exportConversation}
-                  className="text-xs p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5"
+                  className="w-8 h-8 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
                   title="Export chat as PDF"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Export PDF</span>
+                  <span className="hidden sm:inline text-xs">Export PDF</span>
                 </button>
               )}
 
@@ -1257,14 +1267,14 @@ export default function AIAssistant() {
                 <button
                   ref={memoryBtnRef}
                   onClick={handleToggleMemory}
-                  className={`text-xs px-2.5 py-1.5 rounded-xl border border-white/20 backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5 ${
+                  className={`h-8 sm:h-auto px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border border-white/20 backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
                     showMemory ? "bg-white text-emerald-950 font-bold shadow-md" : "bg-white/10 hover:bg-white/20 text-white"
                   }`}
                   title="View remembered past sessions"
                 >
                   <History className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Memory</span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-400 text-emerald-950 font-bold">
+                  <span className="hidden sm:inline text-xs">Memory</span>
+                  <span className="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-400 text-emerald-950 font-bold">
                     {pastSessions.length}
                   </span>
                 </button>
@@ -1274,9 +1284,11 @@ export default function AIAssistant() {
               {messages.length > 0 && (
                 <button
                   onClick={startNewChat}
-                  className="text-xs px-2.5 py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer"
+                  className="h-8 sm:h-auto px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1 text-xs active:scale-95"
+                  title="Start new conversation"
                 >
-                  New Chat
+                  <RotateCcw className="w-3.5 h-3.5 sm:hidden" />
+                  <span className="hidden sm:inline">New Chat</span>
                 </button>
               )}
             </div>
@@ -1284,7 +1296,7 @@ export default function AIAssistant() {
         </div>
       </div>
 
-      {/* Floating Memory Flyout Drawer (Positioned directly right below the Memory icon) */}
+      {/* Memory Drawer: Mobile Bottom Sheet (< sm) or Desktop Floating Popover (>= sm) */}
       <AnimatePresence>
         {showMemory && (
           <div className="fixed inset-0 z-50 pointer-events-none">
@@ -1294,18 +1306,39 @@ export default function AIAssistant() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="fixed inset-0 bg-black/25 dark:bg-black/50 backdrop-blur-[1px] pointer-events-auto"
+              className="fixed inset-0 bg-black/30 dark:bg-black/60 backdrop-blur-[2px] pointer-events-auto"
               onClick={() => setShowMemory(false)}
             />
 
-            {/* Floating Flyout Window */}
+            {/* Flyout Window / Mobile Bottom Sheet */}
             <motion.div
-              initial={{ opacity: 0, y: -8, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.96 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              initial={
+                typeof window !== "undefined" && window.innerWidth < 640
+                  ? { opacity: 0, y: "100%" }
+                  : { opacity: 0, y: -8, scale: 0.96 }
+              }
+              animate={
+                typeof window !== "undefined" && window.innerWidth < 640
+                  ? { opacity: 1, y: 0 }
+                  : { opacity: 1, y: 0, scale: 1 }
+              }
+              exit={
+                typeof window !== "undefined" && window.innerWidth < 640
+                  ? { opacity: 0, y: "100%" }
+                  : { opacity: 0, y: -8, scale: 0.96 }
+              }
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
               style={
-                flyoutPosition
+                typeof window !== "undefined" && window.innerWidth < 640
+                  ? {
+                      position: "fixed",
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      width: "100%",
+                      maxHeight: "82vh",
+                    }
+                  : flyoutPosition
                   ? {
                       position: "fixed",
                       top: `${flyoutPosition.top}px`,
@@ -1323,8 +1356,11 @@ export default function AIAssistant() {
                       transformOrigin: "top right",
                     }
               }
-              className="pointer-events-auto flex flex-col rounded-2xl bg-slate-900/98 dark:bg-slate-900/98 border border-slate-700/80 shadow-2xl backdrop-blur-2xl text-white overflow-hidden ring-1 ring-white/10"
+              className="pointer-events-auto flex flex-col rounded-t-3xl sm:rounded-2xl bg-slate-900/98 dark:bg-slate-900/98 border-t sm:border border-slate-700/80 shadow-2xl backdrop-blur-2xl text-white overflow-hidden ring-1 ring-white/10"
             >
+              {/* Mobile Drag Indicator */}
+              <div className="sm:hidden w-10 h-1 rounded-full bg-slate-600 mx-auto mt-2.5 mb-1 shrink-0" />
+
               {/* Header */}
               <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/60 shrink-0">
                 <div className="flex items-center gap-2">
@@ -1396,7 +1432,7 @@ export default function AIAssistant() {
                       <div
                         key={s._id || i}
                         onClick={() => loadPastSessionIntoChat(s)}
-                        className="p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800 border border-slate-800/80 hover:border-slate-700 transition-all cursor-pointer group flex items-start gap-3"
+                        className="p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800 border border-slate-800/80 hover:border-slate-700 active:scale-[0.98] transition-all cursor-pointer group flex items-start gap-3"
                       >
                         <div className="w-7 h-7 rounded-lg bg-emerald-500/10 group-hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 transition-colors">
                           <MessageSquare className="w-3.5 h-3.5" />
@@ -1424,7 +1460,7 @@ export default function AIAssistant() {
               </div>
 
               {/* Footer */}
-              <div className="px-4 py-2 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between text-[10px] text-slate-400 shrink-0">
+              <div className="px-4 py-2.5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between text-[10px] text-slate-400 shrink-0 safe-area-pb">
                 <span>Click to load into chat</span>
                 <span className="text-emerald-400 font-medium">{pastSessions.length} total saved</span>
               </div>
@@ -1436,23 +1472,24 @@ export default function AIAssistant() {
       {/* Messages Viewport */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-4 no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 overscroll-contain no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden relative"
       >
-        <div className="max-w-2xl mx-auto space-y-4">
+        <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
           {messages.length === 0 && (
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-col items-center justify-center py-10 text-center"
+              className="flex flex-col items-center justify-center py-6 sm:py-10 text-center px-1"
             >
-              <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-sm border border-emerald-500/20">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl mb-3 sm:mb-4 shadow-sm border border-emerald-500/20">
                 🤖
               </div>
-              <h2 className="text-xl font-bold mb-1 text-gray-900 dark:text-white">
+              <h2 className="text-lg sm:text-xl font-bold mb-1 text-gray-900 dark:text-white">
                 Hey, I'm FitBot!
               </h2>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mb-6 max-w-sm">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mb-4 sm:mb-6 max-w-xs sm:max-w-sm">
                 Your personal AI fitness and nutrition coach. I adapt to your goals, calorie balance, and past workouts.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
@@ -1460,9 +1497,9 @@ export default function AIAssistant() {
                   <button
                     key={s}
                     onClick={() => sendMessage(s)}
-                    className="text-left px-3.5 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all duration-150 cursor-pointer shadow-xs hover:shadow-md"
+                    className="text-left px-3 py-2.5 sm:px-3.5 sm:py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 active:scale-[0.98] transition-all duration-150 cursor-pointer shadow-2xs hover:shadow-md"
                   >
-                    {s}
+                    <span className="line-clamp-2">{s}</span>
                   </button>
                 ))}
               </div>
@@ -1499,12 +1536,12 @@ export default function AIAssistant() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, transition: { duration: 0.15 } }}
                 transition={{ duration: 0.2 }}
-                className="flex gap-3 items-center"
+                className="flex gap-2 sm:gap-3 items-center"
               >
-                <div className="ai-orb-organic-pulse shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-white bg-violet-600">
-                  <Bot className="w-4 h-4 animate-spin-slow" />
+                <div className="ai-orb-organic-pulse shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-white bg-violet-600">
+                  <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin-slow" />
                 </div>
-                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-xs">
+                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl rounded-tl-xs px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-xs">
                   <div className="flex gap-1.5 items-center h-4">
                     <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
                     <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
@@ -1520,17 +1557,31 @@ export default function AIAssistant() {
         </div>
       </div>
 
-
+      {/* Floating Jump to Bottom Button */}
+      <AnimatePresence>
+        {showScrollBottom && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 10 }}
+            onClick={() => scrollToBottom(true)}
+            className="absolute bottom-20 sm:bottom-20 right-4 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg flex items-center justify-center cursor-pointer transition-transform active:scale-90"
+            title="Scroll to latest message"
+          >
+            <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Quick Context Action Chips */}
       {messages.length > 0 && !isLoading && (
-        <div className="px-4 py-1.5 overflow-x-auto no-scrollbar shrink-0 bg-slate-100/70 dark:bg-slate-900/40 border-t border-slate-200/60 dark:border-slate-800">
-          <div className="max-w-2xl mx-auto flex items-center gap-2">
+        <div className="px-3 sm:px-4 py-1.5 overflow-x-auto no-scrollbar shrink-0 bg-slate-100/70 dark:bg-slate-900/40 border-t border-slate-200/60 dark:border-slate-800">
+          <div className="max-w-2xl mx-auto flex items-center gap-1.5 sm:gap-2">
             {QUICK_ACTIONS.map((action) => (
               <button
                 key={action.label}
                 onClick={() => sendMessage(action.prompt)}
-                className="shrink-0 text-xs px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:border-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer shadow-2xs"
+                className="shrink-0 text-[11px] sm:text-xs px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:border-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 active:scale-95 transition-all cursor-pointer shadow-2xs whitespace-nowrap"
               >
                 {action.label}
               </button>
@@ -1540,23 +1591,26 @@ export default function AIAssistant() {
       )}
 
       {/* Chat Input Section */}
-      <div className={`${cardCls} px-4 py-3.5 shrink-0 border-t`}>
+      <div className={`${cardCls} px-3 py-2 sm:px-4 sm:py-3.5 shrink-0 border-t`}>
         <div className="max-w-2xl mx-auto">
-          <div className="flex gap-2.5 items-end">
+          <div className="flex gap-2 sm:gap-2.5 items-end">
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isListening ? "Listening... speak now" : "Ask FitBot anything (workouts, meal ideas, macros)…"}
+              onFocus={() => {
+                setTimeout(() => scrollToBottom(true), 150);
+              }}
+              placeholder={isListening ? "Listening... speak now" : "Ask FitBot anything (workouts, food, macros)…"}
               rows={1}
-              className={`flex-1 resize-none bg-slate-100 dark:bg-slate-700/60 border rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${
+              className={`flex-1 resize-none bg-slate-100 dark:bg-slate-700/60 border rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-[15px] sm:text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${
                 isListening
                   ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/20 dark:bg-emerald-950/20"
                   : "border-slate-200 dark:border-slate-600 focus:border-emerald-400 dark:focus:border-emerald-500"
               }`}
               style={{
-                maxHeight: 140,
+                maxHeight: 120,
                 scrollbarWidth: "none",
                 msOverflowStyle: "none",
               }}
@@ -1565,10 +1619,10 @@ export default function AIAssistant() {
             {/* Voice Input Button */}
             {isSpeechSupported && (
               <motion.button
-                whileTap={{ scale: 0.92 }}
+                whileTap={{ scale: 0.90 }}
                 onClick={toggleListening}
                 type="button"
-                className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-colors cursor-pointer border ${
+                className={`shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-colors cursor-pointer border ${
                   isListening
                     ? "bg-rose-500 text-white border-rose-600 animate-pulse shadow-md"
                     : "bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:text-emerald-500"
@@ -1582,28 +1636,28 @@ export default function AIAssistant() {
             {/* Send or Stop Generation Button */}
             {isLoading ? (
               <motion.button
-                whileTap={{ scale: 0.92 }}
+                whileTap={{ scale: 0.90 }}
                 onClick={stopGeneration}
                 type="button"
-                className="shrink-0 w-11 h-11 bg-rose-500 hover:bg-rose-600 rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
+                className="shrink-0 w-10 h-10 sm:w-11 sm:h-11 bg-rose-500 hover:bg-rose-600 rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
                 title="Stop generating response"
               >
                 <Square className="w-4 h-4 fill-current" />
               </motion.button>
             ) : (
               <motion.button
-                whileTap={{ scale: 0.92 }}
+                whileTap={{ scale: 0.90 }}
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim()}
-                className="shrink-0 w-11 h-11 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
-                title="Send message (Enter)"
+                className="shrink-0 w-10 h-10 sm:w-11 sm:h-11 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
+                title="Send message"
               >
                 <Send className="w-4 h-4" />
               </motion.button>
             )}
           </div>
 
-          <div className="flex items-center justify-between text-[10px] text-gray-400 dark:text-slate-500 mt-2 px-1">
+          <div className="hidden sm:flex items-center justify-between text-[10px] text-gray-400 dark:text-slate-500 mt-2 px-1">
             <span>Press Enter to send · Shift+Enter for newline</span>
             <span>FitBot v1.2</span>
           </div>

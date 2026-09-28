@@ -565,7 +565,7 @@ body {
 
 /* AI Assistant — Violet → Indigo (intelligence, futuristic) */
 .page-header-ai {
-  @apply text-white px-4 py-6 sm:p-6 sm:pt-12 sm:pb-8 relative;
+  @apply text-white px-3.5 py-2.5 sm:px-6 sm:py-5 lg:pt-8 lg:pb-6 relative;
   background: linear-gradient(135deg, #7c3aed 0%, #6366f1 50%, #4f46e5 100%);
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;

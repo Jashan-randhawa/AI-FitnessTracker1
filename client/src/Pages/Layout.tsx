@@ -1,12 +1,24 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import BottomNav from "../components/BottomNav";
 
 const Layout = () => {
+  const location = useLocation();
+  const isChat =
+    location.pathname === "/ai" ||
+    location.pathname === "/ai-assistant" ||
+    location.pathname.startsWith("/ai");
+
   return (
     <div className="layout-container">
       <Sidebar />
-      <main className="flex-1 min-w-0 overflow-y-auto pb-18 lg:pb-0 no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <main
+        className={`flex-1 min-w-0 ${
+          isChat
+            ? "flex flex-col h-[calc(100dvh-3.5rem)] lg:h-screen overflow-hidden pb-15 lg:pb-0"
+            : "overflow-y-auto pb-18 lg:pb-0"
+        } no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
+      >
         <Outlet />
       </main>
       <BottomNav />
