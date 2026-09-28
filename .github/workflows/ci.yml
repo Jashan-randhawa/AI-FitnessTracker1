@@ -51,6 +51,9 @@ jobs:
       - name: Run lint
         run: npm run lint --workspace=client
 
+      - name: Install Linux native bindings for Tailwind v4
+        run: npm install @tailwindcss/oxide-linux-x64-gnu@4.1.18 lightningcss-linux-x64-gnu@1.30.2 --no-save
+
       - name: Run typecheck & build
         run: npm run build:apps
 
