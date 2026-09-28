@@ -388,7 +388,7 @@ export default function ActivityLog() {
           <CalendarHeatmap
             logs={allActivityLogs}
             selectedDate={filterDate}
-            onSelectDate={(dateStr) => setFilterDate(dateStr)}
+            onSelectDate={(dateStr: string) => setFilterDate(dateStr)}
             colorTheme="orange"
             type="activity"
           />

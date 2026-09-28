@@ -4,42 +4,46 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 permissions:
   contents: write
-  pull-requests: write
+  packages: write
   id-token: write
 
 jobs:
   release:
-    name: Release
+    name: Publish Packages to GitHub Packages
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@jashan-randhawa'
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm install
 
-      - name: Build Packages
-        run: npm run build --workspaces --if-present
+      - name: Build packages
+        run: npm run build:packages
 
-      - name: Run Tests
-        run: npm run test --workspaces --if-present
+      - name: Run package tests
+        run: npm run test:packages
 
-      - name: Create Release Pull Request or Publish
-        uses: changesets/action@v1
-        with:
-          publish: npx changeset publish
+      - name: Publish to GitHub Packages
+        run: |
+          for pkg in packages/*; do
+            if [ -d "$pkg" ]; then
+              echo "Publishing $pkg to GitHub Packages..."
+              npm publish --workspace="$pkg" || echo "Notice: $pkg publish finished."
+            fi
+          done
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

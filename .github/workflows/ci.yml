@@ -24,18 +24,14 @@ jobs:
         run: npm install
 
       - name: Build all packages
-        run: npm run build --workspaces --if-present
+        run: npm run build:packages
 
       - name: Run all package tests
-        run: npm run test --workspaces --if-present
+        run: npm run test:packages
 
   client:
     name: Client Lint & Build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./apps/client
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -45,24 +41,22 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: apps/client/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
+
+      - name: Build packages
+        run: npm run build:packages
 
       - name: Run lint
-        run: npm run lint
+        run: npm run lint --workspace=client
 
       - name: Run typecheck & build
-        run: npm run build
+        run: npm run build:apps
 
   server:
     name: Server Syntax & Sanity Check
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./apps/server
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -72,13 +66,16 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: apps/server/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
+
+      - name: Build packages
+        run: npm run build:packages
 
       - name: Check JavaScript syntax
         run: |
+          cd apps/server
           node -c server.js
           node -c src/app.js
           node -c src/config/db.js
@@ -87,13 +84,15 @@ jobs:
           done
 
       - name: Test server module loading
-        run: node -e "require('./src/app.js'); console.log('Server app modules resolved cleanly');"
+        run: |
+          cd apps/server
+          node -e "require('./src/app.js'); console.log('Server app modules resolved cleanly');"
         env:
           JWT_SECRET: "ci_test_secret_32_characters_long_min"
           NODE_ENV: "test"
 
-      - name: Run unit tests
-        run: npm test
+      - name: Run server unit tests
+        run: npm run test:apps
         env:
           JWT_SECRET: "ci_test_secret_32_characters_long_min"
           NODE_ENV: "test"

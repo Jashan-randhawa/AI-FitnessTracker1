@@ -8,8 +8,12 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "build:packages": "npm run build --workspace=@jashan-randhawa/openrouter-resilient-client --workspace=@jashan-randhawa/express-ai-guard --workspace=@jashan-randhawa/react-calendar-heatmap-streaks --workspace=@jashan-randhawa/react-workout-tracker --workspace=@jashan-randhawa/react-motion-presets --workspace=@jashan-randhawa/fitness-utils --workspace=@jashan-randhawa/ai-nutrition-estimator",
+    "build:apps": "npm run build --workspace=client",
+    "build": "npm run build:packages && npm run build:apps",
+    "test:packages": "npm run test --workspace=@jashan-randhawa/openrouter-resilient-client --workspace=@jashan-randhawa/express-ai-guard --workspace=@jashan-randhawa/react-calendar-heatmap-streaks --workspace=@jashan-randhawa/react-workout-tracker --workspace=@jashan-randhawa/react-motion-presets --workspace=@jashan-randhawa/fitness-utils --workspace=@jashan-randhawa/ai-nutrition-estimator",
+    "test:apps": "npm run test --workspace=server",
+    "test": "npm run test:packages && npm run test:apps",
     "lint": "npm run lint --workspaces --if-present",
     "changeset": "changeset"
   },

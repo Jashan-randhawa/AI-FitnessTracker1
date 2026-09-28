@@ -684,7 +684,7 @@ export default function FoodLog() {
           <CalendarHeatmap
             logs={allFoodLogs}
             selectedDate={filterDate}
-            onSelectDate={(dateStr) => setFilterDate(dateStr)}
+            onSelectDate={(dateStr: string) => setFilterDate(dateStr)}
             colorTheme="emerald"
             type="food"
           />

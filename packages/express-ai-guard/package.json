@@ -31,11 +31,14 @@
     "express-rate-limit": "^7.5.0 || ^8.0.0"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
     "build": "tsup",
     "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jashan-randhawa/AI-FitnessTracker1.git"
   }
 }

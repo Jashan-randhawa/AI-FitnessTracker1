@@ -36,11 +36,14 @@
     }
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
     "build": "tsup",
     "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jashan-randhawa/AI-FitnessTracker1.git"
   }
 }
