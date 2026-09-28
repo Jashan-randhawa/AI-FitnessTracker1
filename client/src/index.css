@@ -209,6 +209,34 @@ body {
   }
 }
 
+.chat-input-scrollable {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+}
+
+.chat-input-scrollable::-webkit-scrollbar {
+  display: block !important;
+  width: 4px !important;
+  height: 4px !important;
+}
+
+.chat-input-scrollable::-webkit-scrollbar-track {
+  display: block !important;
+  background: transparent !important;
+}
+
+.chat-input-scrollable::-webkit-scrollbar-thumb {
+  display: block !important;
+  background: rgba(148, 163, 184, 0.4) !important;
+  border-radius: 9999px !important;
+}
+
+.chat-input-scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7) !important;
+}
+
 .page-content-grid {
   @apply p-4 lg:p-6 space-y-4 lg:grid lg:grid-cols-2 lg:gap-6;
 }

@@ -682,13 +682,17 @@ export default function AIAssistant() {
     return total.slice(0, 6);
   }, [todayFood, todayActivity]);
 
-  // Auto-resize input textarea smoothly
+  // Auto-resize input textarea smoothly within compact bounds, enabling smooth scrolling when overflowing
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = "auto";
-      const newHeight = Math.min(inputRef.current.scrollHeight, 140);
-      inputRef.current.style.height = `${newHeight}px`;
-      inputRef.current.style.overflowY = inputRef.current.scrollHeight > 140 ? "auto" : "hidden";
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+      const maxHeight = isMobile ? 76 : 96;
+      const minHeight = isMobile ? 36 : 38;
+      const scrollH = inputRef.current.scrollHeight;
+      const newHeight = Math.min(scrollH, maxHeight);
+      inputRef.current.style.height = `${Math.max(newHeight, minHeight)}px`;
+      inputRef.current.style.overflowY = scrollH > maxHeight ? "auto" : "hidden";
     }
   }, [input]);
 
@@ -1582,23 +1586,23 @@ export default function AIAssistant() {
               isNearBottomRef.current = true;
               scrollToBottom(true);
             }}
-            className="absolute bottom-24 sm:bottom-28 right-4 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg flex items-center justify-center cursor-pointer transition-transform active:scale-90"
+            className="absolute bottom-16 sm:bottom-20 right-3 sm:right-4 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg flex items-center justify-center cursor-pointer transition-transform active:scale-90"
             title="Scroll to latest message"
           >
-            <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />
+            <ChevronDown className="w-4 h-4" />
           </motion.button>
         )}
       </AnimatePresence>
 
       {/* Quick Context Action Chips */}
       {messages.length > 0 && !isLoading && (
-        <div className="px-3 sm:px-4 py-1.5 overflow-x-auto no-scrollbar shrink-0 bg-slate-100/70 dark:bg-slate-900/40 border-t border-slate-200/60 dark:border-slate-800">
+        <div className="px-2.5 sm:px-4 py-1 overflow-x-auto touch-pan-x no-scrollbar shrink-0 bg-slate-100/70 dark:bg-slate-900/40 border-t border-slate-200/60 dark:border-slate-800">
           <div className="max-w-2xl mx-auto flex items-center gap-1.5 sm:gap-2">
             {QUICK_ACTIONS.map((action) => (
               <button
                 key={action.label}
                 onClick={() => sendMessage(action.prompt)}
-                className="shrink-0 text-[11px] sm:text-xs px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:border-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 active:scale-95 transition-all cursor-pointer shadow-2xs whitespace-nowrap"
+                className="shrink-0 text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:border-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 active:scale-95 transition-all cursor-pointer shadow-2xs whitespace-nowrap"
               >
                 {action.label}
               </button>
@@ -1608,9 +1612,9 @@ export default function AIAssistant() {
       )}
 
       {/* Chat Input Section */}
-      <div className={`${cardCls} px-3 py-2 sm:px-4 sm:py-3.5 shrink-0 border-t`}>
+      <div className={`${cardCls} px-2.5 py-1.5 sm:px-4 sm:py-2.5 shrink-0 border-t shadow-sm`}>
         <div className="max-w-2xl mx-auto">
-          <div className="flex gap-2 sm:gap-2.5 items-end">
+          <div className="flex gap-1.5 sm:gap-2.5 items-end">
             <textarea
               ref={inputRef}
               value={input}
@@ -1622,15 +1626,14 @@ export default function AIAssistant() {
               }}
               placeholder={isListening ? "Listening... speak now" : "Ask FitBot anything (workouts, food, macros)…"}
               rows={1}
-              className={`flex-1 resize-none bg-slate-100 dark:bg-slate-700/60 border rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-[15px] sm:text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${
+              className={`chat-input-scrollable flex-1 resize-none bg-slate-100 dark:bg-slate-700/60 border rounded-xl px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-xs sm:text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all leading-snug ${
                 isListening
                   ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/20 dark:bg-emerald-950/20"
                   : "border-slate-200 dark:border-slate-600 focus:border-emerald-400 dark:focus:border-emerald-500"
               }`}
               style={{
-                maxHeight: 120,
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
+                minHeight: 36,
+                maxHeight: 96,
               }}
             />
 
@@ -1640,14 +1643,14 @@ export default function AIAssistant() {
                 whileTap={{ scale: 0.90 }}
                 onClick={toggleListening}
                 type="button"
-                className={`shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-colors cursor-pointer border ${
+                className={`shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center transition-colors cursor-pointer border ${
                   isListening
                     ? "bg-rose-500 text-white border-rose-600 animate-pulse shadow-md"
                     : "bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:text-emerald-500"
                 }`}
                 title={isListening ? "Stop listening" : "Speak to FitBot"}
               >
-                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               </motion.button>
             )}
 
@@ -1657,25 +1660,25 @@ export default function AIAssistant() {
                 whileTap={{ scale: 0.90 }}
                 onClick={stopGeneration}
                 type="button"
-                className="shrink-0 w-10 h-10 sm:w-11 sm:h-11 bg-rose-500 hover:bg-rose-600 rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
+                className="shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-rose-500 hover:bg-rose-600 rounded-lg sm:rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
                 title="Stop generating response"
               >
-                <Square className="w-4 h-4 fill-current" />
+                <Square className="w-3.5 h-3.5 fill-current" />
               </motion.button>
             ) : (
               <motion.button
                 whileTap={{ scale: 0.90 }}
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim()}
-                className="shrink-0 w-10 h-10 sm:w-11 sm:h-11 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
+                className="shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg sm:rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
                 title="Send message"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </motion.button>
             )}
           </div>
 
-          <div className="hidden sm:flex items-center justify-between text-[10px] text-gray-400 dark:text-slate-500 mt-2 px-1">
+          <div className="hidden sm:flex items-center justify-between text-[10px] text-gray-400 dark:text-slate-500 mt-1.5 px-1">
             <span>Press Enter to send · Shift+Enter for newline</span>
             <span>FitBot v1.2</span>
           </div>
