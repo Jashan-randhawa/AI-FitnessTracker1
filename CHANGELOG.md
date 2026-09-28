@@ -1,0 +1,85 @@
+# 📋 Changelog
+
+All notable changes to the **FitTrack AI** repository and ecosystem are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [[2.1.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.1.0)] — 2026-09-28
+
+### 📦 Modular Packages Ecosystem (`@jashan-randhawa/*`)
+- **Published 7 Standalone npm Packages** to [GitHub Packages](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm):
+  - `@jashan-randhawa/openrouter-resilient-client` (`v0.1.0`): Resilient OpenRouter LLM client with automatic model fallback, exponential retry with jitter, timeouts, and JSON extraction.
+  - `@jashan-randhawa/express-ai-guard` (`v0.1.0`): Express middleware bundle providing dual-tier rate limiting (IP + authenticated user ID), request correlation ID (`X-Request-Id`), and production error masking.
+  - `@jashan-randhawa/react-calendar-heatmap-streaks` (`v0.1.0`): Generic contribution-style heatmap with 4-level color scales, timezone-safe date calculations, and streak tracking.
+  - `@jashan-randhawa/react-workout-tracker` (`v0.1.0`): Headless `useWorkoutSession` hook and live workout logging modal with rest countdown timer and celebration effects.
+  - `@jashan-randhawa/react-motion-presets` (`v0.1.0`): Framer Motion animation presets, `AnimatedNumber`, `StreamingWordReveal`, and accessible `CollapsibleCard`.
+  - `@jashan-randhawa/fitness-utils` (`v0.1.0`): Multi-entrypoint toolkit: `.` (BMI, BMR, TDEE, macros, CSV export), `./react` (Audio chime & Speech hooks), `./pdf` (Report PDF).
+  - `@jashan-randhawa/ai-nutrition-estimator` (`v0.1.0`): Multimodal nutrition engine supporting NLP text meals, vision image analysis, MET exercise burn, and 5-min TTL cache.
+- **Dual-Format Builds**: Packaged with `tsup` emitting modern ESM (`dist/index.js`), CommonJS (`dist/index.cjs`), and complete TypeScript declaration types (`dist/index.d.ts`, `dist/index.d.cts`).
+- **Clean Tarballs**: Configured with `files: ["dist", "README.md", "LICENSE"]`, ensuring zero internal test fixtures, source maps, or credentials are leaked in tarballs.
+
+### 🧠 FitBot AI Assistant & Coaching Enhancements
+- **Hands-Free Voice Experience**: Integrated Speech-to-Text (STT) for hands-free query dictation and Web Speech API Text-to-Speech (TTS) read-aloud playback with visual audio meters.
+- **Instant Generation Stop**: Single-tap abort control powered by client-side `AbortController` signal propagation.
+- **Compact & Smooth Prompt Bar**: Redesigned prompt input with auto-expanding textarea (up to 140px), smooth scrolling, and safe-area notch padding for mobile devices.
+- **Rich Markdown Tables & Collapsible Cards**: Native rendering for multi-day workout splits and macronutrient distributions, plus interactive collapsible plan cards.
+- **Plan Export & Quick Copy**: 1-click Markdown file download of generated workout/diet plans and one-tap message clipboard copy with confirmation checkmarks.
+- **Audio Completion Cue**: Dual-tone synthesized Web Audio API completion chime with quick header mute/unmute toggle.
+- **60fps Chat Rendering**: Memoized message components and word reveal animations restricted to incoming messages to eliminate historical re-render lag.
+
+### 🛡️ Backend Reliability & Security Hardening
+- **Automated Model Failover**: Automatic failover to secondary fallback models (e.g., Gemini 2.0 Flash via `OPENROUTER_FALLBACK_MODEL`) when primary model (`openai/gpt-4o-mini`) experiences transient outages.
+- **Dual-Tier AI Rate Limiting**: 30 req/min global IP limiter + 20 req/min authenticated user limiter keyed on `req.user.id` to prevent NAT starvation.
+- **Correlation ID Tracing**: Integrated `requestId` middleware assigning and preserving persistent `X-Request-Id` UUIDs.
+- **Structured JSON Logger & Scrubber**: Production logger with automated secret scrubbing (passwords, tokens, API keys, Bearer headers, JWTs).
+- **Production Error Masking**: Strict masking of Mongoose, MongoDB, and database internals in production (`NODE_ENV === 'production'`) with generic user-friendly responses.
+- **Sliding-Window Conversation Truncation**: Server-side bounds enforcing 50 messages max, 8,000 characters per single message, and graceful dropping of oldest messages when exceeding 40,000 total characters.
+- **Versioned System Prompts**: Externalized FitBot system prompts into versioned constants (`prompts/fitbot.prompt.js`).
+
+### 🧪 Testing & CI/CD Pipeline
+- **91 Passing Unit Tests**:
+  - 35 backend tests running natively on `node --test` across 13 test suites.
+  - 56 package unit tests running on `vitest` covering retries, fallbacks, limiters, streak calculations, workout state transitions, and math formulas.
+- **GitHub Actions CI**: Upgraded CI workflow with Linux native binding caching for Tailwind v4 / LightningCSS and multi-job syntax checks.
+- **GitHub Packages Release Pipeline**: Automated packaging and publication workflow with provenance enabled.
+
+---
+
+## [[2.0.1](https://github.com/Jashan-randhawa/AI-FitnessTracker1/commit/eb565fe)] — 2026-09-27
+
+### 🔒 Security Audit & Dependency Remediation
+- **Critical CVE Remediation**: Bumped `jspdf` to `^4.2.1` in client, pulling patched `dompurify@3.4.16` and resolving confirmed critical XSS advisory in the dependency tree.
+- **Multer Upgrade**: Bumped `multer` from outdated `1.4.x` to `2.4.0` resolving disclosed denial-of-service (DoS) advisories.
+- **Rate Limiting Hardening**: Installed and wired `express-rate-limit@8.7.0` across auth routes (`5 req/15m`), password reset (`3 req/15m`), AI endpoints (`30 req/m`), and YouTube search proxy (`30 req/m`).
+- **OAuth Token Security**: Replaced query-string token transfer with secure URL fragment (`#access_token=`) and POST body exchange, preventing token leakage in browser history and HTTP Referer headers.
+- **Anti-Enumeration Password Recovery**: Unified responses across non-existent accounts, third-party OAuth providers, and upstream email errors to eliminate observable timing and oracle leaks.
+- **YouTube Route Protection**: Enforced JWT authentication (`protect` middleware) on `/api/youtube/search` proxy.
+
+### 🐛 CI Test-Failure Fix
+- **Node 20 Runner Globstar Compatibility**: Fixed failing `test` script in `server/package.json` by replacing `test/**/*.test.js` with `test/*.test.js`, resolving globstar expansion failure on GitHub Actions Node 20 runners.
+- **GitHub Actions CI Workflow**: Added `.github/workflows/ci.yml` establishing automated client lint/build and server syntax/test verification on every PR and commit.
+
+---
+
+## [[2.0.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.0.0)] — 2026-09-12
+
+### 📱 Mobile Redesign & Architecture Upgrade
+- **Mobile Navigation Dock**: Fixed bottom navigation bar with active micro-animations and tab switching.
+- **Safe-Area Notch Padding**: Configured `viewport-fit=cover` and dynamic `.safe-area-pb` classes for iPhone dynamic islands and home indicators.
+- **Responsive Drawer**: Unified slide-over drawer with profile summary, theme toggle, and mobile logout controls.
+- **Full-Height Chat Viewport**: Dynamic `100dvh` layout preventing mobile soft keyboards from obscuring chat messages or input bars.
+- **Technology Upgrades**: Upgraded frontend to React 19.2, TypeScript 5.9, Vite 7, and Tailwind CSS v4 design tokens.
+- **Health News & Weather Hub**: Integrated Open-Meteo real-time weather & AQI forecasting and NewsAPI health feeds.
+
+---
+
+## [[1.0.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v1.0.0)] — 2026-09-06
+
+### 🚀 Initial Full-Stack Platform Release
+- **Core Fitness Tracking**: Food logging with calorie and macronutrient tracking, activity workout logging, and water intake counter.
+- **AI Core (FitBot)**: Initial conversational fitness coach powered by OpenRouter LLMs.
+- **Authentication**: JWT stateless authentication, bcrypt password hashing, and Google OAuth 2.0 integration.
+- **Media & Workouts**: Video library powered by RapidAPI YouTube search proxy and curated Punjabi gym pump playlists.
+- **Data Export**: Initial PDF and PNG progress card downloads via jsPDF and html2canvas.

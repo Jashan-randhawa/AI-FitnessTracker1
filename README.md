@@ -439,10 +439,19 @@ All requests requiring authorization must include the header:
 
 ---
 
-## 📖 Documentation & Wiki
+## 📖 Documentation, Changelog & Engineering Reports
 
+### 📑 Repository Documentation & RFCs
+- 📋 **[Changelog (`CHANGELOG.md`)](CHANGELOG.md)**: Detailed release history and version change details from `v1.0.0` through `v2.1.0`.
+- 📑 **[Engineering Reports & Architecture RFCs (`docs/ENGINEERING_REPORTS.md`)](docs/ENGINEERING_REPORTS.md)**: Comprehensive compilation of the 4 engineering audits:
+  1. *CI Failure Root Cause Analysis & Verified Fix*
+  2. *Maintenance Plan Verification & Follow-Up Security Audit*
+  3. *FitBot AI Assistant Code Review, Logging & Maintenance Plan*
+  4. *Package Release Assessment & Modular Monorepo Execution Plan*
+- 🛠️ **[Architecture & Developer Guide (`IMPLEMENTATION_GUIDE.md`)](IMPLEMENTATION_GUIDE.md)**: Technical overview of endpoints and folder architecture.
+
+### 🌐 Official GitHub Wiki
 Explore complete architectural specifications, API schemas, and interactive guides in our **[Official GitHub Wiki](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki)**:
-
 - 🚀 **[Getting Started Guide](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki/Getting-Started)**: Local installation, environment variables, and unit testing.
 - 🏗️ **[Architecture & Tech Stack](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki/Architecture-and-Tech-Stack)**: Full-stack topology, rate limiting, and CI/CD pipelines.
 - 📦 **[Modular Packages Catalog](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki/Modular-Packages)**: The 7 decoupled npm libraries published under `@jashan-randhawa/*`.
