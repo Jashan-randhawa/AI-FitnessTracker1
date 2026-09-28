@@ -43,7 +43,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --include=optional
 
       - name: Build packages
         run: npm run build:packages
@@ -68,7 +68,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --include=optional
 
       - name: Build packages
         run: npm run build:packages
