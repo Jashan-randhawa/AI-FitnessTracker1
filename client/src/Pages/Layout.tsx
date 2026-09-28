@@ -10,12 +10,16 @@ const Layout = () => {
     location.pathname.startsWith("/ai");
 
   return (
-    <div className="layout-container">
+    <div
+      className={`layout-container ${
+        isChat ? "h-[100dvh] max-h-[100dvh] overflow-hidden" : ""
+      }`}
+    >
       <Sidebar />
       <main
         className={`flex-1 min-w-0 ${
           isChat
-            ? "flex flex-col h-[calc(100dvh-3.5rem)] lg:h-screen overflow-hidden pb-15 lg:pb-0"
+            ? "flex flex-col h-[calc(100dvh-3.5rem-3.75rem)] lg:h-screen overflow-hidden"
             : "overflow-y-auto pb-18 lg:pb-0"
         } no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
       >

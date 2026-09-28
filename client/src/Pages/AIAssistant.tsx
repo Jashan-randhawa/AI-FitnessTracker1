@@ -815,21 +815,33 @@ export default function AIAssistant() {
   }, [pastSessions, memorySearch]);
 
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const isNearBottomRef = useRef(true);
 
-  // Smooth scroll management
+  // Smooth scroll management — scroll the specific messages container directly!
   const scrollToBottom = useCallback((smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
+    const el = scrollContainerRef.current;
+    if (el) {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: smooth ? "smooth" : "auto",
+      });
+    }
   }, []);
 
   const handleScroll = useCallback(() => {
-    if (!scrollContainerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    setShowScrollBottom(distanceFromBottom > 160);
+    const isNear = distanceFromBottom <= 120;
+    isNearBottomRef.current = isNear;
+    setShowScrollBottom(!isNear);
   }, []);
 
   useEffect(() => {
-    scrollToBottom(true);
+    if (isNearBottomRef.current) {
+      scrollToBottom(true);
+    }
   }, [messages, isLoading, scrollToBottom]);
 
   // Copy message text
@@ -952,6 +964,7 @@ export default function AIAssistant() {
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
+    isNearBottomRef.current = true;
     scrollToBottom(true);
 
     const historyPayload: GeminiMessage[] = newMessages.map((m) => ({
@@ -1473,7 +1486,8 @@ export default function AIAssistant() {
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 overscroll-contain no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden relative"
+        className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 overscroll-contain no-scrollbar relative"
+        style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
           {messages.length === 0 && (
@@ -1564,7 +1578,10 @@ export default function AIAssistant() {
             initial={{ opacity: 0, scale: 0.8, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 10 }}
-            onClick={() => scrollToBottom(true)}
+            onClick={() => {
+              isNearBottomRef.current = true;
+              scrollToBottom(true);
+            }}
             className="absolute bottom-20 sm:bottom-20 right-4 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg flex items-center justify-center cursor-pointer transition-transform active:scale-90"
             title="Scroll to latest message"
           >
@@ -1600,6 +1617,7 @@ export default function AIAssistant() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               onFocus={() => {
+                isNearBottomRef.current = true;
                 setTimeout(() => scrollToBottom(true), 150);
               }}
               placeholder={isListening ? "Listening... speak now" : "Ask FitBot anything (workouts, food, macros)…"}
