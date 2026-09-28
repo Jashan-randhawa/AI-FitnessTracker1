@@ -197,6 +197,18 @@ body {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
+.chat-main-container {
+  @apply flex-1 min-w-0 flex flex-col overflow-hidden;
+  margin-bottom: calc(3.75rem + max(0.5rem, env(safe-area-inset-bottom, 0px)));
+}
+
+@media (min-width: 1024px) {
+  .chat-main-container {
+    margin-bottom: 0 !important;
+    height: 100vh !important;
+  }
+}
+
 .page-content-grid {
   @apply p-4 lg:p-6 space-y-4 lg:grid lg:grid-cols-2 lg:gap-6;
 }

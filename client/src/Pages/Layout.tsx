@@ -17,10 +17,10 @@ const Layout = () => {
     >
       <Sidebar />
       <main
-        className={`flex-1 min-w-0 ${
+        className={`${
           isChat
-            ? "flex flex-col h-[calc(100dvh-3.5rem-3.75rem)] lg:h-screen overflow-hidden"
-            : "overflow-y-auto pb-18 lg:pb-0"
+            ? "chat-main-container"
+            : "flex-1 min-w-0 overflow-y-auto pb-18 lg:pb-0"
         } no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
       >
         <Outlet />

@@ -1582,7 +1582,7 @@ export default function AIAssistant() {
               isNearBottomRef.current = true;
               scrollToBottom(true);
             }}
-            className="absolute bottom-20 sm:bottom-20 right-4 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg flex items-center justify-center cursor-pointer transition-transform active:scale-90"
+            className="absolute bottom-24 sm:bottom-28 right-4 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg flex items-center justify-center cursor-pointer transition-transform active:scale-90"
             title="Scroll to latest message"
           >
             <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />
