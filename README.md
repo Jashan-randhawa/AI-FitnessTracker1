@@ -4,6 +4,8 @@
 ### Intelligent Health, Nutrition & Fitness Operating System
 
 [![CI](https://github.com/Jashan-randhawa/AI-FitnessTracker1/actions/workflows/ci.yml/badge.svg)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/actions/workflows/ci.yml)
+[![GitHub Packages](https://img.shields.io/badge/GitHub_Packages-7_Published-2ea44f?style=for-the-badge&logo=github)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm)
+[![Wiki](https://img.shields.io/badge/Documentation-Wiki-blue?style=for-the-badge&logo=github)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki)
 [![React](https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
@@ -20,7 +22,7 @@
   A full-stack, AI-powered health and fitness companion designed to transform daily habits into measurable progress. Featuring multimodal AI meal logging, real-time context-aware coaching, interactive activity heatmaps, adaptive workout and meal planners, and a mobile-optimized interface.
 </p>
 
-[🚀 **Explore Live Demo**](https://ai-fitness-tracker1.vercel.app) • [✨ **Features**](#-features) • [📱 **Mobile View**](#-mobile-experience) • [🧪 **Testing & CI**](#-testing--cicd) • [🛠️ **Quick Start**](#-quick-start) • [📡 **API Reference**](#-api-reference)
+[🚀 **Explore Live Demo**](https://ai-fitness-tracker1.vercel.app) • [📦 **Modular Packages**](#-modular-packages-ecosystem) • [📖 **Wiki Documentation**](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki) • [✨ **Features**](#-features) • [📱 **Mobile View**](#-mobile-experience) • [🧪 **Testing & CI**](#-testing--cicd) • [🛠️ **Quick Start**](#-quick-start) • [📡 **API Reference**](#-api-reference)
 
 ---
 
@@ -37,6 +39,36 @@
 - **Hardened Security & Rate Limiting:** Protected with `express-rate-limit`, strict AI payload caps, secure fragment-based Google OAuth, and anti-enumeration password resets.
 - **Mobile-First Experience:** Built with responsive bottom-dock navigation, edge-to-edge notch handling, and adaptive data cards for desktop and mobile screens.
 - **Comprehensive Wellness Hub:** Includes YouTube workout streaming, Bhangra & gym pump playlists, real-time weather & Air Quality Index (AQI), and live fitness news.
+
+---
+
+## 📦 Modular Packages Ecosystem
+
+FitTrack AI features **7 decoupled, production-grade npm packages** published under the [`@jashan-randhawa/`](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm) scope on **GitHub Packages**. These modular libraries decouple the platform's core algorithms, security middleware, and interactive UI components for use across the JavaScript and TypeScript ecosystem.
+
+| Package | Version | Registry | Description |
+|---|---|---|---|
+| [`@jashan-randhawa/openrouter-resilient-client`](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/openrouter-resilient-client) | `0.1.0` | [GitHub Packages](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/openrouter-resilient-client) | Resilient OpenRouter LLM client with automated fallback model failover, exponential retry with jitter, timeouts, and JSON extraction. |
+| [`@jashan-randhawa/express-ai-guard`](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/express-ai-guard) | `0.1.0` | [GitHub Packages](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/express-ai-guard) | Express middleware bundle: dual-tier rate limiting (IP + authenticated user ID), request correlation ID (`X-Request-Id`), and production error masking. |
+| [`@jashan-randhawa/react-calendar-heatmap-streaks`](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/react-calendar-heatmap-streaks) | `0.1.0` | [GitHub Packages](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/react-calendar-heatmap-streaks) | Generic contribution-style heatmap with 4-level color scales, timezone-safe date calculations, and streak tracking. |
+| [`@jashan-randhawa/react-workout-tracker`](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/react-workout-tracker) | `0.1.0` | [GitHub Packages](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/react-workout-tracker) | Headless `useWorkoutSession` hook and live workout logging modal with rest countdown timer and celebration effects. |
+| [`@jashan-randhawa/react-motion-presets`](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/react-motion-presets) | `0.1.0` | [GitHub Packages](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/react-motion-presets) | Framer Motion animation presets, `AnimatedNumber`, `StreamingWordReveal`, and accessible `CollapsibleCard`. |
+| [`@jashan-randhawa/fitness-utils`](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/fitness-utils) | `0.1.0` | [GitHub Packages](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/fitness-utils) | Multi-entrypoint toolkit: `.` (BMI, BMR, TDEE, macros, CSV export), `./react` (Audio chime & Speech hooks), `./pdf` (Report PDF). |
+| [`@jashan-randhawa/ai-nutrition-estimator`](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/ai-nutrition-estimator) | `0.1.0` | [GitHub Packages](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm/ai-nutrition-estimator) | Multimodal nutrition engine supporting NLP text meals, vision image analysis, MET exercise burn, and 5-min TTL cache. |
+
+### Quick Installation via GitHub Packages
+Configure your project's `.npmrc`:
+```ini
+@jashan-randhawa:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+Then install any package:
+```bash
+npm install @jashan-randhawa/openrouter-resilient-client
+npm install @jashan-randhawa/express-ai-guard
+npm install @jashan-randhawa/fitness-utils
+```
+> 📖 For comprehensive guides, API signatures, and interactive usage examples, explore the **[Wiki: Modular Packages Guide](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki/Modular-Packages)**.
 
 ---
 
@@ -404,6 +436,21 @@ All requests requiring authorization must include the header:
 2. Ensure Node.js version is `>=20.0.0`.
 3. Set all required environment variables in the host dashboard.
 4. Set start command: `npm start`.
+
+---
+
+## 📖 Documentation & Wiki
+
+Explore complete architectural specifications, API schemas, and interactive guides in our **[Official GitHub Wiki](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki)**:
+
+- 🚀 **[Getting Started Guide](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki/Getting-Started)**: Local installation, environment variables, and unit testing.
+- 🏗️ **[Architecture & Tech Stack](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki/Architecture-and-Tech-Stack)**: Full-stack topology, rate limiting, and CI/CD pipelines.
+- 📦 **[Modular Packages Catalog](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki/Modular-Packages)**: The 7 decoupled npm libraries published under `@jashan-randhawa/*`.
+- 🧠 **[AI Core & FitBot Features](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki/AI-Core-and-Features)**: Vision meal logging, prompt guardrails, and voice dictation.
+- 📊 **[Health Analytics & Tracking](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki/Health-Analytics-and-Tracking)**: Goal rings, streaks, calendar heatmaps, and data exports.
+- 🏋️ **[Workout Studio & Punjabi Playlists](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki/Workout-Studio-and-Media)**: Video proxy streaming and BPM-tagged pump mixes.
+- 🔌 **[Complete API Reference](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki/API-Reference)**: All REST endpoints, schemas, and authentication headers.
+- 🌐 **[Production Deployment Guide](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki/Deployment-Guide)**: Vercel, MongoDB Atlas, Brevo, and Render setup.
 
 ---
 
