@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertCircleIcon, ChromeIcon } from "lucide-react";
+import { AlertCircleIcon } from "lucide-react";
 
 export type AlertKind = "not_found" | "google" | "rate_limited" | "email_failed" | null;
 
@@ -18,22 +18,26 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
 
   const isGoogle = kind === "google";
   const isRateLimit = kind === "rate_limited";
+
   const borderColor = isGoogle
-    ? "rgba(99,102,241,0.35)"
+    ? "#d7d7cb"
     : isRateLimit
-    ? "rgba(234,179,8,0.35)"
-    : "rgba(239,68,68,0.35)";
+    ? "#e6c988"
+    : "#e2ab9c";
+
   const bgColor = isGoogle
-    ? "rgba(99,102,241,0.08)"
+    ? "#ffffff"
     : isRateLimit
-    ? "rgba(234,179,8,0.08)"
-    : "rgba(239,68,68,0.08)";
-  const iconColor = isGoogle
-    ? "#818cf8"
+    ? "#faf3e3"
+    : "#f7ece9";
+
+  const textColor = isGoogle
+    ? "#14181a"
     : isRateLimit
-    ? "#fbbf24"
-    : "#f87171";
-  const Icon = isGoogle ? ChromeIcon : AlertCircleIcon;
+    ? "#93671e"
+    : "#833a29";
+
+  const iconColor = textColor;
 
   return (
     <div
@@ -42,17 +46,31 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
       style={{
         background: bgColor,
         border: `1px solid ${borderColor}`,
-        borderRadius: 10,
-        padding: "14px 16px",
-        marginBottom: 16,
+        borderRadius: 6,
+        padding: "12px 14px",
+        marginBottom: 20,
         display: "flex",
         flexDirection: "column",
         gap: 10,
+        boxSizing: "border-box",
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-        <Icon size={18} color={iconColor} style={{ marginTop: 2, flexShrink: 0 }} aria-hidden="true" />
-        <span style={{ fontSize: 13, color: "#d1d5db", lineHeight: 1.5 }}>
+        <AlertCircleIcon
+          size={16}
+          color={iconColor}
+          style={{ marginTop: 2, flexShrink: 0 }}
+          aria-hidden="true"
+        />
+        <span
+          style={{
+            fontSize: 13,
+            color: textColor,
+            lineHeight: 1.5,
+            fontFamily: "'Inter', sans-serif",
+            letterSpacing: "-0.01em",
+          }}
+        >
           {message}
         </span>
       </div>
@@ -66,23 +84,31 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 8,
+            gap: 10,
             width: "100%",
-            minHeight: 44,
+            minHeight: 42,
             padding: "10px 16px",
-            background: "rgba(99,102,241,0.15)",
-            border: "1px solid rgba(99,102,241,0.3)",
-            borderRadius: 8,
-            color: "#a5b4fc",
-            fontSize: 13,
-            fontWeight: 600,
+            background: "#ffffff",
+            border: "1px solid #192830",
+            borderRadius: 6,
+            color: "#14181a",
+            fontSize: 14,
+            fontWeight: 500,
             cursor: "pointer",
-            fontFamily: "'DM Sans', sans-serif",
-            transition: "all 0.2s",
+            fontFamily: "'Inter', sans-serif",
+            letterSpacing: "-0.01em",
+            transition: "background 0.15s",
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5ee")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
         >
-          <ChromeIcon size={16} aria-hidden="true" />
-          Sign in with Google
+          <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+          Continue with Google
         </button>
       )}
     </div>

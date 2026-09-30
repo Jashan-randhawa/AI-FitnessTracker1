@@ -7,7 +7,7 @@ import {
 
 const STRENGTH_LABELS = ["Too short", "Weak", "Fair", "Good", "Strong"];
 
-const STRENGTH_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#6366f1"];
+const STRENGTH_COLORS = ["#833a29", "#b85f47", "#c9932f", "#059669", "#192830"];
 
 interface PasswordStrengthMeterProps {
   password: string;
@@ -26,7 +26,7 @@ export const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({
     <div>
       {/* Multi-segment strength bar */}
       {password && (
-        <div id={strengthDescId} style={{ marginBottom: 12 }}>
+        <div id={strengthDescId} style={{ marginBottom: 14 }}>
           <div
             className="strength-row"
             aria-hidden="true"
@@ -40,8 +40,8 @@ export const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({
                   height: 4,
                   borderRadius: 2,
                   background:
-                    i < score ? STRENGTH_COLORS[score] : "rgba(255, 255, 255, 0.08)",
-                  transition: "background 0.3s",
+                    i < score ? STRENGTH_COLORS[score] : "#e4e7da",
+                  transition: "background 0.25s",
                 }}
               />
             ))}
@@ -52,6 +52,8 @@ export const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({
               fontWeight: 500,
               textAlign: "right",
               color: STRENGTH_COLORS[score],
+              fontFamily: "'Inter', sans-serif",
+              letterSpacing: "-0.01em",
             }}
             role="status"
             aria-live="polite"
@@ -67,14 +69,15 @@ export const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({
         role="region"
         aria-label="Password requirements"
         style={{
-          background: "rgba(255,255,255,0.02)",
-          border: "1px solid rgba(255,255,255,0.06)",
-          borderRadius: 10,
+          background: "#ffffff",
+          border: "1px solid #d7d7cb",
+          borderRadius: 6,
           padding: "12px 14px",
           marginBottom: 16,
           display: "flex",
           flexDirection: "column",
           gap: 7,
+          boxSizing: "border-box",
         }}
       >
         {PASSWORD_REQUIREMENTS.map((req) => {
@@ -87,20 +90,22 @@ export const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({
                 alignItems: "center",
                 gap: 8,
                 fontSize: 12,
-                color: isMet ? "#86efac" : "#6b7280",
+                color: isMet ? "#14181a" : "#8f948c",
+                fontFamily: "'Inter', sans-serif",
+                letterSpacing: "-0.01em",
                 transition: "color 0.2s",
               }}
               aria-label={`${req.label}: ${isMet ? "satisfied" : "not satisfied"}`}
             >
               {isMet ? (
-                <CheckIcon size={14} color="#22c55e" aria-hidden="true" />
+                <CheckIcon size={14} color="#059669" aria-hidden="true" />
               ) : (
                 <span
                   style={{
                     width: 6,
                     height: 6,
                     borderRadius: "50%",
-                    background: "#4b5563",
+                    background: "#b4b6a9",
                     margin: 4,
                   }}
                   aria-hidden="true"
