@@ -4,18 +4,23 @@ const {
   validateResetToken,
   resetPassword,
 } = require('../services/passwordReset.service');
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const {
+  requestResetSchema,
+  validateTokenSchema,
+  resetPasswordSchema,
+} = require('../schemas/passwordReset.schema');
 
 // POST /api/password-reset/request
 const request = asyncHandler(async (req, res) => {
-  const { email } = req.body;
-
+  const { email } = req.body || {};
   if (!email || typeof email !== 'string') {
     return res.status(400).json({ error: { message: 'Email is required.' } });
   }
-  if (!EMAIL_REGEX.test(email.trim())) {
-    return res.status(400).json({ error: { message: 'Invalid email format.' } });
+
+  const parsed = requestResetSchema.safeParse(req.body);
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message || 'Invalid email format.';
+    return res.status(400).json({ error: { message } });
   }
 
   const context = {
@@ -23,7 +28,7 @@ const request = asyncHandler(async (req, res) => {
     userAgent: req.headers['user-agent'],
   };
 
-  const result = await requestPasswordReset(email.trim().toLowerCase(), context);
+  const result = await requestPasswordReset(parsed.data.email, context);
 
   if (!result.success) {
     const status =
@@ -38,9 +43,13 @@ const request = asyncHandler(async (req, res) => {
 
 // GET /api/password-reset/validate?code=TOKEN
 const validate = asyncHandler(async (req, res) => {
-  const token = req.query?.code || '';
+  const token = req.query?.code;
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ valid: false, message: 'Reset code is required.' });
+  }
 
-  if (!token) {
+  const parsed = validateTokenSchema.safeParse(req.query);
+  if (!parsed.success) {
     return res.status(400).json({ valid: false, message: 'Reset code is required.' });
   }
 
@@ -49,16 +58,21 @@ const validate = asyncHandler(async (req, res) => {
     userAgent: req.headers['user-agent'],
   };
 
-  const result = await validateResetToken(token, context);
+  const result = await validateResetToken(parsed.data.code, context);
   res.status(result.valid ? 200 : 400).json(result);
 });
 
 // POST /api/password-reset/reset
 const reset = asyncHandler(async (req, res) => {
-  const { code, newPassword } = req.body;
-
+  const { code, newPassword } = req.body || {};
   if (!code || !newPassword) {
     return res.status(400).json({ error: { message: 'Reset code and new password are required.' } });
+  }
+
+  const parsed = resetPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message || 'Reset code and new password are required.';
+    return res.status(400).json({ error: { message } });
   }
 
   const context = {
@@ -66,7 +80,7 @@ const reset = asyncHandler(async (req, res) => {
     userAgent: req.headers['user-agent'],
   };
 
-  const result = await resetPassword(code, newPassword, context);
+  const result = await resetPassword(parsed.data.code, parsed.data.newPassword, context);
 
   if (!result.success) {
     return res.status(400).json({ error: { message: result.message } });
