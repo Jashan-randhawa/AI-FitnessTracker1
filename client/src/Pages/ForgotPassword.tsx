@@ -156,12 +156,17 @@ const ForgotPassword = () => {
   return (
     <>
       <Toaster />
-      <AuthCardLayout backTo="/" backLabel="Back to sign in">
+      <AuthCardLayout
+        backTo="/"
+        backLabel="Back to sign in"
+        heroHeadline="Account recovery, simplified."
+        heroSub="Enter your account email to receive a secure password reset link and resume your health journey."
+      >
         {/* ── Step 1: Enter email ── */}
         {step === "email" && (
           <section aria-labelledby="fp-heading">
             <div className="auth-icon-wrap" aria-hidden="true">
-              <MailIcon size={24} color="#818cf8" />
+              <MailIcon size={20} color="#192830" />
             </div>
             <h1 id="fp-heading" className="auth-title">Forgot password?</h1>
             <p className="auth-sub">
@@ -225,16 +230,18 @@ const ForgotPassword = () => {
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
-                      background: "rgba(99,102,241,0.08)",
-                      border: "1px dashed rgba(99,102,241,0.3)",
-                      borderRadius: 8,
+                      background: "#faf3e3",
+                      border: "1px solid #e6c988",
+                      borderRadius: 6,
                       padding: "8px 12px",
-                      marginTop: 6,
+                      marginTop: 8,
                       fontSize: 12,
-                      color: "#c7d2fe",
+                      color: "#93671e",
+                      fontFamily: "'Inter', sans-serif",
+                      letterSpacing: "-0.01em",
                     }}
                   >
-                    <SparklesIcon size={14} color="#818cf8" aria-hidden="true" />
+                    <SparklesIcon size={14} color="#c9932f" aria-hidden="true" />
                     <span>
                       Did you mean{" "}
                       <button
@@ -243,7 +250,7 @@ const ForgotPassword = () => {
                         style={{
                           background: "none",
                           border: "none",
-                          color: "#818cf8",
+                          color: "#192830",
                           fontWeight: 600,
                           textDecoration: "underline",
                           cursor: "pointer",
@@ -263,7 +270,12 @@ const ForgotPassword = () => {
                   <div
                     id={errorDescId}
                     role="alert"
-                    style={{ fontSize: 12, color: "#f87171", marginTop: 4 }}
+                    style={{
+                      fontSize: 12,
+                      color: "#833a29",
+                      marginTop: 4,
+                      fontFamily: "'Inter', sans-serif",
+                    }}
                   >
                     {validationError || "Please enter a valid email address."}
                   </div>
@@ -293,7 +305,7 @@ const ForgotPassword = () => {
         {step === "sent" && (
           <section aria-labelledby="sent-heading">
             <div className="auth-icon-wrap green" aria-hidden="true">
-              <CheckCircleIcon size={26} color="#22c55e" />
+              <CheckCircleIcon size={22} color="#059669" />
             </div>
             <h1 id="sent-heading" className="auth-title">Check your inbox</h1>
             <p className="auth-sub">
@@ -314,8 +326,8 @@ const ForgotPassword = () => {
                 📧 <strong>Next step:</strong> Click the link in the email to set a new password.
               </p>
               <p style={{ margin: 0 }}>
-                It expires in <strong style={{ color: "#f9fafb" }}>10 minutes</strong> and
-                can only be used <strong style={{ color: "#f9fafb" }}>once</strong>. If you
+                It expires in <strong style={{ color: "#14181a" }}>10 minutes</strong> and
+                can only be used <strong style={{ color: "#14181a" }}>once</strong>. If you
                 don't see it, check your spam/junk folder.
               </p>
             </div>
