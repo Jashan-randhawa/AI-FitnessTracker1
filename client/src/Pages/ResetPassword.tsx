@@ -131,13 +131,18 @@ const ResetPassword = () => {
   return (
     <>
       <Toaster />
-      <AuthCardLayout backTo="/" backLabel="Back to sign in">
+      <AuthCardLayout
+        backTo="/"
+        backLabel="Back to sign in"
+        heroHeadline="Set a secure new password."
+        heroSub="Protect your workouts, nutrition logs, and personal health metrics with a strong credential."
+      >
         {/* ── Loading Skeleton for Token Validation ── */}
         {pageState === "validating" && (
           <div role="status" aria-live="polite" aria-label="Verifying password reset code">
             <div
               className="auth-shimmer"
-              style={{ width: 54, height: 54, borderRadius: 14, marginBottom: 20 }}
+              style={{ width: 44, height: 44, borderRadius: 6, marginBottom: 20 }}
             />
             <div
               className="auth-shimmer"
@@ -149,20 +154,22 @@ const ResetPassword = () => {
             />
             <div
               className="auth-shimmer"
-              style={{ width: "100%", height: 46, marginBottom: 18 }}
+              style={{ width: "100%", height: 44, marginBottom: 18 }}
             />
             <div
               className="auth-shimmer"
-              style={{ width: "100%", height: 46, marginBottom: 24 }}
+              style={{ width: "100%", height: 44, marginBottom: 24 }}
             />
             <div
               className="auth-shimmer"
-              style={{ width: "100%", height: 48, borderRadius: 10 }}
+              style={{ width: "100%", height: 46, borderRadius: 6 }}
             />
             <p
               style={{
                 fontSize: 13,
-                color: "#9ca3af",
+                color: "#535557",
+                fontFamily: "'Inter', sans-serif",
+                letterSpacing: "-0.01em",
                 textAlign: "center",
                 marginTop: 18,
               }}
@@ -176,7 +183,7 @@ const ResetPassword = () => {
         {pageState === "invalid" && (
           <section aria-labelledby="rp-invalid-heading">
             <div className="auth-icon-wrap red" aria-hidden="true">
-              <AlertCircleIcon size={24} color="#f87171" />
+              <AlertCircleIcon size={20} color="#833a29" />
             </div>
             <h1 id="rp-invalid-heading" className="auth-title">Link unavailable</h1>
             <p className="auth-sub" role="alert">{invalidReason}</p>
@@ -194,7 +201,7 @@ const ResetPassword = () => {
         {(pageState === "ready" || pageState === "saving") && (
           <section aria-labelledby="rp-form-heading">
             <div className="auth-icon-wrap" aria-hidden="true">
-              <ShieldCheckIcon size={24} color="#818cf8" />
+              <ShieldCheckIcon size={20} color="#192830" />
             </div>
             <h1 id="rp-form-heading" className="auth-title">Set new password</h1>
             <p className="auth-sub">
@@ -258,9 +265,9 @@ const ResetPassword = () => {
                     aria-invalid={passwordsMismatch}
                     style={{
                       borderColor: passwordsMismatch
-                        ? "rgba(239,68,68,0.5)"
+                        ? "#e2ab9c"
                         : passwordsMatch
-                        ? "rgba(34,197,94,0.4)"
+                        ? "#a7f3d0"
                         : undefined,
                     }}
                   />
@@ -281,7 +288,16 @@ const ResetPassword = () => {
 
                 {passwordsMismatch && (
                   <div
-                    style={{ display: "flex", alignItems: "center", gap: 6, color: "#f87171", fontSize: 12, marginTop: 4 }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      color: "#833a29",
+                      fontSize: 12,
+                      fontFamily: "'Inter', sans-serif",
+                      letterSpacing: "-0.01em",
+                      marginTop: 4,
+                    }}
                     role="alert"
                   >
                     <XIcon size={14} aria-hidden="true" /> Passwords do not match
@@ -289,7 +305,16 @@ const ResetPassword = () => {
                 )}
                 {passwordsMatch && (
                   <div
-                    style={{ display: "flex", alignItems: "center", gap: 6, color: "#86efac", fontSize: 12, marginTop: 4 }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      color: "#059669",
+                      fontSize: 12,
+                      fontFamily: "'Inter', sans-serif",
+                      letterSpacing: "-0.01em",
+                      marginTop: 4,
+                    }}
                     role="status"
                   >
                     <CheckIcon size={14} aria-hidden="true" /> Passwords match
@@ -324,14 +349,22 @@ const ResetPassword = () => {
               style={{ margin: "0 auto 20px" }}
               aria-hidden="true"
             >
-              <CheckCircleIcon size={30} color="#22c55e" />
+              <CheckCircleIcon size={24} color="#059669" />
             </div>
             <h1 className="auth-title">Password updated!</h1>
             <p className="auth-sub">
               Your password has been successfully and securely updated.
               <br />
               {redirectCountdown !== null && redirectCountdown > 0 ? (
-                <span style={{ color: "#c7d2fe", fontWeight: 500, display: "inline-block", marginTop: 8 }}>
+                <span
+                  style={{
+                    color: "#192830",
+                    fontWeight: 500,
+                    display: "inline-block",
+                    marginTop: 8,
+                    fontFamily: "'Inter', sans-serif",
+                  }}
+                >
                   Redirecting to Sign In in {redirectCountdown}s…
                 </span>
               ) : (
