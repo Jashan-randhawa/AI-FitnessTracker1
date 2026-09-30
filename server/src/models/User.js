@@ -61,6 +61,16 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
+    passwordHistory: {
+      type: [
+        {
+          hash: { type: String, required: true },
+          changedAt: { type: Date, default: Date.now },
+        },
+      ],
+      select: false,
+      default: [],
+    },
   },
   { timestamps: true }
 );
@@ -78,7 +88,7 @@ userSchema.methods.comparePassword = async function comparePassword(candidate) {
 };
 
 toJSONPlugin(userSchema, {
-  hide: ['password', 'resetPasswordTokenHash', 'resetPasswordExpires'],
+  hide: ['password', 'resetPasswordTokenHash', 'resetPasswordExpires', 'passwordHistory'],
 });
 
 module.exports = mongoose.model('User', userSchema);

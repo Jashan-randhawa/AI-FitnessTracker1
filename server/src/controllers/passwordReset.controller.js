@@ -18,7 +18,12 @@ const request = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: { message: 'Invalid email format.' } });
   }
 
-  const result = await requestPasswordReset(email.trim().toLowerCase());
+  const context = {
+    ip: req.ip || req.connection?.remoteAddress,
+    userAgent: req.headers['user-agent'],
+  };
+
+  const result = await requestPasswordReset(email.trim().toLowerCase(), context);
 
   if (!result.success) {
     const status =
@@ -39,7 +44,12 @@ const validate = asyncHandler(async (req, res) => {
     return res.status(400).json({ valid: false, message: 'Reset code is required.' });
   }
 
-  const result = await validateResetToken(token);
+  const context = {
+    ip: req.ip || req.connection?.remoteAddress,
+    userAgent: req.headers['user-agent'],
+  };
+
+  const result = await validateResetToken(token, context);
   res.status(result.valid ? 200 : 400).json(result);
 });
 
@@ -51,7 +61,12 @@ const reset = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: { message: 'Reset code and new password are required.' } });
   }
 
-  const result = await resetPassword(code, newPassword);
+  const context = {
+    ip: req.ip || req.connection?.remoteAddress,
+    userAgent: req.headers['user-agent'],
+  };
+
+  const result = await resetPassword(code, newPassword, context);
 
   if (!result.success) {
     return res.status(400).json({ error: { message: result.message } });
