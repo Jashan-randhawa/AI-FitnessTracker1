@@ -65,6 +65,7 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+app.use(require('./routes/metrics.routes'));
 app.use('/api', routes);
 
 app.use(notFound);

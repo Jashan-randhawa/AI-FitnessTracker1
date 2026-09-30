@@ -7,6 +7,7 @@
 
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
+const metrics = require('../utils/metrics');
 const FailedEmail = require('../models/FailedEmail');
 
 const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
@@ -58,13 +59,17 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
   if (!apiKey) {
     logger.warn('[email] BREVO_API_KEY not configured — skipping email dispatch.');
     if (process.env.NODE_ENV === 'production') {
+      metrics.increment('password_reset_email_dispatches_total', { status: 'failed' });
+      metrics.increment('password_reset_email_failures_total', { reason: 'not_configured' });
       return { sent: false, reason: 'not_configured' };
     }
     // In local development or test mode, log link and report success
+    metrics.increment('password_reset_email_dispatches_total', { status: 'sent' });
     logger.info(`[email] Dev Reset link for ${to}: ${link}`);
     return { sent: true };
   }
 
+  const startTime = Date.now();
   const sender = getSenderFromEnv();
   const emailPayload = {
     sender,
@@ -89,6 +94,9 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
       });
 
       if (res.ok) {
+        const durationSec = (Date.now() - startTime) / 1000;
+        metrics.observe('password_reset_email_duration_seconds', {}, durationSec);
+        metrics.increment('password_reset_email_dispatches_total', { status: 'sent' });
         logger.info('[email] Password reset email delivered successfully', {
           to,
           attempt,
@@ -121,6 +129,11 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
   }
 
   // All retries failed
+  const durationSec = (Date.now() - startTime) / 1000;
+  metrics.observe('password_reset_email_duration_seconds', {}, durationSec);
+  metrics.increment('password_reset_email_dispatches_total', { status: 'failed' });
+  metrics.increment('password_reset_email_failures_total', { reason: lastReason });
+
   logger.error('[email] Password reset email delivery permanently failed after retries', {
     to,
     reason: lastReason,

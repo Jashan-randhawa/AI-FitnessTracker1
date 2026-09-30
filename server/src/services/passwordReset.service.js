@@ -4,6 +4,7 @@ const User = require('../models/User');
 const { sendPasswordResetEmail } = require('./email.service');
 const { checkDistributedRateLimit } = require('../utils/redisClient');
 const { recordSecurityEvent } = require('../utils/auditLogger');
+const metrics = require('../utils/metrics');
 const logger = require('../utils/logger');
 
 const TOKEN_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
@@ -94,6 +95,7 @@ const requestPasswordReset = async (email, context = {}) => {
   if (ip) {
     const lockout = await checkLockout(ip);
     if (lockout.locked) {
+      metrics.increment('password_reset_requests_total', { outcome: 'locked' });
       await recordSecurityEvent({
         event: 'PASSWORD_RESET_LOCKED',
         email: normalizedEmail,
@@ -113,6 +115,7 @@ const requestPasswordReset = async (email, context = {}) => {
   // Check per-email rate limit
   const rl = await checkRateLimit(normalizedEmail);
   if (rl.limited) {
+    metrics.increment('password_reset_requests_total', { outcome: 'rate_limited' });
     await recordSecurityEvent({
       event: 'PASSWORD_RESET_RATE_LIMITED',
       email: normalizedEmail,
@@ -130,6 +133,7 @@ const requestPasswordReset = async (email, context = {}) => {
 
   const user = await User.findOne({ email: normalizedEmail });
   if (!user) {
+    metrics.increment('password_reset_requests_total', { outcome: 'sent' });
     logger.info('[password-reset] Reset requested for non-existent email', { email: normalizedEmail });
     await recordSecurityEvent({
       event: 'PASSWORD_RESET_REQUESTED_NONEXISTENT',
@@ -146,6 +150,7 @@ const requestPasswordReset = async (email, context = {}) => {
   }
 
   if (user.provider && user.provider !== 'local') {
+    metrics.increment('password_reset_requests_total', { outcome: 'sent' });
     logger.info('[password-reset] Reset requested for OAuth account', { provider: user.provider });
     await recordSecurityEvent({
       event: 'PASSWORD_RESET_REQUESTED_OAUTH',
@@ -174,6 +179,7 @@ const requestPasswordReset = async (email, context = {}) => {
   const emailResult = await sendPasswordResetEmail({ to: user.email, resetUrl, plainToken });
 
   if (!emailResult.sent) {
+    metrics.increment('password_reset_requests_total', { outcome: 'email_failed' });
     logger.error('[password-reset] Email delivery failed', { reason: emailResult.reason });
     await recordSecurityEvent({
       event: 'PASSWORD_RESET_EMAIL_FAILED',
@@ -191,6 +197,7 @@ const requestPasswordReset = async (email, context = {}) => {
     };
   }
 
+  metrics.increment('password_reset_requests_total', { outcome: 'sent' });
   await recordSecurityEvent({
     event: 'PASSWORD_RESET_REQUESTED',
     userId: user._id,
@@ -246,6 +253,7 @@ const validateResetToken = async (token, context = {}) => {
   if (ip) {
     const lockout = await checkLockout(ip);
     if (lockout.locked) {
+      metrics.increment('password_reset_validations_total', { outcome: 'locked' });
       await recordSecurityEvent({
         event: 'PASSWORD_RESET_VALIDATE_LOCKED',
         ip,
@@ -258,6 +266,7 @@ const validateResetToken = async (token, context = {}) => {
 
   const result = await findUserByToken(token);
   if (!result) {
+    metrics.increment('password_reset_validations_total', { outcome: 'invalid' });
     if (ip) await recordFailedAttempt(ip);
     await recordSecurityEvent({
       event: 'PASSWORD_RESET_INVALID_TOKEN',
@@ -269,6 +278,7 @@ const validateResetToken = async (token, context = {}) => {
   }
 
   if (Date.now() > result.expiresAt) {
+    metrics.increment('password_reset_validations_total', { outcome: 'expired' });
     if (ip) await recordFailedAttempt(ip);
     await recordSecurityEvent({
       event: 'PASSWORD_RESET_EXPIRED_TOKEN',
@@ -281,6 +291,7 @@ const validateResetToken = async (token, context = {}) => {
     return { valid: false, message: 'This link has expired. Please request a new one.' };
   }
 
+  metrics.increment('password_reset_validations_total', { outcome: 'valid' });
   await recordSecurityEvent({
     event: 'PASSWORD_RESET_TOKEN_VALIDATED',
     userId: result.user._id,
@@ -305,6 +316,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
   if (ip) {
     const lockout = await checkLockout(ip);
     if (lockout.locked) {
+      metrics.increment('password_reset_completions_total', { outcome: 'locked' });
       return {
         success: false,
         message: `Too many failed attempts. Please try again after ${lockout.retryAfter} seconds.`,
@@ -319,6 +331,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
 
   const result = await findUserByToken(token);
   if (!result) {
+    metrics.increment('password_reset_completions_total', { outcome: 'invalid' });
     if (ip) await recordFailedAttempt(ip);
     await recordSecurityEvent({
       event: 'PASSWORD_RESET_INVALID_TOKEN',
@@ -330,6 +343,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
   }
 
   if (Date.now() > result.expiresAt) {
+    metrics.increment('password_reset_completions_total', { outcome: 'expired' });
     if (ip) await recordFailedAttempt(ip);
     await recordSecurityEvent({
       event: 'PASSWORD_RESET_EXPIRED_TOKEN',
@@ -348,6 +362,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
   if (user.password) {
     const isCurrentPassword = await bcrypt.compare(newPassword, user.password);
     if (isCurrentPassword) {
+      metrics.increment('password_reset_completions_total', { outcome: 'reuse_blocked' });
       await recordSecurityEvent({
         event: 'PASSWORD_RESET_CURRENT_REUSE_BLOCKED',
         userId: user._id,
@@ -369,6 +384,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
       if (item?.hash) {
         const isHistorical = await bcrypt.compare(newPassword, item.hash);
         if (isHistorical) {
+          metrics.increment('password_reset_completions_total', { outcome: 'reuse_blocked' });
           await recordSecurityEvent({
             event: 'PASSWORD_RESET_HISTORY_REUSE_BLOCKED',
             userId: user._id,
@@ -407,6 +423,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
 
   if (ip) clearFailedAttempts(ip);
 
+  metrics.increment('password_reset_completions_total', { outcome: 'success' });
   await recordSecurityEvent({
     event: 'PASSWORD_RESET_SUCCESS',
     userId: user._id,

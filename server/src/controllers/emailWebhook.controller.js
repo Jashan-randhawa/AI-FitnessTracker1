@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const mongoose = require('mongoose');
 const EmailEvent = require('../models/EmailEvent');
 const User = require('../models/User');
+const metrics = require('../utils/metrics');
 const logger = require('../utils/logger');
 
 /**
@@ -25,6 +26,8 @@ const handleBrevoWebhook = asyncHandler(async (req, res) => {
     const reason = item.reason || item.description || undefined;
 
     if (!email) continue;
+
+    metrics.increment('email_webhook_events_total', { event: eventType });
 
     logger.info(`[email-webhook] Received event: ${eventType} for ${email}`, {
       eventType,
