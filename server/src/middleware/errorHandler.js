@@ -24,6 +24,9 @@ const errorHandler = (err, req, res, next) => {
     const field = Object.keys(err.keyPattern || { field: 1 })[0];
     return sendError(res, 400, `${field} is already taken.`);
   }
+  if (err && err.message && err.message.startsWith('Not allowed by CORS')) {
+    return sendError(res, 403, 'Cross-origin request blocked.');
+  }
 
   if (process.env.NODE_ENV !== 'test') {
     logger.error('Unhandled application error', {

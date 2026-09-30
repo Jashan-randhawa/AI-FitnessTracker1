@@ -13,7 +13,7 @@ const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1000, 3000, 6000]; // 1s, 3s, 6s exponential backoff
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, process.env.NODE_ENV === 'test' ? 1 : ms));
 
 const getSenderFromEnv = () => {
   const raw = process.env.EMAIL_FROM || '"AI Fitness Tracker" <no-reply@fittrack.app>';

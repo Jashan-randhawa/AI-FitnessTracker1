@@ -12,10 +12,11 @@ import {
   XIcon,
 } from "lucide-react";
 import api from "../configs/api";
+import type { AxiosError } from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import AuthCardLayout from "../components/auth/AuthCardLayout";
-import PasswordStrengthMeter, { getPasswordScore } from "../components/auth/PasswordStrengthMeter";
-import { resetPasswordSchema } from "../schemas/auth.schema";
+import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
+import { resetPasswordSchema, getPasswordScore } from "../schemas/auth.schema";
 import "../styles/authFlow.css";
 
 type PageState = "validating" | "ready" | "invalid" | "saving" | "done";
@@ -51,9 +52,10 @@ const ResetPassword = () => {
     api
       .get(`/api/password-reset/validate?code=${encodeURIComponent(code)}`)
       .then(() => setPageState("ready"))
-      .catch((err: any) => {
+      .catch((err: unknown) => {
+        const error = err as AxiosError<{ message?: string }>;
         const msg =
-          err.response?.data?.message ||
+          error.response?.data?.message ||
           "This link is invalid or has expired. Please request a new one.";
         setInvalidReason(msg);
         setPageState("invalid");
@@ -63,7 +65,6 @@ const ResetPassword = () => {
   // ── Auto-redirect timer when done ──────────────────────────────────────────
   useEffect(() => {
     if (pageState !== "done") return;
-    setRedirectCountdown(5);
     const interval = setInterval(() => {
       setRedirectCountdown((prev) => {
         if (prev === null || prev <= 1) {
@@ -102,9 +103,11 @@ const ResetPassword = () => {
         newPassword: password,
       });
       setPageState("done");
-    } catch (err: any) {
+      setRedirectCountdown(5);
+    } catch (err: unknown) {
+      const error = err as AxiosError<{ error?: { message?: string } }>;
       const msg =
-        err.response?.data?.error?.message ||
+        error.response?.data?.error?.message ||
         "Something went wrong. Please request a new reset link.";
       toast.error(msg);
       if (

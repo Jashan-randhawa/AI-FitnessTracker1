@@ -59,8 +59,7 @@ jobs:
         run: |
           node -c server.js
           node -c src/app.js
-          node -c src/config/db.js
-          for file in src/controllers/*.js src/middleware/*.js src/models/*.js src/routes/*.js src/services/*.js; do
+          for file in src/config/*.js src/controllers/*.js src/middleware/*.js src/models/*.js src/routes/*.js src/services/*.js src/schemas/*.js src/utils/*.js; do
             node -c "$file"
           done
 

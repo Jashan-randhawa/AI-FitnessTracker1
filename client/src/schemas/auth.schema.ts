@@ -27,3 +27,21 @@ export const resetPasswordSchema = z
 
 export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
+
+export interface Requirement {
+  id: string;
+  label: string;
+  test: (pw: string) => boolean;
+}
+
+export const PASSWORD_REQUIREMENTS: Requirement[] = [
+  { id: "length", label: "At least 8 characters", test: (pw) => pw.length >= 8 },
+  { id: "uppercase", label: "At least one uppercase letter (A-Z)", test: (pw) => /[A-Z]/.test(pw) },
+  { id: "number", label: "At least one number (0-9)", test: (pw) => /[0-9]/.test(pw) },
+  { id: "special", label: "At least one special character (!@#$%^&*)", test: (pw) => /[^A-Za-z0-9]/.test(pw) },
+];
+
+export const getPasswordScore = (pw: string): number => {
+  return PASSWORD_REQUIREMENTS.reduce((score, req) => (req.test(pw) ? score + 1 : score), 0);
+};
+
