@@ -38,6 +38,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    emailBounced: {
+      type: Boolean,
+      default: false,
+    },
 
     // ── Fitness profile (extended fields from users-permissions schema) ──
     age: Number,

@@ -297,3 +297,77 @@ describe('Lockout & Brute-Force Protection Tests', () => {
     assert.equal(lockout.locked, false);
   });
 });
+
+describe('Email Delivery, Templates & Webhook Tests', () => {
+  const { buildResetHtml, sendPasswordResetEmail } = require('../src/services/email.service');
+  const { handleBrevoWebhook } = require('../src/controllers/emailWebhook.controller');
+
+  it('buildResetHtml includes preheader, link, and security notice', () => {
+    const link = 'https://ai-fitness-tracker1.vercel.app/reset-password?code=abc123token';
+    const html = buildResetHtml(link);
+
+    assert.ok(html.includes('Reset your AI Fitness Tracker password'));
+    assert.ok(html.includes(link));
+    assert.ok(html.includes('Security reminder:'));
+    assert.ok(html.includes('Valid for 10 minutes only'));
+  });
+
+  it('sendPasswordResetEmail handles development mode without API key', async () => {
+    const originalApiKey = process.env.BREVO_API_KEY;
+    delete process.env.BREVO_API_KEY;
+
+    try {
+      const result = await sendPasswordResetEmail({
+        to: 'devuser@example.com',
+        resetUrl: 'https://example.com/reset',
+        plainToken: 'testtoken',
+      });
+      assert.equal(result.sent, true);
+    } finally {
+      process.env.BREVO_API_KEY = originalApiKey;
+    }
+  });
+
+  it('handleBrevoWebhook parses delivery events and updates bounced users', async () => {
+    let updatedEmail = null;
+    let bouncedFlag = false;
+
+    const originalFindOneAndUpdate = User.findOneAndUpdate;
+    User.findOneAndUpdate = (query, update) => {
+      updatedEmail = query.email;
+      bouncedFlag = update.emailBounced;
+      return Promise.resolve({ email: query.email });
+    };
+
+    const req = {
+      body: [
+        {
+          event: 'delivered',
+          email: 'happy@example.com',
+          messageId: 'msg-1',
+        },
+        {
+          event: 'hard_bounce',
+          email: 'bounced@example.com',
+          messageId: 'msg-2',
+          reason: 'Mailbox does not exist',
+        },
+      ],
+      ip: '127.0.0.1',
+    };
+
+    const res = createMockRes();
+
+    try {
+      await handleBrevoWebhook(req, res, () => {});
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.count, 2);
+      assert.equal(updatedEmail, 'bounced@example.com');
+      assert.equal(bouncedFlag, true);
+    } finally {
+      User.findOneAndUpdate = originalFindOneAndUpdate;
+    }
+  });
+});
+

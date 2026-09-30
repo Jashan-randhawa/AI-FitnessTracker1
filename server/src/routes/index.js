@@ -14,6 +14,7 @@ router.use(require('./foodEstimate.routes'));
 router.use(require('./news.routes'));
 router.use(require('./youtube.routes'));
 router.use(require('./passwordReset.routes'));
+router.use(require('./emailWebhook.routes'));
 
 // These resource routers are mounted under an explicit prefix, and use
 // paths relative to it internally. That gives each one a hard boundary —
