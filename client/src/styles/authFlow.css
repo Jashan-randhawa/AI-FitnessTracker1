@@ -118,6 +118,12 @@
   }
 }
 
+@media (max-width: 480px) {
+  .auth-panel-wrap {
+    padding: 32px 18px;
+  }
+}
+
 /* ── Content Card on Parchment ── */
 .auth-card {
   width: 100%;
@@ -474,3 +480,13 @@
     opacity: 1;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-shimmer,
+  .auth-spin,
+  .auth-pop-in,
+  .auth-spinner {
+    animation: none !important;
+  }
+}
+
