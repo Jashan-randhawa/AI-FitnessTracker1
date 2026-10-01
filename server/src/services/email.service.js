@@ -17,7 +17,7 @@ const RETRY_DELAYS = [1000, 3000, 6000]; // 1s, 3s, 6s exponential backoff
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, process.env.NODE_ENV === 'test' ? 1 : ms));
 
 const getSenderFromEnv = () => {
-  const fallbackEmail = process.env.GMAIL_USER || 'jashanpreetsingheandhawa65@gmail.com';
+  const fallbackEmail = process.env.GMAIL_USER || 'jashanpreetsinghrandhawa65@gmail.com';
   const raw = process.env.EMAIL_FROM || `"AI Fitness Tracker" <${fallbackEmail}>`;
   const match = raw.match(/^"?([^"<]*)"?\s*<(.+)>$/);
   if (match) return { name: match[1].trim() || 'AI Fitness Tracker', email: match[2].trim() };

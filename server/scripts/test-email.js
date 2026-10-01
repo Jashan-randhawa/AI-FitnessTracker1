@@ -1,97 +1,65 @@
 /**
- * Diagnostic tool to verify Google Mail (Gmail SMTP) Configuration
- * Usage: node scripts/test-email.js [recipient@gmail.com]
+ * Diagnostic tool to verify transactional email delivery (Brevo, Resend, or Google Mail)
+ * Usage: node scripts/test-email.js [recipient@example.com]
  */
 require('dotenv').config();
-const nodemailer = require('nodemailer');
+const { sendPasswordResetEmail, getSenderFromEnv } = require('../src/services/email.service');
 
+const brevoKey = process.env.BREVO_API_KEY;
+const resendKey = process.env.RESEND_API_KEY;
 const gmailUser = process.env.GMAIL_USER || process.env.SMTP_USER;
 const gmailPass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS;
-const recipient = process.argv[2] || gmailUser || 'jashanpreetsingheandhawa65@gmail.com';
 
-const rawFrom =
-  process.env.EMAIL_FROM ||
-  (gmailUser ? `"AI Fitness Tracker" <${gmailUser}>` : '"AI Fitness Tracker" <jashanpreetsingheandhawa65@gmail.com>');
-
-const parseSender = (raw) => {
-  const match = raw.match(/^"?([^"<]*)"?\s*<(.+)>$/);
-  if (match) return { name: match[1].trim() || 'AI Fitness Tracker', email: match[2].trim() };
-  return { name: 'AI Fitness Tracker', email: raw.trim() };
-};
-
-const sender = parseSender(rawFrom);
+const sender = getSenderFromEnv();
+const recipient = process.argv[2] || 'jashanpreetsinghrandhawa642@gmail.com';
 
 console.log('\n=============================================');
-console.log('   FitTrack Google Mail Diagnostic Test      ');
+console.log('   FitTrack Email Service Diagnostic Test    ');
 console.log('=============================================\n');
 
-console.log(`• NODE_ENV:           ${process.env.NODE_ENV || 'development (default)'}`);
-console.log(`• GMAIL_USER:         ${gmailUser ? gmailUser : '❌ NOT SET'}`);
-console.log(`• GMAIL_APP_PASSWORD: ${gmailPass ? '•••••••••••••••• (Configured)' : '❌ NOT SET'}`);
-console.log(`• SENDER EMAIL:       ${sender.email}`);
-console.log(`• TEST RECIPIENT:     ${recipient}\n`);
+console.log(`• NODE_ENV:       ${process.env.NODE_ENV || 'development (default)'}`);
+console.log(`• SENDER NAME:    ${sender.name}`);
+console.log(`• SENDER EMAIL:   ${sender.email}`);
+console.log(`• BREVO_API_KEY:  ${brevoKey ? '•••••••••••••••• (Configured)' : '❌ NOT SET'}`);
+console.log(`• RESEND_API_KEY: ${resendKey ? '•••••••••••••••• (Configured)' : '❌ NOT SET'}`);
+console.log(`• GMAIL_USER:     ${gmailUser ? gmailUser : '❌ NOT SET'}`);
+console.log(`• TEST RECIPIENT: ${recipient}\n`);
 
-if (!gmailUser || !gmailPass) {
-  console.error('❌ ERROR: GMAIL_USER or GMAIL_APP_PASSWORD is missing in server/.env.\n');
-  console.log('To configure Google Mail:');
-  console.log('1. Go to: https://myaccount.google.com/apppasswords');
-  console.log('   (Requires 2-Step Verification turned ON)');
-  console.log('2. Create an app named: "FitTrack"');
-  console.log('3. Copy the 16-character password (e.g. abcd efgh ijkl mnop)');
-  console.log('4. Add to server/.env:');
-  console.log('   GMAIL_USER=' + (gmailUser || 'jashanpreetsingheandhawa65@gmail.com'));
-  console.log('   GMAIL_APP_PASSWORD=your_16_character_password\n');
+const activeProvider = resendKey ? 'Resend HTTP API (Port 443)' : brevoKey ? 'Brevo HTTP API (Port 443)' : gmailUser && gmailPass ? 'Google Mail SMTP' : null;
+
+if (!activeProvider) {
+  console.error('❌ ERROR: No email provider configured in server/.env.\n');
+  console.log('Configure one of the following in server/.env:');
+  console.log('1. Brevo HTTP API (Recommended for Render):');
+  console.log('   BREVO_API_KEY=xkeysib-...\n');
+  console.log('2. Resend HTTP API:');
+  console.log('   RESEND_API_KEY=re_...\n');
+  console.log('3. Google Mail SMTP:');
+  console.log('   GMAIL_USER=you@gmail.com');
+  console.log('   GMAIL_APP_PASSWORD=your_16_char_password\n');
   process.exit(1);
 }
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: { user: gmailUser, pass: gmailPass },
-});
+console.log(`Selected Provider: 🚀 ${activeProvider}`);
+console.log(`Sending test password-reset email to: ${recipient}...`);
 
-const testHtml = `
-<div style="font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#f5f5ee; padding:32px 16px;">
-  <div style="max-width:500px; margin:0 auto; background:#ffffff; border:1px solid #d7d7cb; border-radius:6px; padding:32px 24px; box-shadow:0 4px 16px rgba(0,0,0,0.04);">
-    <span style="font-size:13px; font-weight:600; letter-spacing:0.08em; color:#192830; text-transform:uppercase;">AI Fitness Tracker</span>
-    <h2 style="font-family:Georgia, serif; font-size:24px; font-weight:400; color:#14181a; margin:16px 0 12px;">✅ Google Mail Configured Successfully!</h2>
-    <p style="color:#535557; font-size:14px; line-height:1.6;">
-      Your Google Mail service is active and communicating properly. Password reset emails will now be delivered reliably to your users directly through Google Mail.
-    </p>
-    <div style="background:#faf3e3; border:1px solid #e6c988; border-radius:4px; padding:10px 14px; font-size:13px; color:#93671e; margin-top:20px;">
-      Sent to: <strong>${recipient}</strong> via ${gmailUser}
-    </div>
-  </div>
-</div>`;
-
-console.log('Connecting to Google Mail (smtp.gmail.com)...');
-
-transporter
-  .verify()
-  .then(() => {
-    console.log('✅ Google SMTP authenticated successfully!\n');
-    console.log(`Sending test email to ${recipient}...`);
-
-    return transporter.sendMail({
-      from: `"${sender.name}" <${sender.email}>`,
-      to: recipient,
-      subject: 'FitTrack Test Email (Google Mail)',
-      text: 'This is a test email from your AI Fitness Tracker backend via Google Mail. Your configuration works perfectly!',
-      html: testHtml,
-    });
-  })
-  .then((info) => {
-    console.log('\n🎉 SUCCESS! Test email has been dispatched via Google Mail!');
-    console.log(`• Message ID: ${info.messageId}`);
-    console.log(`\nCheck the inbox of: ${recipient}\n`);
+sendPasswordResetEmail({
+  to: recipient,
+  resetUrl: 'https://ai-fitness-tracker1.vercel.app/reset-password',
+  plainToken: 'diagnostic-test-token-12345',
+})
+  .then((result) => {
+    if (result.sent) {
+      console.log('\n🎉 SUCCESS! Test email has been dispatched successfully!');
+      console.log(`• Provider: ${activeProvider}`);
+      console.log(`• Attempts: ${result.attempts || 1}`);
+      console.log(`\nCheck the inbox (and spam folder) of: ${recipient}\n`);
+    } else {
+      console.error('\n❌ Email Delivery Failed:');
+      console.error(`• Reason: ${result.reason}`);
+    }
   })
   .catch((err) => {
-    console.error('\n❌ Google Mail Delivery Failed:');
+    console.error('\n❌ Unexpected Error:');
     console.error(err.message);
-
-    if (err.code === 'EAUTH' || err.responseCode === 535) {
-      console.error('\n💡 Authentication Failed (Error 535):');
-      console.error('1. You must use a 16-character Google "App Password", not your normal Google account password.');
-      console.error('2. Generate one here: https://myaccount.google.com/apppasswords');
-      console.error('3. Make sure 2-Step Verification is turned ON on your Google account.');
-    }
   });
