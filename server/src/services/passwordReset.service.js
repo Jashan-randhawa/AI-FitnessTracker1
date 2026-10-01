@@ -151,7 +151,9 @@ const requestPasswordReset = async (email, context = {}) => {
 
   if (user.provider && user.provider !== 'local') {
     metrics.increment('password_reset_requests_total', { outcome: 'oauth_account' });
-    logger.info('[password-reset] Reset requested for OAuth account', { provider: user.provider });
+    logger.info('[password-reset] Reset requested for OAuth account — generating reset token to allow password setup', {
+      provider: user.provider,
+    });
     await recordSecurityEvent({
       event: 'PASSWORD_RESET_REQUESTED_OAUTH',
       userId: user._id,
@@ -161,11 +163,6 @@ const requestPasswordReset = async (email, context = {}) => {
       status: 'success',
       details: { provider: user.provider },
     });
-    return {
-      success: false,
-      type: 'google',
-      message: 'This email is registered with Google Sign-In. You do not have a separate password. Please sign in directly with Google.',
-    };
   }
 
   const plainToken = generateSecureToken();
@@ -417,6 +414,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
   }
 
   user.password = newPassword; // pre-save hook hashes it with bcrypt
+  user.provider = 'local'; // Enable local password login
   user.resetPasswordTokenHash = undefined;
   user.resetPasswordExpires = undefined;
   await user.save();

@@ -396,21 +396,26 @@ describe('Password Reset Service Layer Logic Tests', () => {
     }
   });
 
-  it('requestPasswordReset returns google type for OAuth accounts without generating reset token', async () => {
-    const originalFindOne = User.findOne;
+  it('requestPasswordReset generates secure token and dispatches email for OAuth accounts to enable password setup', async () => {
+    let saved = false;
     const fakeOAuthUser = {
       _id: '507f1f77bcf86cd799439099',
       email: 'oauthuser@example.com',
       provider: 'google',
+      save: async () => {
+        saved = true;
+      },
     };
+    const originalFindOne = User.findOne;
     User.findOne = () => Promise.resolve(fakeOAuthUser);
 
     try {
       const result = await requestPasswordReset('oauthuser@example.com', { ip: '127.0.0.1' });
-      assert.equal(result.success, false);
-      assert.equal(result.type, 'google');
-      assert.ok(result.message.includes('registered with Google Sign-In'));
-      assert.equal(fakeOAuthUser.resetPasswordTokenHash, undefined);
+      assert.equal(result.success, true);
+      assert.equal(result.type, 'sent');
+      assert.equal(saved, true);
+      assert.ok(fakeOAuthUser.resetPasswordTokenHash);
+      assert.ok(fakeOAuthUser.resetPasswordExpires);
     } finally {
       User.findOne = originalFindOne;
     }
