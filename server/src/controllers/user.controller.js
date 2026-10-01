@@ -26,7 +26,8 @@ const ALLOWED_FIELDS = [
 // is a deliberate hardening — the client only ever calls this with its own
 // id, so behavior for the app is unchanged.
 const updateUser = asyncHandler(async (req, res) => {
-  if (req.params.id !== String(req.user._id)) {
+  const targetId = req.params.id === 'me' ? String(req.user._id) : req.params.id;
+  if (targetId !== String(req.user._id)) {
     return sendError(res, 403, 'You can only update your own profile');
   }
 
@@ -35,10 +36,38 @@ const updateUser = asyncHandler(async (req, res) => {
     if (req.body[field] !== undefined) updates[field] = req.body[field];
   });
 
+  // Support editing username
+  if (req.body.username !== undefined) {
+    const rawUsername = typeof req.body.username === 'string' ? req.body.username.trim() : '';
+    if (!rawUsername || rawUsername.length < 3) {
+      return sendError(res, 400, 'Username must be at least 3 characters');
+    }
+    if (rawUsername.length > 30) {
+      return sendError(res, 400, 'Username must be at most 30 characters');
+    }
+
+    // Check if new username is different from current username
+    if (rawUsername.toLowerCase() !== (req.user.username || '').toLowerCase()) {
+      const escaped = rawUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const existing = await User.findOne({
+        username: { $regex: new RegExp(`^${escaped}$`, 'i') },
+        _id: { $ne: req.user._id },
+      });
+      if (existing) {
+        return sendError(res, 409, 'Username is already taken');
+      }
+    }
+    updates.username = rawUsername;
+  }
+
   const user = await User.findByIdAndUpdate(req.user._id, updates, {
     new: true,
     runValidators: true,
   });
+
+  if (!user) {
+    return sendError(res, 404, 'User not found');
+  }
 
   res.json(user.toJSON());
 });

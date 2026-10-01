@@ -89,3 +89,132 @@ describe('Auth & Token Unit Tests', () => {
     });
   });
 });
+
+describe('User Profile & Username Update Tests', () => {
+  const { updateUser } = require('../src/controllers/user.controller');
+  const User = require('../src/models/User');
+
+  it('rejects update if params.id does not match user id (403)', async () => {
+    const req = {
+      params: { id: 'other_user_id' },
+      user: { _id: 'my_user_id', username: 'currentuser' },
+      body: { username: 'newname' },
+    };
+    const res = createMockRes();
+
+    await updateUser(req, res, () => {});
+
+    assert.equal(res.statusCode, 403);
+    assert.ok(res.body?.error?.message?.includes('only update your own profile'));
+  });
+
+  it('rejects username shorter than 3 characters (400)', async () => {
+    const req = {
+      params: { id: 'my_user_id' },
+      user: { _id: 'my_user_id', username: 'currentuser' },
+      body: { username: 'ab' },
+    };
+    const res = createMockRes();
+
+    await updateUser(req, res, () => {});
+
+    assert.equal(res.statusCode, 400);
+    assert.ok(res.body?.error?.message?.includes('at least 3 characters'));
+  });
+
+  it('rejects username longer than 30 characters (400)', async () => {
+    const req = {
+      params: { id: 'my_user_id' },
+      user: { _id: 'my_user_id', username: 'currentuser' },
+      body: { username: 'a'.repeat(31) },
+    };
+    const res = createMockRes();
+
+    await updateUser(req, res, () => {});
+
+    assert.equal(res.statusCode, 400);
+    assert.ok(res.body?.error?.message?.includes('at most 30 characters'));
+  });
+
+  it('rejects username if already taken by another user (409)', async () => {
+    const originalFindOne = User.findOne;
+    User.findOne = async () => ({ _id: 'someone_else_id', username: 'takenuser' });
+
+    try {
+      const req = {
+        params: { id: 'my_user_id' },
+        user: { _id: 'my_user_id', username: 'currentuser' },
+        body: { username: 'takenuser' },
+      };
+      const res = createMockRes();
+
+      await updateUser(req, res, () => {});
+
+      assert.equal(res.statusCode, 409);
+      assert.ok(res.body?.error?.message?.includes('already taken'));
+    } finally {
+      User.findOne = originalFindOne;
+    }
+  });
+
+  it('successfully updates username and profile fields (200)', async () => {
+    const originalFindOne = User.findOne;
+    const originalFindByIdAndUpdate = User.findByIdAndUpdate;
+
+    User.findOne = async () => null; // not taken
+    User.findByIdAndUpdate = async (_id, updates) => ({
+      ...updates,
+      _id,
+      toJSON: () => ({ id: String(_id), ...updates }),
+    });
+
+    try {
+      const req = {
+        params: { id: 'my_user_id' },
+        user: { _id: 'my_user_id', username: 'olduser' },
+        body: { username: 'brandNewUser', age: 28, weight: 75 },
+      };
+      const res = createMockRes();
+
+      await updateUser(req, res, () => {});
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.username, 'brandNewUser');
+      assert.equal(res.body.age, 28);
+      assert.equal(res.body.weight, 75);
+    } finally {
+      User.findOne = originalFindOne;
+      User.findByIdAndUpdate = originalFindByIdAndUpdate;
+    }
+  });
+
+  it('allows params.id as "me" and updates username correctly (200)', async () => {
+    const originalFindOne = User.findOne;
+    const originalFindByIdAndUpdate = User.findByIdAndUpdate;
+
+    User.findOne = async () => null;
+    User.findByIdAndUpdate = async (_id, updates) => ({
+      ...updates,
+      _id,
+      toJSON: () => ({ id: String(_id), ...updates }),
+    });
+
+    try {
+      const req = {
+        params: { id: 'me' },
+        user: { _id: 'my_user_id', username: 'olduser' },
+        body: { username: 'updatedMeUser' },
+      };
+      const res = createMockRes();
+
+      await updateUser(req, res, () => {});
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.username, 'updatedMeUser');
+    } finally {
+      User.findOne = originalFindOne;
+      User.findByIdAndUpdate = originalFindByIdAndUpdate;
+    }
+  });
+});
+

@@ -49,16 +49,44 @@ const calcStreak = (foodLogs: any[], activityLogs: any[]): number => {
 const EditProfileModal = ({ user, onClose, onSave }: {
   user: any; onClose: () => void; onSave: (d: any) => Promise<void>;
 }) => {
+  const [username, setUsername] = useState(user?.username ?? "");
   const [age, setAge] = useState(String(user?.age ?? ""));
   const [weight, setWeight] = useState(String(user?.weight ?? ""));
   const [height, setHeight] = useState(String(user?.height ?? ""));
   const [goal, setGoal] = useState(user?.goal ?? "maintain");
   const [caloriesIn, setCaloriesIn] = useState(String(user?.dailycaloriesintake ?? ""));
   const [caloriesOut, setCaloriesOut] = useState(String(user?.dailycaloriesburned ?? ""));
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = async () => {
-    await onSave({ age: Number(age), weight: Number(weight), height: Number(height), goal, dailycaloriesintake: Number(caloriesIn) || undefined, dailycaloriesburned: Number(caloriesOut) || undefined });
-    onClose();
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername || trimmedUsername.length < 3) {
+      toast.error("Username must be at least 3 characters");
+      return;
+    }
+    if (trimmedUsername.length > 30) {
+      toast.error("Username must be at most 30 characters");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onSave({
+        username: trimmedUsername,
+        age: Number(age) || undefined,
+        weight: Number(weight) || undefined,
+        height: Number(height) || undefined,
+        goal,
+        dailycaloriesintake: Number(caloriesIn) || undefined,
+        dailycaloriesburned: Number(caloriesOut) || undefined,
+      });
+      onClose();
+    } catch {
+      // toast error already handled by onSave
+    } finally {
+      setSaving(false);
+    }
   };
 
   const inputCls = "w-full bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors";
@@ -71,7 +99,20 @@ const EditProfileModal = ({ user, onClose, onSave }: {
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">Edit Profile</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-gray-900 dark:hover:text-white text-xl leading-none cursor-pointer">✕</button>
         </div>
-        <div className="space-y-3 mb-6">
+        <form onSubmit={handleSave} className="space-y-3 mb-6">
+          <div>
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">Username</label>
+            <input
+              type="text"
+              className={inputCls}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Username (min 3 characters)"
+              minLength={3}
+              maxLength={30}
+              required
+            />
+          </div>
           {[
             { label: "Age", val: age, set: setAge, type: "number" },
             { label: "Weight (kg)", val: weight, set: setWeight, type: "number" },
@@ -88,17 +129,21 @@ const EditProfileModal = ({ user, onClose, onSave }: {
             <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">Goal</label>
             <div className="grid grid-cols-3 gap-2">
               {(["lose", "maintain", "gain"] as const).map((g) => (
-                <button key={g} onClick={() => setGoal(g)}
+                <button type="button" key={g} onClick={() => setGoal(g)}
                   className={`py-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${goal === g ? "bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-semibold" : "bg-slate-100 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-slate-400"}`}>
                   {GOAL_LABELS[g]}
                 </button>
               ))}
             </div>
           </div>
-        </div>
-        <button onClick={handleSave} className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors cursor-pointer">
-          Save Changes
-        </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full mt-2 py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors cursor-pointer"
+          >
+            {saving ? "Saving Changes…" : "Save Changes"}
+          </button>
+        </form>
       </div>
     </div>
   );
@@ -648,11 +693,18 @@ export default function Profile() {
   const handleSave = async (data: any) => {
     try {
       const token = localStorage.getItem("token");
-      await api.put(`/api/users/${user?.id}`, data, { headers: { Authorization: `Bearer ${token}` } });
-      setUser((prev: any) => ({ ...prev, ...data }));
+      const userId = user?.id || (user as any)?._id || "me";
+      const res = await api.put(`/api/users/${userId}`, data, { headers: { Authorization: `Bearer ${token}` } });
+      const updatedUser = res.data;
+      setUser((prev: any) => ({ ...prev, ...updatedUser }));
       toast.success("Profile updated!");
     } catch (error: any) {
-      toast.error(error?.response?.data?.error?.message || "Failed to update profile");
+      const errMsg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error?.message ||
+        "Failed to update profile";
+      toast.error(errMsg);
+      throw error;
     }
   };
 
@@ -712,11 +764,26 @@ export default function Profile() {
               <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/30">
                 <svg {...svgProps} stroke="white"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></svg>
               </div>
-              <div>
-                <p className="text-base font-bold">{user?.username ?? "User"}</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-base font-bold truncate">{user?.username ?? "User"}</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowEdit(true)}
+                    className="p-1 text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer"
+                    title="Edit username & profile"
+                    aria-label="Edit username & profile"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                      <path d="m15 5 4 4"/>
+                    </svg>
+                  </button>
+                </div>
                 <p className="text-xs text-slate-600 dark:text-slate-400">Member since {memberSince}</p>
               </div>
             </div>
+            <InfoRow label="Username" value={user?.username ?? "—"} icon={<svg {...svgProps} stroke="#10b981"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></svg>} />
             <InfoRow label="Age"    value={user?.age    ? `${user.age} years` : "—"} icon={<svg {...svgProps} stroke="#818cf8"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>} />
             <InfoRow label="Weight" value={user?.weight ? `${user.weight} kg` : "—"} icon={<svg {...svgProps} stroke="#c084fc"><circle cx="12" cy="12" r="9" /><path d="M8 12h8M12 8v8" /></svg>} />
             <InfoRow label="Height" value={user?.height ? `${user.height} cm` : "—"} icon={<svg {...svgProps} stroke="#34d399"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></svg>} />
