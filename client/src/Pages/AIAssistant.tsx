@@ -451,6 +451,116 @@ const ChatMessageItem = React.memo(({
   const isAssistant = msg.role === "assistant";
   const isSpeakingThis = speakingId === msg.id;
 
+  if (isAssistant) {
+    return (
+      <motion.div
+        key={msg.id}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="flex gap-2.5 sm:gap-3.5 items-start w-full group py-1"
+      >
+        <FitBotAvatar
+          size="sm"
+          state={msg.isError ? "error" : "idle"}
+          className="mt-0.5 shrink-0"
+        />
+
+        <div className="flex-1 min-w-0">
+          {/* Header row: FitBot, AI Coach role badge, Timestamp */}
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap">
+            <span className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white">
+              {FITBOT_CONFIG.NAME}
+            </span>
+            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+              {FITBOT_CONFIG.ROLE}
+            </span>
+            <span className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500">
+              {formatTime(msg.timestamp)}
+            </span>
+            {isSpeakingThis && (
+              <span className="flex items-center gap-1 text-[11px] text-emerald-500 font-medium animate-pulse">
+                <Volume2 className="w-3 h-3 shrink-0" />
+                <span>Speaking…</span>
+              </span>
+            )}
+          </div>
+
+          {/* Unboxed Content */}
+          {msg.isError ? (
+            <div className="rounded-xl p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200">
+              <p className="text-xs sm:text-sm font-medium leading-relaxed">{msg.text}</p>
+              <button
+                onClick={onRetry}
+                disabled={isLoading}
+                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs cursor-pointer active:scale-95 transition-all"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Retry Request</span>
+              </button>
+            </div>
+          ) : (
+            <div className="w-full text-slate-800 dark:text-slate-200">
+              <MarkdownMessage content={msg.text} />
+            </div>
+          )}
+
+          {/* Actions row: Copy, Speak, Regenerate */}
+          {!msg.isError && (
+            <div className="flex items-center gap-1.5 sm:gap-2 mt-2 text-xs text-slate-400 dark:text-slate-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
+              <button
+                onClick={() => onCopy(msg.id, msg.text)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-all cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                aria-label="Copy response"
+                title="Copy response"
+              >
+                {copiedId === msg.id ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-[11px] text-emerald-500">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span className="text-[11px]">Copy</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => onSpeakToggle(msg.id, msg.text)}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md transition-all cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                  isSpeakingThis
+                    ? "bg-emerald-500/15 text-emerald-500 font-medium"
+                    : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+                }`}
+                aria-label={isSpeakingThis ? "Stop speaking" : "Listen (Read aloud)"}
+                title={isSpeakingThis ? "Stop speaking" : "Listen (Read aloud)"}
+              >
+                {isSpeakingThis ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                <span className="text-[11px]">{isSpeakingThis ? "Stop" : "Listen"}</span>
+              </button>
+
+              {isLast && !isLoading && (
+                <button
+                  onClick={onRegenerate}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-all cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  aria-label="Regenerate response"
+                  title="Regenerate response"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="text-[11px]">Regenerate</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  }
+
+  // User Message (Right-aligned compact bubble)
   return (
     <motion.div
       key={msg.id}
@@ -458,102 +568,25 @@ const ChatMessageItem = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className={`flex gap-2 sm:gap-3 group ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+      className="flex gap-2 sm:gap-3 flex-row-reverse items-end w-full group py-1"
     >
-      {msg.role === "user" ? (
-        <div className="shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-white shadow-xs bg-emerald-500">
-          <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+      <div className="shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-white shadow-xs bg-emerald-500 mb-1">
+        <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+      </div>
+
+      <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-xs px-3.5 py-2.5 sm:px-4 sm:py-3 bg-emerald-500 text-white shadow-xs">
+        <p className="text-[15px] sm:text-[16px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+        <div className="flex items-center justify-end gap-1.5 mt-1 text-[11px] text-emerald-100/90">
+          <span>{formatTime(msg.timestamp)}</span>
+          <button
+            onClick={() => onCopy(msg.id, msg.text)}
+            className="p-1 rounded-md hover:bg-emerald-600 text-emerald-100 transition-all cursor-pointer active:scale-90"
+            aria-label="Copy user message"
+            title="Copy"
+          >
+            {copiedId === msg.id ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3" />}
+          </button>
         </div>
-      ) : (
-        <FitBotAvatar
-          size="sm"
-          state={msg.isError ? "error" : "idle"}
-        />
-      )}
-
-      <div
-        className={`max-w-[88%] sm:max-w-[80%] rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-xs relative ${
-          msg.role === "user"
-            ? "bg-emerald-500 text-white rounded-tr-xs"
-            : msg.isError
-            ? "bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200 rounded-tl-xs"
-            : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-tl-xs text-gray-900 dark:text-slate-100"
-        }`}
-      >
-        {msg.isError ? (
-          <div>
-            <p className="text-xs sm:text-sm font-medium leading-relaxed">{msg.text}</p>
-            <button
-              onClick={onRetry}
-              disabled={isLoading}
-              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs cursor-pointer active:scale-95 transition-all"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Retry Request</span>
-            </button>
-          </div>
-        ) : isAssistant ? (
-          <MarkdownMessage content={msg.text} />
-        ) : (
-          <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-        )}
-
-        {!msg.isError && (
-          <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 dark:border-slate-700/40 text-[10px] gap-2">
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              <span className={msg.role === "user" ? "text-emerald-100" : "text-gray-400 dark:text-slate-500"}>
-                {formatTime(msg.timestamp)}
-              </span>
-              {isSpeakingThis && (
-                <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-medium animate-pulse truncate">
-                  <Volume2 className="w-3 h-3 shrink-0" />
-                  <span>Speaking…</span>
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-              {/* Copy message button */}
-              <button
-                onClick={() => onCopy(msg.id, msg.text)}
-                className={`p-1.5 rounded-md transition-all cursor-pointer active:scale-90 ${
-                  msg.role === "user"
-                    ? "hover:bg-emerald-600 text-emerald-100"
-                    : "hover:bg-slate-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400"
-                }`}
-                title="Copy text"
-              >
-                {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
-
-              {/* Text-to-Speech (FitBot Read Aloud) */}
-              {isAssistant && (
-                <button
-                  onClick={() => onSpeakToggle(msg.id, msg.text)}
-                  className={`p-1.5 rounded-md transition-all cursor-pointer active:scale-90 ${
-                    isSpeakingThis
-                      ? "bg-emerald-500/20 text-emerald-500"
-                      : "hover:bg-slate-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400"
-                  }`}
-                  title={isSpeakingThis ? "Stop speaking" : "Listen (Read aloud)"}
-                >
-                  {isSpeakingThis ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                </button>
-              )}
-
-              {/* Regenerate latest assistant response */}
-              {isAssistant && isLast && !isLoading && (
-                <button
-                  onClick={onRegenerate}
-                  className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 transition-all cursor-pointer active:scale-90"
-                  title="Regenerate response"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </motion.div>
   );
@@ -1236,19 +1269,24 @@ export default function AIAssistant() {
       {/* Header */}
       <div className="page-header-ai shrink-0 shadow-md z-10">
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-              <FitBotAvatar size="md" state={isLoading ? "thinking" : "idle"} />
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="hidden sm:inline-flex shrink-0">
+                <FitBotAvatar size="md" state={isLoading ? "thinking" : "idle"} />
+              </div>
+              <div className="sm:hidden inline-flex shrink-0">
+                <FitBotAvatar size="sm" state={isLoading ? "thinking" : "idle"} />
+              </div>
               <div className="min-w-0">
-                <h1 className="text-sm sm:text-lg font-bold text-white flex items-center gap-1.5 leading-tight">
+                <h1 className="text-sm sm:text-lg font-bold text-white flex items-center gap-1 sm:gap-1.5 leading-tight">
                   {FITBOT_CONFIG.NAME}
-                  <span className="text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-emerald-400/25 border border-emerald-300/30 text-emerald-100 shrink-0">
+                  <span className="text-[9px] sm:text-[10px] font-semibold px-1 sm:px-1.5 py-0.2 rounded-full bg-emerald-400/25 border border-emerald-300/30 text-emerald-100 shrink-0">
                     {FITBOT_CONFIG.ROLE}
                   </span>
                 </h1>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-400 rounded-full animate-pulse shrink-0" />
-                  <span className="text-[11px] sm:text-xs text-white/90 truncate max-w-[110px] sm:max-w-none">
+                  <span className="text-[10px] sm:text-xs text-white/90 truncate max-w-[90px] xs:max-w-[130px] sm:max-w-none">
                     {memoryLoaded && pastSessions.length > 0
                       ? `${pastSessions.length} session${pastSessions.length > 1 ? "s" : ""} remembered`
                       : "Online & context-aware"}
@@ -1261,8 +1299,9 @@ export default function AIAssistant() {
               {/* Sound Toggle */}
               <button
                 onClick={toggleSound}
-                className="w-8 h-8 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                className="w-7 h-7 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 focus-visible:ring-2 focus-visible:ring-white"
                 title={soundEnabled ? "Mute response chime" : "Unmute response chime"}
+                aria-label={soundEnabled ? "Mute response chime" : "Unmute response chime"}
               >
                 {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5 opacity-60" />}
               </button>
@@ -1271,8 +1310,9 @@ export default function AIAssistant() {
               {messages.length > 0 && (
                 <button
                   onClick={exportConversation}
-                  className="w-8 h-8 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                  className="w-7 h-7 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 focus-visible:ring-2 focus-visible:ring-white"
                   title="Export chat as PDF"
+                  aria-label="Export chat as PDF"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline text-xs">Export PDF</span>
@@ -1284,14 +1324,15 @@ export default function AIAssistant() {
                 <button
                   ref={memoryBtnRef}
                   onClick={handleToggleMemory}
-                  className={`h-8 sm:h-auto px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border border-white/20 backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+                  className={`h-7 sm:h-auto px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-white/20 backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 active:scale-95 focus-visible:ring-2 focus-visible:ring-white ${
                     showMemory ? "bg-white text-emerald-950 font-bold shadow-md" : "bg-white/10 hover:bg-white/20 text-white"
                   }`}
                   title="View remembered past sessions"
+                  aria-label="View remembered past sessions"
                 >
                   <History className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline text-xs">Memory</span>
-                  <span className="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-400 text-emerald-950 font-bold">
+                  <span className="text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.2 rounded-full bg-emerald-400 text-emerald-950 font-bold">
                     {pastSessions.length}
                   </span>
                 </button>
@@ -1301,10 +1342,11 @@ export default function AIAssistant() {
               {messages.length > 0 && (
                 <button
                   onClick={startNewChat}
-                  className="h-8 sm:h-auto px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center gap-1 text-xs active:scale-95"
+                  className="h-7 w-7 sm:w-auto sm:h-auto sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all cursor-pointer flex items-center justify-center gap-1 text-xs active:scale-95 focus-visible:ring-2 focus-visible:ring-white"
                   title="Start new conversation"
+                  aria-label="Start new conversation"
                 >
-                  <RotateCcw className="w-3.5 h-3.5 sm:hidden" />
+                  <RotateCcw className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">New Chat</span>
                 </button>
               )}
@@ -1490,6 +1532,9 @@ export default function AIAssistant() {
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
+        role="log"
+        aria-live="polite"
+        aria-label="FitBot conversation history"
         className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 overscroll-contain no-scrollbar relative"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
@@ -1552,9 +1597,9 @@ export default function AIAssistant() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, transition: { duration: 0.15 } }}
                 transition={{ duration: 0.2 }}
-                className="flex gap-2 sm:gap-3 items-center"
+                className="flex gap-2.5 sm:gap-3.5 items-center py-1"
               >
-                <FitBotAvatar size="sm" state="thinking" />
+                <FitBotAvatar size="sm" state="thinking" className="shrink-0" />
                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl rounded-tl-xs px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-xs">
                   <div className="flex gap-1.5 items-center h-4">
                     <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
@@ -1582,7 +1627,8 @@ export default function AIAssistant() {
               isNearBottomRef.current = true;
               scrollToBottom(true);
             }}
-            className="absolute bottom-16 sm:bottom-20 right-3 sm:right-4 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg flex items-center justify-center cursor-pointer transition-transform active:scale-90"
+            className="absolute bottom-16 sm:bottom-20 right-3 sm:right-4 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg flex items-center justify-center cursor-pointer transition-transform active:scale-90 focus-visible:ring-2 focus-visible:ring-emerald-500"
+            aria-label="Scroll to latest message"
             title="Scroll to latest message"
           >
             <ChevronDown className="w-4 h-4" />
@@ -1592,13 +1638,13 @@ export default function AIAssistant() {
 
       {/* Quick Context Action Chips */}
       {messages.length > 0 && !isLoading && (
-        <div className="px-2.5 sm:px-4 py-1 overflow-x-auto touch-pan-x no-scrollbar shrink-0 bg-slate-100/70 dark:bg-slate-900/40 border-t border-slate-200/60 dark:border-slate-800">
+        <div className="px-2.5 sm:px-4 py-1.5 overflow-x-auto touch-pan-x no-scrollbar shrink-0 bg-slate-100/70 dark:bg-slate-900/40 border-t border-slate-200/60 dark:border-slate-800">
           <div className="max-w-2xl mx-auto flex items-center gap-1.5 sm:gap-2">
             {QUICK_ACTIONS.map((action) => (
               <button
                 key={action.label}
                 onClick={() => sendMessage(action.prompt)}
-                className="shrink-0 text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:border-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 active:scale-95 transition-all cursor-pointer shadow-2xs whitespace-nowrap"
+                className="shrink-0 text-xs px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:border-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 active:scale-95 transition-all cursor-pointer shadow-2xs whitespace-nowrap"
               >
                 {action.label}
               </button>
@@ -1608,7 +1654,7 @@ export default function AIAssistant() {
       )}
 
       {/* Chat Input Section */}
-      <div className={`${cardCls} px-2.5 py-1.5 sm:px-4 sm:py-2.5 shrink-0 border-t shadow-sm`}>
+      <div className={`${cardCls} px-2.5 py-2 sm:px-4 sm:py-2.5 shrink-0 border-t shadow-sm`}>
         <div className="max-w-2xl mx-auto">
           <div className="flex gap-1.5 sm:gap-2.5 items-end">
             <textarea
@@ -1622,14 +1668,14 @@ export default function AIAssistant() {
               }}
               placeholder={isListening ? "Listening... speak now" : "Ask FitBot anything (workouts, food, macros)…"}
               rows={1}
-              className={`chat-input-scrollable flex-1 resize-none bg-slate-100 dark:bg-slate-700/60 border rounded-xl px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-xs sm:text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all leading-snug ${
+              className={`chat-input-scrollable flex-1 resize-none bg-slate-100 dark:bg-slate-700/60 border rounded-xl px-3 py-2 text-[16px] sm:text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all leading-snug ${
                 isListening
                   ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/20 dark:bg-emerald-950/20"
                   : "border-slate-200 dark:border-slate-600 focus:border-emerald-400 dark:focus:border-emerald-500"
               }`}
               style={{
-                minHeight: 36,
-                maxHeight: 96,
+                minHeight: 38,
+                maxHeight: 110,
               }}
             />
 
@@ -1639,14 +1685,15 @@ export default function AIAssistant() {
                 whileTap={{ scale: 0.90 }}
                 onClick={toggleListening}
                 type="button"
-                className={`shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center transition-colors cursor-pointer border ${
+                className={`shrink-0 w-9 h-9 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors cursor-pointer border ${
                   isListening
                     ? "bg-rose-500 text-white border-rose-600 animate-pulse shadow-md"
                     : "bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:text-emerald-500"
                 }`}
                 title={isListening ? "Stop listening" : "Speak to FitBot"}
+                aria-label={isListening ? "Stop listening" : "Speak to FitBot"}
               >
-                {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </motion.button>
             )}
 
@@ -1656,8 +1703,9 @@ export default function AIAssistant() {
                 whileTap={{ scale: 0.90 }}
                 onClick={stopGeneration}
                 type="button"
-                className="shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-rose-500 hover:bg-rose-600 rounded-lg sm:rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
+                className="shrink-0 w-9 h-9 sm:w-9 sm:h-9 bg-rose-500 hover:bg-rose-600 rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
                 title="Stop generating response"
+                aria-label="Stop generating response"
               >
                 <Square className="w-3.5 h-3.5 fill-current" />
               </motion.button>
@@ -1666,10 +1714,11 @@ export default function AIAssistant() {
                 whileTap={{ scale: 0.90 }}
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim()}
-                className="shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg sm:rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
+                className="shrink-0 w-9 h-9 sm:w-9 sm:h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
                 title="Send message"
+                aria-label="Send message"
               >
-                <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Send className="w-4 h-4" />
               </motion.button>
             )}
           </div>

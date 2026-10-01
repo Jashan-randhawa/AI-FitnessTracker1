@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "../Context/Themecontext";
+import { FitBotAvatar } from "../components/FitBotAvatar";
+import { MarkdownMessage } from "../components/MarkdownMessage";
 
 /* ─── Open-Meteo (free, no API key required) ─── */
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast";
@@ -372,47 +374,7 @@ const PollutantRow = ({ label, value, unit }: { label: string; value: number; un
   </div>
 );
 
-/* ─── AI response renderer ─── */
-const WeatherAIResponse = ({ text }: { text: string }) => {
-  const lines = text.split("\n");
-  const elements: React.ReactNode[] = [];
-  let listItems: string[] = [];
 
-  const applyInline = (raw: string): React.ReactNode[] =>
-    raw.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((part, i) => {
-      if (part.startsWith("**") && part.endsWith("**"))
-        return <strong key={i} className="font-semibold text-gray-900 dark:text-white">{part.slice(2, -2)}</strong>;
-      if (part.startsWith("*") && part.endsWith("*"))
-        return <em key={i}>{part.slice(1, -1)}</em>;
-      return part;
-    });
-
-  const flushList = (key: string) => {
-    if (!listItems.length) return;
-    elements.push(
-      <ul key={key} className="space-y-1.5 my-2">
-        {listItems.map((item, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
-            <span className="mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <span>{applyInline(item)}</span>
-          </li>
-        ))}
-      </ul>
-    );
-    listItems = [];
-  };
-
-  lines.forEach((line, idx) => {
-    const t = line.trim();
-    const bullet = t.match(/^[-•]\s+(.+)/);
-    if (bullet) { listItems.push(bullet[1]); return; }
-    flushList(`l${idx}`);
-    if (!t) { elements.push(<div key={`s${idx}`} className="h-1" />); return; }
-    elements.push(<p key={`p${idx}`} className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{applyInline(t)}</p>);
-  });
-  flushList("end");
-  return <div className="space-y-0.5">{elements}</div>;
-};
 
 /* ─── Main component ─── */
 const Weather = () => {
@@ -750,9 +712,9 @@ const Weather = () => {
           AI Workout Suggestion
         </h2>
         <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl overflow-hidden">
-          <div className="px-4 py-4 flex items-start gap-3 border-b border-slate-50 dark:border-slate-700">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center text-xl shrink-0">🤖</div>
-            <div className="flex-1">
+          <div className="px-4 py-4 flex items-center gap-3 border-b border-slate-50 dark:border-slate-700">
+            <FitBotAvatar size="sm" state={aiLoading ? "thinking" : "idle"} />
+            <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900 dark:text-white">FitBot Weather Analysis</p>
               <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                 AI picks workouts matched to today's exact conditions in {locationName}
@@ -783,7 +745,7 @@ const Weather = () => {
 
             {aiSuggestion && !aiLoading && (
               <div className="space-y-3">
-                <WeatherAIResponse text={aiSuggestion} />
+                <MarkdownMessage content={aiSuggestion} />
                 <button
                   onClick={() => fetchAiWorkoutSuggestion(weather!)}
                   className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"

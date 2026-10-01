@@ -9,6 +9,8 @@ import api from "../configs/api";
 import toast from "react-hot-toast";
 import AnimatedNumber from "../components/AnimatedNumber";
 import { StaggerContainer, StaggerItem } from "../components/animations/StaggerList";
+import { FitBotAvatar } from "../components/FitBotAvatar";
+import { MarkdownMessage } from "../components/MarkdownMessage";
 
 // ── Helpers ────────────────────────────────────────────────
 const resolveDate = (entry: any): string =>
@@ -609,18 +611,20 @@ export default function Dashboard() {
 
         {/* Daily AI Tip */}
         <motion.div variants={StaggerItem} className={cardCls}>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 bg-violet-500/15 rounded-xl flex items-center justify-center text-base">💡</div>
-            <span className="text-sm font-bold">FitBot's Tip for Today</span>
+          <div className="flex items-center gap-2.5 mb-3">
+            <FitBotAvatar size="xs" state={tipLoading ? "thinking" : "idle"} />
+            <span className="text-sm font-bold text-gray-900 dark:text-white">FitBot's Tip for Today</span>
           </div>
           {tipLoading ? (
             <div className="flex gap-1.5 items-center py-1">
-              <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-              <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-              <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" />
+              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" />
             </div>
           ) : dailyTip ? (
-            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{dailyTip}</p>
+            <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              <MarkdownMessage content={dailyTip} />
+            </div>
           ) : (
             <p className="text-sm text-slate-400 dark:text-slate-500 italic">Log your food or activity to get a personalized tip.</p>
           )}
@@ -633,7 +637,7 @@ export default function Dashboard() {
             {[
               { label: "Log Food",      icon: "🍽️", path: "/food",      color: "bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400" },
               { label: "Log Workout",   icon: "💪", path: "/activity",  color: "bg-orange-500/10 border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-400" },
-              { label: "Ask FitBot",    icon: "🤖", path: "/ai",        color: "bg-violet-500/10 border-violet-200 dark:border-violet-500/30 text-violet-700 dark:text-violet-400" },
+              { label: "Ask FitBot",    icon: "⚡", path: "/ai",        color: "bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400" },
               { label: "Meal Planner",  icon: "📅", path: "/planner",   color: "bg-pink-500/10 border-pink-200 dark:border-pink-500/30 text-pink-700 dark:text-pink-400" },
               { label: "Activity Planner", icon: "🏃", path: "/activity-planner", color: "bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-400" },
             ].map(({ label, icon, path, color }) => (

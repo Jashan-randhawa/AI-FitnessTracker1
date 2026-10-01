@@ -57,7 +57,7 @@ const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, cod
           )}
         </button>
       </div>
-      <div className="p-3.5 overflow-x-auto text-xs sm:text-sm font-mono text-slate-200 leading-relaxed">
+      <div className="p-3 sm:p-3.5 overflow-x-auto text-xs sm:text-sm font-mono text-slate-200 leading-relaxed touch-pan-x [webkit-overflow-scrolling:touch]">
         <pre className="m-0">{code}</pre>
       </div>
     </div>
@@ -147,8 +147,8 @@ const markdownComponents = {
   },
   table({ children }: any) {
     return (
-      <div className="my-3 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xs max-w-full">
-        <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[340px]">
+      <div className="my-3 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xs max-w-full touch-pan-x [webkit-overflow-scrolling:touch]">
+        <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[280px] sm:min-w-[340px]">
           {children}
         </table>
       </div>
