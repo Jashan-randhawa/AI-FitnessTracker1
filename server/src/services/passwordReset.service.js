@@ -150,7 +150,7 @@ const requestPasswordReset = async (email, context = {}) => {
   }
 
   if (user.provider && user.provider !== 'local') {
-    metrics.increment('password_reset_requests_total', { outcome: 'sent' });
+    metrics.increment('password_reset_requests_total', { outcome: 'oauth_account' });
     logger.info('[password-reset] Reset requested for OAuth account', { provider: user.provider });
     await recordSecurityEvent({
       event: 'PASSWORD_RESET_REQUESTED_OAUTH',
@@ -162,9 +162,9 @@ const requestPasswordReset = async (email, context = {}) => {
       details: { provider: user.provider },
     });
     return {
-      success: true,
-      type: 'sent',
-      message: 'If an account exists with this email address, a password reset link has been sent.',
+      success: false,
+      type: 'google',
+      message: 'This email is registered with Google Sign-In. You do not have a separate password. Please sign in directly with Google.',
     };
   }
 

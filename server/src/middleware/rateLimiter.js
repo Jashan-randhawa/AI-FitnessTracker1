@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,
+  validate: { xForwardedForHeader: false },
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -24,6 +25,7 @@ const authLimiter = rateLimit({
 const passwordResetLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10,
+  validate: { xForwardedForHeader: false },
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -42,6 +44,7 @@ const passwordResetLimiter = rateLimit({
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 30,
+  validate: { xForwardedForHeader: false },
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -61,7 +64,7 @@ const aiUserLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 20,
   keyGenerator: (req) => String(req.user?.id || req.user?._id || req.ip || 'anonymous'),
-  validate: { keyGeneratorIpFallback: false },
+  validate: { keyGeneratorIpFallback: false, xForwardedForHeader: false },
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -79,6 +82,7 @@ const aiUserLimiter = rateLimit({
 const youtubeLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 30,
+  validate: { xForwardedForHeader: false },
   standardHeaders: true,
   legacyHeaders: false,
   message: {

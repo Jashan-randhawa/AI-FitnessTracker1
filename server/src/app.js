@@ -9,6 +9,9 @@ const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
+// Trust reverse proxy (e.g. Render, Heroku) so req.ip and express-rate-limit work properly
+app.set('trust proxy', 1);
+
 // Assign request ID header and property early in request lifecycle
 app.use(requestId);
 app.use(httpLogger);

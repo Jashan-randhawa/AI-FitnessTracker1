@@ -8,7 +8,7 @@ import {
   CheckIcon,
   SparklesIcon,
 } from "lucide-react";
-import api from "../configs/api";
+import api, { API_BASE_URL } from "../configs/api";
 import toast, { Toaster } from "react-hot-toast";
 import AuthCardLayout from "../components/auth/AuthCardLayout";
 import AlertBanner, { type AlertKind } from "../components/auth/AlertBanner";
@@ -178,7 +178,7 @@ const ForgotPassword = () => {
               kind={alertKind}
               message={alertMessage}
               onGoogleSignIn={() => {
-                window.location.href = "/";
+                window.location.href = `${API_BASE_URL}/api/connect/google`;
               }}
             />
 
@@ -317,7 +317,7 @@ const ForgotPassword = () => {
               kind={alertKind}
               message={alertMessage}
               onGoogleSignIn={() => {
-                window.location.href = "/";
+                window.location.href = `${API_BASE_URL}/api/connect/google`;
               }}
             />
 

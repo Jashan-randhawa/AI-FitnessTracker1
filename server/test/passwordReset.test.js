@@ -396,7 +396,7 @@ describe('Password Reset Service Layer Logic Tests', () => {
     }
   });
 
-  it('requestPasswordReset returns uniform success for OAuth accounts without generating reset token', async () => {
+  it('requestPasswordReset returns google type for OAuth accounts without generating reset token', async () => {
     const originalFindOne = User.findOne;
     const fakeOAuthUser = {
       _id: '507f1f77bcf86cd799439099',
@@ -407,9 +407,9 @@ describe('Password Reset Service Layer Logic Tests', () => {
 
     try {
       const result = await requestPasswordReset('oauthuser@example.com', { ip: '127.0.0.1' });
-      assert.equal(result.success, true);
-      assert.equal(result.type, 'sent');
-      assert.ok(result.message.includes('If an account exists'));
+      assert.equal(result.success, false);
+      assert.equal(result.type, 'google');
+      assert.ok(result.message.includes('registered with Google Sign-In'));
       assert.equal(fakeOAuthUser.resetPasswordTokenHash, undefined);
     } finally {
       User.findOne = originalFindOne;

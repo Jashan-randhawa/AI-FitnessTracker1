@@ -15,6 +15,7 @@ export const API_BASE_URL = (rawApiUrl || "").replace(/\/$/, "");
 
 const api = axios.create({
   baseURL: API_BASE_URL || undefined,
+  timeout: 15000,
 });
 
 export default api;
