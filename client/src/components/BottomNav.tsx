@@ -19,7 +19,7 @@ const tabs: TabItem[] = [
   { path: "/food", label: "Food", icon: Utensils },
   { path: "/activity", label: "Activity", icon: Activity },
   { path: "/workouts", label: "Workouts", icon: Dumbbell },
-  { path: "/ai-assistant", label: "AI Coach", icon: Sparkles },
+  { path: "/ai-assistant", label: "FitBot", icon: Sparkles },
 ];
 
 export default function BottomNav() {

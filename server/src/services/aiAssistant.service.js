@@ -62,16 +62,22 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
   const lastUserMsg = openRouterMessages[openRouterMessages.length - 1]?.content || '';
   const isJsonRequest = options.expectJson || /return (only )?valid json/i.test(lastUserMsg);
 
+  const skipCache = Boolean(options.skipCache || options.regenerate);
+
   // Compute cache key based on prompt messages and user context
   const cacheKey = crypto
     .createHash('sha256')
     .update(JSON.stringify({ messages: openRouterMessages, isJsonRequest, version: PROMPT_VERSION }))
     .digest('hex');
 
-  const cachedEntry = responseCache.get(cacheKey);
-  if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_TTL_MS) {
-    logger.debug(`[AI Assistant] Cache hit for prompt hash ${cacheKey.slice(0, 8)}`);
-    return { ...cachedEntry.data, cached: true };
+  if (!skipCache) {
+    const cachedEntry = responseCache.get(cacheKey);
+    if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_TTL_MS) {
+      logger.debug(`[AI Assistant] Cache hit for prompt hash ${cacheKey.slice(0, 8)}`);
+      return { ...cachedEntry.data, cached: true };
+    }
+  } else {
+    logger.debug(`[AI Assistant] Bypassing response cache for hash ${cacheKey.slice(0, 8)} due to regenerate/skipCache`);
   }
 
   logger.info('[AI Assistant] Dispatching request to OpenRouter', {

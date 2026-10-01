@@ -64,7 +64,15 @@ const prepareMessages = (rawMessages) => {
 
 // POST /api/ai-assistant/chat — body: { messages, userContext?, systemInstruction?, expectJson? }
 const chat = asyncHandler(async (req, res) => {
-  const { messages: rawMessages, userContext: rawUserContext, systemInstruction, expectJson, options } = req.body;
+  const {
+    messages: rawMessages,
+    userContext: rawUserContext,
+    systemInstruction,
+    expectJson,
+    options,
+    skipCache,
+    regenerate,
+  } = req.body;
   const startTime = Date.now();
   const userId = req.user?.id || req.user?._id;
   const requestId = req.id || req.requestId;
@@ -86,6 +94,7 @@ const chat = asyncHandler(async (req, res) => {
   const { messages, totalChars } = prepared;
   const chatOptions = {
     expectJson: Boolean(expectJson || options?.expectJson),
+    skipCache: Boolean(skipCache || regenerate || options?.skipCache || options?.regenerate),
   };
 
   try {

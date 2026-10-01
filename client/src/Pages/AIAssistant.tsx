@@ -10,7 +10,6 @@ import {
   Trash2,
   History,
   Send,
-  Bot,
   User as UserIcon,
   Volume2,
   VolumeX,
@@ -26,6 +25,9 @@ import { useappcontext } from "../Context/AppContext";
 import api from "../configs/api";
 import toast from "react-hot-toast";
 import CollapsiblePlanCard from "../components/animations/CollapsiblePlanCard";
+import { FitBotAvatar } from "../components/FitBotAvatar";
+import { MarkdownMessage } from "../components/MarkdownMessage";
+import { FITBOT_CONFIG } from "../constants/fitbot";
 import jsPDF from "jspdf";
 
 // ── Helpers ───────────────────────────────────────────────
@@ -458,17 +460,16 @@ const ChatMessageItem = React.memo(({
       transition={{ duration: 0.2 }}
       className={`flex gap-2 sm:gap-3 group ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
     >
-      <div
-        className={`shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-white shadow-xs ${
-          msg.role === "user"
-            ? "bg-emerald-500"
-            : msg.isError
-            ? "bg-rose-500"
-            : "bg-violet-600 dark:bg-violet-500"
-        }`}
-      >
-        {msg.role === "user" ? <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-      </div>
+      {msg.role === "user" ? (
+        <div className="shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-white shadow-xs bg-emerald-500">
+          <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+        </div>
+      ) : (
+        <FitBotAvatar
+          size="sm"
+          state={msg.isError ? "error" : "idle"}
+        />
+      )}
 
       <div
         className={`max-w-[88%] sm:max-w-[80%] rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-xs relative ${
@@ -492,7 +493,7 @@ const ChatMessageItem = React.memo(({
             </button>
           </div>
         ) : isAssistant ? (
-          <RenderMessage text={msg.text} isLatest={isLast && !isLoading} />
+          <MarkdownMessage content={msg.text} />
         ) : (
           <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
         )}
@@ -955,7 +956,7 @@ export default function AIAssistant() {
   };
 
   // Send message to AI
-  const sendMessage = async (text: string, customHistory?: Message[]) => {
+  const sendMessage = async (text: string, customHistory?: Message[], sendOptions?: { regenerate?: boolean }) => {
     if (!text.trim() || isLoading) return;
     const currentMessages = (customHistory || messages).filter((m) => !m.isError);
     const userMsg: Message = {
@@ -986,6 +987,7 @@ export default function AIAssistant() {
         body: JSON.stringify({
           messages: historyPayload,
           userContext: combinedContext,
+          ...(sendOptions?.regenerate ? { regenerate: true } : {}),
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -1041,10 +1043,10 @@ export default function AIAssistant() {
     const lastUserMsg = [...valid].reverse().find((m) => m.role === "user");
     if (!lastUserMsg) return;
 
-    // Remove the last assistant message and re-send
+    // Remove the last assistant message and re-send with cache bypass
     const trimmed = valid.slice(0, valid.length - 1);
     setMessages(trimmed);
-    sendMessage(lastUserMsg.text, trimmed.slice(0, trimmed.length - 1));
+    sendMessage(lastUserMsg.text, trimmed.slice(0, trimmed.length - 1), { regenerate: true });
   }, [isLoading, messages]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1236,14 +1238,12 @@ export default function AIAssistant() {
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white border border-white/20 shadow-inner shrink-0">
-                <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
+              <FitBotAvatar size="md" state={isLoading ? "thinking" : "idle"} />
               <div className="min-w-0">
                 <h1 className="text-sm sm:text-lg font-bold text-white flex items-center gap-1.5 leading-tight">
-                  FitBot
+                  {FITBOT_CONFIG.NAME}
                   <span className="text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-emerald-400/25 border border-emerald-300/30 text-emerald-100 shrink-0">
-                    AI Coach
+                    {FITBOT_CONFIG.ROLE}
                   </span>
                 </h1>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -1501,14 +1501,12 @@ export default function AIAssistant() {
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
               className="flex flex-col items-center justify-center py-6 sm:py-10 text-center px-1"
             >
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl mb-3 sm:mb-4 shadow-sm border border-emerald-500/20">
-                🤖
-              </div>
+              <FitBotAvatar size="lg" className="mb-3 sm:mb-4" />
               <h2 className="text-lg sm:text-xl font-bold mb-1 text-gray-900 dark:text-white">
-                Hey, I'm FitBot!
+                {FITBOT_CONFIG.GREETING}
               </h2>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mb-4 sm:mb-6 max-w-xs sm:max-w-sm">
-                Your personal AI fitness and nutrition coach. I adapt to your goals, calorie balance, and past workouts.
+                {FITBOT_CONFIG.DESCRIPTION}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
                 {suggestions.map((s) => (
@@ -1556,14 +1554,12 @@ export default function AIAssistant() {
                 transition={{ duration: 0.2 }}
                 className="flex gap-2 sm:gap-3 items-center"
               >
-                <div className="ai-orb-organic-pulse shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-white bg-violet-600">
-                  <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin-slow" />
-                </div>
+                <FitBotAvatar size="sm" state="thinking" />
                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl rounded-tl-xs px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-xs">
                   <div className="flex gap-1.5 items-center h-4">
-                    <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                    <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                    <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" />
+                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" />
                     <span className="text-xs text-slate-400 ml-2">FitBot is thinking…</span>
                   </div>
                 </div>
@@ -1680,7 +1676,7 @@ export default function AIAssistant() {
 
           <div className="hidden sm:flex items-center justify-between text-[10px] text-gray-400 dark:text-slate-500 mt-1.5 px-1">
             <span>Press Enter to send · Shift+Enter for newline</span>
-            <span>FitBot v1.2</span>
+            <span>FitBot v{FITBOT_CONFIG.VERSION}</span>
           </div>
         </div>
       </div>

@@ -446,6 +446,43 @@ body {
   background: radial-gradient(circle at 35% 35%, #34d399 0%, #10b981 40%, #047857 100%);
 }
 
+/* FitBot Avatar: thinking glow ring and twinkling spark (FitBot Redesign §4.2) */
+.fitbot-avatar-thinking-ring {
+  animation: fitbot-ring-pulse 2s ease-in-out infinite;
+}
+
+.fitbot-avatar-spark-twinkle {
+  animation: fitbot-sparkle 2.2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes fitbot-ring-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1.5px rgba(45, 212, 191, 0.4), 0 0 10px rgba(16, 185, 129, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.8), 0 0 18px rgba(16, 185, 129, 0.55);
+  }
+}
+
+@keyframes fitbot-sparkle {
+  0%, 100% {
+    opacity: 0.65;
+    transform: scale(0.92) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.18) rotate(12deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fitbot-avatar-thinking-ring,
+  .fitbot-avatar-spark-twinkle {
+    animation: none !important;
+  }
+}
+
 /* Skeleton layout cards with sweeping gradient shimmer */
 @keyframes skeleton-shimmer {
   0% { transform: translateX(-100%); }
@@ -603,10 +640,10 @@ body {
 }
 .page-header-workouts > * { position: relative; z-index: 1; }
 
-/* AI Assistant — Violet → Indigo (intelligence, futuristic) */
+/* AI Assistant / FitBot — Brand Dark Ink → Deep Teal → Emerald (Decision D1) */
 .page-header-ai {
   @apply text-white px-3.5 py-2.5 sm:px-6 sm:py-5 lg:pt-8 lg:pb-6 relative;
-  background: linear-gradient(135deg, #7c3aed 0%, #6366f1 50%, #4f46e5 100%);
+  background: linear-gradient(135deg, #0f2427 0%, #0d5c58 50%, #047857 100%);
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
 }
@@ -614,7 +651,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(120% 90% at 85% -10%, rgba(255,255,255,0.15) 0%, transparent 55%);
+  background: radial-gradient(120% 90% at 85% -10%, rgba(45, 212, 191, 0.22) 0%, transparent 55%);
   pointer-events: none;
 }
 .page-header-ai > * { position: relative; z-index: 1; }

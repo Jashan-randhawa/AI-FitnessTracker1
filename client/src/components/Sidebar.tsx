@@ -37,7 +37,7 @@ const navItems: NavItemConfig[] = [
   { path: "/workouts", label: "Workouts", icon: Dumbbell, hasDividerAfter: true },
   { path: "/planner", label: "Meal Planner", icon: CalendarDays },
   { path: "/activity-planner", label: "Activity Planner", icon: CalendarCheck, hasDividerAfter: true },
-  { path: "/ai", label: "AI Assistant", icon: Sparkles, badge: "AI" },
+  { path: "/ai", label: "FitBot", icon: Sparkles, badge: "AI Coach" },
   { path: "/weather", label: "Weather", icon: CloudSun },
   { path: "/blog", label: "Blog", icon: BookOpen, hasDividerAfter: true },
   { path: "/profile", label: "Profile", icon: User },
