@@ -21,13 +21,13 @@ const Layout = () => {
       <main
         className={`${
           isChat
-            ? "flex-1 min-w-0 flex flex-col h-full overflow-hidden"
+            ? "flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden"
             : "flex-1 min-w-0 overflow-y-auto pb-18 lg:pb-0"
         } no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
       >
         <Outlet />
       </main>
-      {!isChat && <BottomNav />}
+      <BottomNav className={isChat ? "relative z-40" : undefined} />
     </div>
   );
 };

@@ -22,7 +22,11 @@ const tabs: TabItem[] = [
   { path: "/ai-assistant", label: "FitBot", icon: Sparkles },
 ];
 
-export default function BottomNav() {
+interface BottomNavProps {
+  className?: string;
+}
+
+export default function BottomNav({ className = "" }: BottomNavProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -37,7 +41,9 @@ export default function BottomNav() {
   return (
     <nav
       aria-label="Mobile bottom navigation"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_24px_rgba(0,0,0,0.3)] safe-area-pb"
+      className={`lg:hidden shrink-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_24px_rgba(0,0,0,0.3)] safe-area-pb ${
+        className ? className : "fixed bottom-0 left-0 right-0"
+      }`}
     >
       <div className="grid grid-cols-5 h-15 max-w-md mx-auto items-center px-2">
         {tabs.map((tab) => {

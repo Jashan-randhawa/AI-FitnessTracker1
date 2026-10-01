@@ -1346,7 +1346,7 @@ export default function AIAssistant() {
       )}
 
       {/* Chat Input Section */}
-      <div className={`${cardCls} px-2.5 py-2 sm:px-4 sm:py-2.5 shrink-0 border-t shadow-sm sticky bottom-0 z-30 safe-area-pb bg-white/95 dark:bg-slate-900/95 backdrop-blur-md`}>
+      <div className={`${cardCls} px-2.5 py-2 sm:px-4 sm:py-2.5 shrink-0 border-t shadow-sm sticky bottom-0 z-30 lg:safe-area-pb bg-white/95 dark:bg-slate-900/95 backdrop-blur-md`}>
         <div className="max-w-2xl mx-auto">
           <div className="flex gap-1.5 sm:gap-2.5 items-end">
             <textarea
