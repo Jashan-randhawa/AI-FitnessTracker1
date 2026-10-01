@@ -20,6 +20,7 @@ const Onboarding = lazy(() => import("./Pages/Onboarding"));
 const GoogleCallback = lazy(() => import("./Pages/GoogleCallback"));
 const ForgotPassword = lazy(() => import("./Pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./Pages/ResetPassword"));
+const VerifyEmail = lazy(() => import("./Pages/VerifyEmail"));
 
 const App = () => {
   const { user, isUserFetched, onboardingCompleted } = useappcontext();
@@ -30,6 +31,7 @@ const App = () => {
         <Route path="/google-callback" element={<GoogleCallback />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
 
         <Route
           path="/*"

@@ -4,6 +4,10 @@ export type User = {
   username: string;
   email: string;
   token: string;
+  provider?: string;
+  hasPassword?: boolean;
+  googleLinked?: boolean;
+  emailVerified?: boolean;
   age?: number;
   weight?: number;
   height?: number;
@@ -69,4 +73,5 @@ export const initialState = {
   setAllFoodLogs: (_: any) => {},
   setAllActivityLogs: (_: any) => {},
   setAllWaterLogs: (_: any) => {},
+  setSessionToken: (_jwt: string, _updatedUser?: any) => {},
 };

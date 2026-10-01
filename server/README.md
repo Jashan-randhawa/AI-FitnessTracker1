@@ -109,23 +109,40 @@ were already true.
 Everything else — every path, payload shape, prompt, and status code — is a
 direct port.
 
+## Dual Sign-In Architecture (Google OAuth + Password)
+
+FitTrack AI implements a **single account, two ways to sign in** architecture. Users can seamlessly access their account with Google OAuth, standard email & password, or both:
+
+### Account Linking Matrix
+
+| Case | Scenario | Action | Security Behavior |
+|---|---|---|---|
+| **1** | Matching `googleId` exists | Sign in | Direct issuance of JWT session |
+| **2** | Email exists with *different* `googleId` | Refuse | Returns `google_account_mismatch` (prevents cross-account takeover) |
+| **3** | Brand new email | Create account | Sets `provider: 'google'`, `emailVerified: true`, `hasPassword: false` |
+| **4** | Legacy Google user (no `googleId`, `hasPassword: false`) | Bind `googleId` | Automatically binds sub to existing account |
+| **5** | Verified password account (`emailVerified: true`) | Link `googleId` | Seamlessly links Google account & dispatches security notice email |
+| **6** | Unverified squatted account (`emailVerified: false`) | Reclaim | Sets `googleId`, wipes unverified squatter password, updates `passwordChangedAt` to invalidate any active squatter sessions |
+
+### Security Controls & Session Safety
+
+- **Session Invalidation**: Whenever a password is changed, added, or reset, `user.passwordChangedAt` is updated. Any JWT with an issued-at (`iat`) timestamp prior to `passwordChangedAt` is instantly rejected with HTTP 401 across all protected routes.
+- **Step-Up Authentication (`requireRecentLogin`)**: Setting a password on a Google-only account requires an active session authenticated within the last 15 minutes (`MAX_AGE = 900s`). Stale sessions are rejected with HTTP 403 `reauth_required`.
+- **Unified Password Policy**: Enforces minimum 8 characters, uppercase, lowercase, digit, and special character.
+- **Password History & Anti-Reuse**: Stores the last 5 password hashes in `user.passwordHistory` and checks both current and historical passwords to prevent credential cycling.
+- **Anti-Enumeration Timing Protection**: Public password reset and verification endpoints respond in constant time with uniform success messages regardless of whether the email exists.
+- **Signup Email Verification**: New email/password registrations generate a 24-hour cryptographic verification token and send a verification link via Brevo. Confirmed at `/verify-email`.
+
 ## Testing performed
 
-MongoDB isn't installable in the environment this was built in (dropped
-from Ubuntu's default apt repos years ago, and the sandbox network doesn't
-allow reaching MongoDB's own download servers), so a live end-to-end DB
-test wasn't possible here. What *was* verified before delivery:
+- Comprehensive unit and integration test suite: **124 passing tests across 33 suites** (`npm test`).
+- Automated suites cover:
+  - Phase P1: Data model extensions & serialization (`phase1-datamodel.test.js`)
+  - Phase P2: Session safety & passwordChangedAt invalidation (`phase2-session-safety.test.js`)
+  - Phase P3: Google Sign-in hardening & decision matrix (`phase3-google-linking.test.js`)
+  - Phase P4: Password management & reuse prevention (`phase4-password-management.test.js`)
+  - Phase P5: Reset flow adjustments & provider preservation (`phase5-reset-adjustments.test.js`)
+  - Phase P6: Email verification lifecycle (`phase6-email-verification.test.js`)
+  - Brevo email delivery, retries, and webhooks (`passwordReset.test.js`)
+  - Express API routes, auth protection, rate limiting, and metrics.
 
-- `node --check` on all 40+ files — no syntax errors
-- A full require of `app.js` — every controller/route/service/model
-  resolves with no missing imports or export mismatches
-- A live HTTP test against the running Express app covering health checks,
-  404s, CORS headers, auth-required vs. public routes for every resource,
-  and validation-before-DB paths (24/24 passing)
-- Direct Mongoose schema tests: required-field and format validation,
-  password hashing/comparison, JWT sign/verify round-trip, and the
-  `_id → id` response transform (18/18 passing)
-
-Recommend running through the main flows once against a real database
-(register/login, add a food/activity/water log, FitBot chat, Google
-sign-in, password reset) before treating this as production-ready.

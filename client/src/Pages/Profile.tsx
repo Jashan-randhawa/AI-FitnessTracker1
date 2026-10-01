@@ -1,11 +1,13 @@
 import { useState, useMemo } from "react";
-import api from "../configs/api";
+import api, { API_BASE_URL } from "../configs/api";
 import toast from "react-hot-toast";
 import { useappcontext } from "../Context/AppContext";
 import { useTheme } from "../Context/Themecontext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import AnimatedNumber from "../components/AnimatedNumber";
+import { Eye, EyeOff, Lock } from "lucide-react";
+import { PasswordStrengthMeter } from "../components/auth/PasswordStrengthMeter";
 
 const GOAL_LABELS: Record<string, string> = {
   lose: "Lose Weight",
@@ -97,6 +99,169 @@ const EditProfileModal = ({ user, onClose, onSave }: {
         <button onClick={handleSave} className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors cursor-pointer">
           Save Changes
         </button>
+      </div>
+    </div>
+  );
+};
+
+// ── Password Management Modal ────────────────────────────────
+const PasswordModal = ({
+  hasPassword,
+  onClose,
+  onSuccess,
+}: {
+  hasPassword: boolean;
+  onClose: () => void;
+  onSuccess: (jwt: string, updatedUser: any) => void;
+}) => {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [reauthNeeded, setReauthNeeded] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { data } = await api.post("/api/users/me/password", {
+        currentPassword: hasPassword ? currentPassword : undefined,
+        newPassword,
+      });
+
+      if (data?.jwt) {
+        onSuccess(data.jwt, data.user);
+        toast.success(data.message || "Password updated successfully!");
+        onClose();
+      }
+    } catch (err: any) {
+      const code = err.response?.data?.code || err.response?.data?.error?.code;
+      const msg = err.response?.data?.message || err.response?.data?.error?.message;
+      if (code === "reauth_required") {
+        setReauthNeeded(true);
+      } else {
+        toast.error(msg || "Failed to update password.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const inputCls =
+    "w-full bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full sm:max-w-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+            {hasPassword ? "Change Password" : "Add Account Password"}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-gray-900 dark:hover:text-white text-xl leading-none cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        {reauthNeeded ? (
+          <div className="space-y-4 py-2">
+            <div className="p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl text-amber-800 dark:text-amber-300 text-sm">
+              <p className="font-semibold mb-1">Recent Login Required</p>
+              <p>For security, please sign in with Google again within the last 15 minutes to set a password.</p>
+            </div>
+            <button
+              onClick={() => {
+                window.location.href = `${API_BASE_URL}/api/connect/google`;
+              }}
+              className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors cursor-pointer"
+            >
+              Re-authenticate with Google
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {hasPassword && (
+              <div>
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">
+                  Current Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showCurrent ? "text" : "password"}
+                    className={inputCls}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrent(!showCurrent)}
+                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">
+                {hasPassword ? "New Password" : "Password"}
+              </label>
+              <div className="relative">
+                <input
+                  type={showNew ? "text" : "password"}
+                  className={inputCls}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="At least 8 chars with upper, number, special"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNew(!showNew)}
+                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <div className="mt-2">
+                <PasswordStrengthMeter password={newPassword} />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                className={inputCls}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full mt-2 py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors cursor-pointer"
+            >
+              {submitting ? "Saving…" : hasPassword ? "Update Password" : "Set Password"}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -454,10 +619,11 @@ const exportCSV = (allFoodLogs: any[], allActivityLogs: any[]) => {
 
 // ── Main Profile Page ─────────────────────────────────────────
 export default function Profile() {
-  const { user, setUser, allFoodLogs, allActivityLogs, logout } = useappcontext();
+  const { user, setUser, allFoodLogs, allActivityLogs, logout, setSessionToken } = useappcontext();
   const { theme, toggleTheme } = useTheme();
   const [showEdit, setShowEdit] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const memberSince = useMemo(() => {
     if (!user?.createdAt) return "—";
@@ -511,6 +677,31 @@ export default function Profile() {
         </div>
       </div>
 
+      {/* First-login nudge banner for Google-only users */}
+      {user?.googleLinked && !user?.hasPassword && (
+        <div className="max-w-5xl mx-auto px-4 pt-4">
+          <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-700/50 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🔐</span>
+              <div>
+                <p className="text-sm font-bold text-emerald-950 dark:text-emerald-200">
+                  Enable Password Sign-In
+                </p>
+                <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80">
+                  Add a password to your account so you can log in with both Google and your email + password anytime.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowPasswordModal(true)}
+              className="shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+            >
+              Add Password
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto px-4 py-6 lg:grid lg:grid-cols-[1fr,1fr] lg:gap-6 lg:items-start">
 
         {/* Left */}
@@ -535,6 +726,89 @@ export default function Profile() {
               className="w-full mt-2 py-3 bg-slate-200 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600/50 text-sm font-semibold rounded-xl transition-all cursor-pointer">
               Edit Profile
             </button>
+          </div>
+
+          {/* Sign-in Methods Card */}
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5 space-y-3">
+            <p className="text-sm font-bold mb-2">Sign-in Methods</p>
+
+            {/* Google sign-in */}
+            <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/30 rounded-xl">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+                <div>
+                  <p className="text-xs font-semibold">Google Account</p>
+                  <p className="text-[11px] text-slate-500">
+                    {user?.googleLinked ? "Connected" : "Not connected"}
+                  </p>
+                </div>
+              </div>
+              {user?.googleLinked ? (
+                <span className="text-xs font-medium px-2.5 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg border border-emerald-500/20">
+                  ✓ Linked
+                </span>
+              ) : (
+                <button
+                  onClick={() => { window.location.href = `${API_BASE_URL}/api/connect/google`; }}
+                  className="text-xs font-medium px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-lg transition-colors cursor-pointer"
+                >
+                  Connect
+                </button>
+              )}
+            </div>
+
+            {/* Password sign-in */}
+            <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/30 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 flex items-center justify-center text-slate-500">
+                  <Lock size={18} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold">Password</p>
+                  <p className="text-[11px] text-slate-500">
+                    {user?.hasPassword ? "Active" : "Not set"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPasswordModal(true)}
+                className="text-xs font-medium px-3 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 rounded-lg transition-colors cursor-pointer"
+              >
+                {user?.hasPassword ? "Change Password" : "+ Add Password"}
+              </button>
+            </div>
+
+            {/* Email verification status */}
+            <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/30 rounded-xl">
+              <div>
+                <p className="text-xs font-semibold">Email Verification</p>
+                <p className="text-[11px] text-slate-500">{user?.email}</p>
+              </div>
+              {user?.emailVerified ? (
+                <span className="text-xs font-medium px-2.5 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg border border-blue-500/20">
+                  ✓ Verified
+                </span>
+              ) : (
+                <button
+                  onClick={async () => {
+                    try {
+                      await api.post("/api/email-verification/request", { email: user?.email });
+                      toast.success("Verification link sent to your email!");
+                    } catch {
+                      toast.error("Failed to send verification link.");
+                    }
+                  }}
+                  className="text-xs font-medium px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-lg transition-colors cursor-pointer"
+                >
+                  Verify Now
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Badges shelf */}
@@ -628,6 +902,16 @@ export default function Profile() {
       </div>
 
       {showEdit && <EditProfileModal user={user} onClose={() => setShowEdit(false)} onSave={handleSave} />}
+      {showPasswordModal && (
+        <PasswordModal
+          hasPassword={Boolean(user?.hasPassword)}
+          onClose={() => setShowPasswordModal(false)}
+          onSuccess={(jwt, updatedUser) => {
+            setSessionToken(jwt, updatedUser);
+            if (updatedUser) setUser((prev: any) => ({ ...prev, ...updatedUser }));
+          }}
+        />
+      )}
       {showShareCard && (
         <ShareCard
           user={user} streak={streak}

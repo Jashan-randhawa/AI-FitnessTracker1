@@ -162,6 +162,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     navigate("/");
   };
 
+  const setSessionToken = (jwt: string, updatedUser?: Partial<User>) => {
+    localStorage.setItem("token", jwt);
+    api.defaults.headers.common["Authorization"] = `Bearer ${jwt}`;
+    setUser((prev: any) => ({
+      ...(prev || {}),
+      ...(updatedUser || {}),
+      token: jwt,
+    }));
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
@@ -186,6 +196,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     setAllFoodLogs,
     setAllActivityLogs,
     setAllWaterLogs,
+    setSessionToken,
   };
 
   return <Appcontext.Provider value={value}>{children}</Appcontext.Provider>;

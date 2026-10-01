@@ -20,6 +20,5 @@ router.get('/users/me', protect, me);
 router.get('/connect/google', googleConnect);
 router.get('/connect/google/callback', googleConnectCallback);
 router.post('/auth/google/callback', googleAuthCallback);
-router.get('/auth/google/callback', googleAuthCallback);
 
 module.exports = router;

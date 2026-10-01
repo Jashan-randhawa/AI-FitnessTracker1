@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
+process.env.EMAIL_FROM = process.env.EMAIL_FROM || 'support@ai-fitnesstracker.com';
+
 const {
   request: requestResetController,
   validate: validateResetController,
