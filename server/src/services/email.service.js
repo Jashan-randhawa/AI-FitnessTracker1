@@ -72,7 +72,14 @@ const recordFailedEmail = async (to, subject, reason, attempts) => {
  * @param {{ to: string, resetUrl: string, plainToken: string }} params
  * @returns {Promise<{ sent: boolean, provider?: string, messageId?: string, reason?: string, attempts?: number }>}
  */
-const sendPasswordResetEmail = async ({ to, resetUrl, plainToken, isGoogleAccount = false, _customPayload }) => {
+const sendPasswordResetEmail = async ({
+  to,
+  resetUrl,
+  plainToken,
+  isGoogleAccount = false,
+  requestId,
+  _customPayload,
+}) => {
   const link = `${resetUrl}?code=${plainToken}`;
   const brevoKey = process.env.BREVO_API_KEY;
   const isExplicitDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
@@ -80,7 +87,7 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken, isGoogleAccoun
   // If Brevo API key is not configured
   if (!brevoKey) {
     if (!isExplicitDevOrTest) {
-      logger.warn('[email] BREVO_API_KEY is not configured in production or unset environment.');
+      logger.warn('[email] BREVO_API_KEY is not configured in production or unset environment.', { requestId });
       metrics.increment('password_reset_email_dispatches_total', { status: 'failed' });
       metrics.increment('password_reset_email_failures_total', { reason: 'not_configured' });
       return { sent: false, reason: 'not_configured' };
@@ -88,7 +95,7 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken, isGoogleAccoun
 
     // In explicit development or test mode, log link and return dev-log provider
     metrics.increment('password_reset_email_dispatches_total', { status: 'sent' });
-    logger.info(`[email] Dev Reset link for ${maskEmail(to)}: ${link}`);
+    logger.info(`[email] Dev Reset link for ${maskEmail(to)}: ${link}`, { requestId });
     return { sent: true, provider: 'dev-log' };
   }
 
@@ -150,6 +157,7 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken, isGoogleAccoun
           to: maskEmail(to),
           messageId,
           attempt,
+          requestId,
         });
 
         return {
@@ -166,20 +174,21 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken, isGoogleAccoun
       if (res.status === 401 || res.status === 403) {
         logger.error('[email] Brevo authentication failed. Check BREVO_API_KEY, IP authorization, or sender verification.', {
           status: res.status,
+          requestId,
         });
         break; // Do not retry invalid credentials
       }
 
       if (res.status >= 400 && res.status < 500 && res.status !== 429) {
         const errText = await res.text().catch(() => '');
-        logger.warn(`[email] Brevo client error (${res.status}): ${errText}`);
+        logger.warn(`[email] Brevo client error (${res.status}): ${errText}`, { requestId });
         break; // Do not retry bad requests
       }
 
       if (res.status === 429) {
         const retryHeader = res.headers?.get ? res.headers.get('retry-after') : null;
         const retryAfterSec = retryHeader ? Math.min(parseInt(retryHeader, 10) || 2, 10) : null;
-        logger.warn('[email] Brevo rate limit encountered (429)', { retryAfterSec });
+        logger.warn('[email] Brevo rate limit encountered (429)', { retryAfterSec, requestId });
         if (attempt < MAX_RETRIES && retryAfterSec) {
           await sleep(retryAfterSec * 1000);
           continue;
@@ -188,12 +197,13 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken, isGoogleAccoun
     } catch (err) {
       if (err.name === 'TimeoutError' || err.message?.includes('timeout') || err.message?.includes('aborted')) {
         lastReason = 'brevo_timeout';
-        logger.warn(`[email] Brevo request timeout after ${REQUEST_TIMEOUT_MS}ms (attempt ${attempt}/${MAX_RETRIES})`);
-        break; // Do not retry hung connections
+        logger.warn(`[email] Brevo request timeout after ${REQUEST_TIMEOUT_MS}ms (attempt ${attempt}/${MAX_RETRIES})`, { requestId });
+        break; // Do not retry hung connections to prevent duplicate sends after remote acceptance
       } else {
         lastReason = 'brevo_network';
         logger.warn(`[email] Brevo network exception (attempt ${attempt}/${MAX_RETRIES})`, {
           error: err.message,
+          requestId,
         });
       }
     }
@@ -213,6 +223,7 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken, isGoogleAccoun
   logger.error('[email] Password reset email delivery permanently failed after retries', {
     to: maskEmail(to),
     reason: lastReason,
+    requestId,
   });
 
   await recordFailedEmail(to, subject, lastReason, MAX_RETRIES);

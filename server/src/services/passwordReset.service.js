@@ -92,7 +92,7 @@ const clearFailedAttempts = (identifier) => {
  */
 const requestPasswordReset = async (email, context = {}) => {
   const normalizedEmail = email.toLowerCase().trim();
-  const { ip, userAgent } = context;
+  const { ip, userAgent, requestId } = context;
 
   // Check lockout on IP
   if (ip) {
@@ -104,6 +104,7 @@ const requestPasswordReset = async (email, context = {}) => {
         email: normalizedEmail,
         ip,
         userAgent,
+        requestId,
         status: 'blocked',
         details: { retryAfter: lockout.retryAfter },
       });
@@ -124,6 +125,7 @@ const requestPasswordReset = async (email, context = {}) => {
       email: normalizedEmail,
       ip,
       userAgent,
+      requestId,
       status: 'blocked',
       details: { retryAfter: rl.retryAfter },
     });
@@ -137,12 +139,13 @@ const requestPasswordReset = async (email, context = {}) => {
   const user = await User.findOne({ email: normalizedEmail });
   if (!user) {
     metrics.increment('password_reset_requests_total', { outcome: 'sent' });
-    logger.info('[password-reset] Reset requested for non-existent email', { email: normalizedEmail });
+    logger.info('[password-reset] Reset requested for non-existent email', { email: normalizedEmail, requestId });
     await recordSecurityEvent({
       event: 'PASSWORD_RESET_REQUESTED_NONEXISTENT',
       email: normalizedEmail,
       ip,
       userAgent,
+      requestId,
       status: 'success',
     });
     return {
@@ -156,6 +159,7 @@ const requestPasswordReset = async (email, context = {}) => {
     metrics.increment('password_reset_requests_total', { outcome: 'oauth_account' });
     logger.info('[password-reset] Reset requested for OAuth account — generating reset token to allow password setup', {
       provider: user.provider,
+      requestId,
     });
     await recordSecurityEvent({
       event: 'PASSWORD_RESET_REQUESTED_OAUTH',
@@ -163,6 +167,7 @@ const requestPasswordReset = async (email, context = {}) => {
       email: normalizedEmail,
       ip,
       userAgent,
+      requestId,
       status: 'success',
       details: { provider: user.provider },
     });
@@ -173,12 +178,40 @@ const requestPasswordReset = async (email, context = {}) => {
     logger.warn('[password-reset] Skipping email dispatch for bounced recipient', {
       userId: user._id,
       email: normalizedEmail,
+      requestId,
     });
     return {
       success: true,
       type: 'sent',
       message: 'If an account exists with this email address, a password reset link has been sent.',
     };
+  }
+
+  // F2: 60-Second Debounce Guard
+  // If an active token was already issued within the last 60s, do not generate a new token
+  // and do not send duplicate email. Preserve the active token so existing link remains valid.
+  const COOLDOWN_MS = 60 * 1000;
+  if (user.resetPasswordExpires && user.resetPasswordTokenHash) {
+    const expiresTime = user.resetPasswordExpires instanceof Date
+      ? user.resetPasswordExpires.getTime()
+      : new Date(user.resetPasswordExpires).getTime();
+    const issuedAt = expiresTime - TOKEN_EXPIRY_MS;
+    const elapsed = Date.now() - issuedAt;
+
+    if (elapsed >= 0 && elapsed < COOLDOWN_MS && expiresTime > Date.now()) {
+      logger.info('[password-reset] Debouncing duplicate reset request within 60s cooldown', {
+        userId: user._id,
+        email: normalizedEmail,
+        requestId,
+        elapsedMs: elapsed,
+      });
+      return {
+        success: true,
+        type: 'sent',
+        message: 'If an account exists with this email address, a password reset link has been sent.',
+        debounced: true,
+      };
+    }
   }
 
   const plainToken = generateSecureToken();
@@ -198,17 +231,19 @@ const requestPasswordReset = async (email, context = {}) => {
         resetUrl,
         plainToken,
         isGoogleAccount,
+        requestId,
       });
 
       if (!emailResult.sent) {
         metrics.increment('password_reset_requests_total', { outcome: 'email_failed' });
-        logger.error('[password-reset] Email delivery failed', { reason: emailResult.reason });
+        logger.error('[password-reset] Email delivery failed', { reason: emailResult.reason, requestId });
         await recordSecurityEvent({
           event: 'PASSWORD_RESET_EMAIL_FAILED',
           userId: user._id,
           email: normalizedEmail,
           ip,
           userAgent,
+          requestId,
           status: 'failure',
           details: { reason: emailResult.reason },
         });
@@ -222,6 +257,7 @@ const requestPasswordReset = async (email, context = {}) => {
         } catch (cleanupErr) {
           logger.error('[password-reset] Failed to clear token after email delivery failure', {
             error: cleanupErr.message,
+            requestId,
           });
         }
       } else {
@@ -232,12 +268,14 @@ const requestPasswordReset = async (email, context = {}) => {
           email: normalizedEmail,
           ip,
           userAgent,
+          requestId,
           status: 'success',
         });
       }
     } catch (err) {
       logger.error('[password-reset] Unexpected error in background email dispatch', {
         error: err.message,
+        requestId,
       });
       try {
         await User.updateOne(
@@ -291,7 +329,7 @@ const findUserByToken = async (token) => {
  * @param {{ ip?: string, userAgent?: string }} context
  */
 const validateResetToken = async (token, context = {}) => {
-  const { ip, userAgent } = context;
+  const { ip, userAgent, requestId } = context;
 
   if (ip) {
     const lockout = await checkLockout(ip);
@@ -301,6 +339,7 @@ const validateResetToken = async (token, context = {}) => {
         event: 'PASSWORD_RESET_VALIDATE_LOCKED',
         ip,
         userAgent,
+        requestId,
         status: 'blocked',
       });
       return { valid: false, message: 'Too many attempts. Please try again later.' };
@@ -315,6 +354,7 @@ const validateResetToken = async (token, context = {}) => {
       event: 'PASSWORD_RESET_INVALID_TOKEN',
       ip,
       userAgent,
+      requestId,
       status: 'failure',
     });
     return { valid: false, message: 'Invalid or expired link.' };
@@ -329,6 +369,7 @@ const validateResetToken = async (token, context = {}) => {
       email: result.user.email,
       ip,
       userAgent,
+      requestId,
       status: 'warning',
     });
     return { valid: false, message: 'This link has expired. Please request a new one.' };
@@ -341,6 +382,7 @@ const validateResetToken = async (token, context = {}) => {
     email: result.user.email,
     ip,
     userAgent,
+    requestId,
     status: 'success',
   });
 
@@ -351,10 +393,10 @@ const validateResetToken = async (token, context = {}) => {
  * Reset password with history and lockout protection
  * @param {string} token
  * @param {string} newPassword
- * @param {{ ip?: string, userAgent?: string }} context
+ * @param {{ ip?: string, userAgent?: string, requestId?: string }} context
  */
 const resetPassword = async (token, newPassword, context = {}) => {
-  const { ip, userAgent } = context;
+  const { ip, userAgent, requestId } = context;
 
   if (ip) {
     const lockout = await checkLockout(ip);
@@ -380,6 +422,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
       event: 'PASSWORD_RESET_INVALID_TOKEN',
       ip,
       userAgent,
+      requestId,
       status: 'failure',
     });
     return { success: false, message: 'Invalid or expired link.' };
@@ -394,6 +437,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
       email: result.user.email,
       ip,
       userAgent,
+      requestId,
       status: 'warning',
     });
     return { success: false, message: 'This link has expired. Please request a new one.' };
@@ -412,6 +456,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
         email: user.email,
         ip,
         userAgent,
+        requestId,
         status: 'blocked',
       });
       return {
@@ -434,6 +479,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
             email: user.email,
             ip,
             userAgent,
+            requestId,
             status: 'blocked',
           });
           return {
@@ -474,6 +520,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
   }).catch((err) => {
     logger.error('[security-notice] Failed to dispatch password change notice after reset', {
       error: err.message,
+      requestId,
     });
   });
 
@@ -486,6 +533,7 @@ const resetPassword = async (token, newPassword, context = {}) => {
     email: user.email,
     ip,
     userAgent,
+    requestId,
     status: 'success',
   });
 

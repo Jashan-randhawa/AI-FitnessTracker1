@@ -40,6 +40,7 @@ const recordSecurityEvent = async ({
   email,
   ip,
   userAgent,
+  requestId,
   status = 'success',
   details = {},
 }) => {
@@ -56,6 +57,7 @@ const recordSecurityEvent = async ({
     email: masked,
     ip: ip || 'unknown',
     userAgent: userAgent ? userAgent.substring(0, 150) : undefined,
+    requestId: requestId || undefined,
     details,
   };
 

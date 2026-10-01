@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useId } from "react";
+import React, { useState, useEffect, useRef, useId } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   MailIcon,
@@ -46,6 +46,7 @@ const ForgotPassword = () => {
   const [alertKind, setAlertKind] = useState<AlertKind>(null);
   const [alertMessage, setAlertMessage] = useState("");
   const [suggestedEmail, setSuggestedEmail] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
 
   // Validate email using Zod schema
   const validationResult = forgotPasswordSchema.safeParse({ email });
@@ -89,6 +90,7 @@ const ForgotPassword = () => {
   // ── Submit email ───────────────────────────────────────────────────────────
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (inFlightRef.current) return;
     clearAlert();
     setEmailTouched(true);
 
@@ -97,6 +99,7 @@ const ForgotPassword = () => {
       return;
     }
 
+    inFlightRef.current = true;
     setLoading(true);
 
     try {
@@ -122,12 +125,14 @@ const ForgotPassword = () => {
       }
     } finally {
       setLoading(false);
+      inFlightRef.current = false;
     }
   };
 
   // ── Resend ─────────────────────────────────────────────────────────────────
   const handleResend = async () => {
-    if (resendCooldown > 0 || loading) return;
+    if (inFlightRef.current || resendCooldown > 0 || loading) return;
+    inFlightRef.current = true;
     clearAlert();
     setLoading(true);
 
@@ -147,6 +152,7 @@ const ForgotPassword = () => {
       }
     } finally {
       setLoading(false);
+      inFlightRef.current = false;
     }
   };
 

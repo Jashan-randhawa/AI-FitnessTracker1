@@ -17,6 +17,7 @@ const {
   recordFailedAttempt,
   clearFailedAttempts,
   resetPassword,
+  requestPasswordReset,
 } = require('../src/services/passwordReset.service');
 
 const { verifyCsrfAndOrigin } = require('../src/middleware/csrfProtection');
@@ -790,5 +791,125 @@ describe('Password Reset Schema Validation Tests', () => {
   });
 });
 
+describe('Phase F1-F5 Specification: Double-Click, Debouncing & Retry Hardening Tests', () => {
+  it('F2: debounces duplicate reset request within 60s cooldown and preserves active token', async () => {
+    const originalFindOne = User.findOne;
+    let saved = false;
+    const initialHash = 'existing-active-token-hash-12345';
+    // Issued 15 seconds ago -> expires in 10 min - 15 sec
+    const initialExpires = new Date(Date.now() + 10 * 60 * 1000 - 15000);
 
+    const mockUser = {
+      _id: '507f1f77bcf86cd799439099',
+      email: 'debounced@example.com',
+      resetPasswordTokenHash: initialHash,
+      resetPasswordExpires: initialExpires,
+      save: async () => {
+        saved = true;
+      },
+    };
 
+    User.findOne = () => Promise.resolve(mockUser);
+
+    try {
+      const result = await requestPasswordReset('debounced@example.com', {
+        requestId: 'req-test-debounce',
+      });
+
+      assert.equal(result.success, true);
+      assert.equal(result.type, 'sent');
+      assert.equal(result.debounced, true);
+      assert.equal(saved, false, 'User.save should not be called on debounced request');
+      assert.equal(mockUser.resetPasswordTokenHash, initialHash, 'Active token hash must be preserved');
+      assert.equal(mockUser.resetPasswordExpires, initialExpires, 'Active expiry must be preserved');
+    } finally {
+      User.findOne = originalFindOne;
+    }
+  });
+
+  it('F2: generates new token if previous token is already expired', async () => {
+    const originalFindOne = User.findOne;
+    let saved = false;
+    const oldHash = 'old-expired-token-hash';
+    const expiredAt = new Date(Date.now() - 60000); // Expired 1 min ago
+
+    const mockUser = {
+      _id: '507f1f77bcf86cd799439098',
+      email: 'expiredtoken@example.com',
+      resetPasswordTokenHash: oldHash,
+      resetPasswordExpires: expiredAt,
+      save: async function () {
+        saved = true;
+      },
+    };
+
+    User.findOne = () => Promise.resolve(mockUser);
+
+    try {
+      const result = await requestPasswordReset('expiredtoken@example.com', {
+        requestId: 'req-test-expired',
+      });
+
+      assert.equal(result.success, true);
+      assert.equal(result.type, 'sent');
+      assert.equal(result.debounced, undefined);
+      assert.equal(saved, true, 'User.save must be called to persist new token');
+      assert.notEqual(mockUser.resetPasswordTokenHash, oldHash, 'Token hash must be refreshed');
+      assert.ok(mockUser.resetPasswordExpires.getTime() > Date.now(), 'Expiry must be in the future');
+    } finally {
+      User.findOne = originalFindOne;
+    }
+  });
+
+  it('F5: controller extracts and threads requestId to context', async () => {
+    const originalFindOne = User.findOne;
+    User.findOne = () => Promise.resolve(null); // non-existent user returns uniform success
+
+    try {
+      const req = {
+        body: { email: 'trace@example.com' },
+        headers: { 'user-agent': 'test-agent', 'x-request-id': 'req-trace-xyz' },
+        ip: '127.0.0.1',
+      };
+      const res = createMockRes();
+
+      await requestResetController(req, res, () => {});
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.type, 'sent');
+    } finally {
+      User.findOne = originalFindOne;
+    }
+  });
+
+  it('F3: Brevo request timeout aborts retry loop without duplicate sends', async () => {
+    const originalFetch = global.fetch;
+    const originalBrevoKey = process.env.BREVO_API_KEY;
+    process.env.BREVO_API_KEY = 'test-brevo-key';
+
+    let fetchAttempts = 0;
+    global.fetch = async () => {
+      fetchAttempts++;
+      const timeoutErr = new Error('The operation was aborted due to timeout');
+      timeoutErr.name = 'TimeoutError';
+      throw timeoutErr;
+    };
+
+    try {
+      const { sendPasswordResetEmail } = require('../src/services/email.service');
+      const result = await sendPasswordResetEmail({
+        to: 'timeout@example.com',
+        resetUrl: 'https://example.com/reset',
+        plainToken: 'token123',
+        requestId: 'req-timeout-test',
+      });
+
+      assert.equal(result.sent, false);
+      assert.equal(result.reason, 'brevo_timeout');
+      assert.equal(fetchAttempts, 1, 'Timeout must break retry loop immediately to prevent duplicate sends');
+    } finally {
+      global.fetch = originalFetch;
+      process.env.BREVO_API_KEY = originalBrevoKey;
+    }
+  });
+});

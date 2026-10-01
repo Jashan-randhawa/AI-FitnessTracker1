@@ -26,6 +26,7 @@ const request = asyncHandler(async (req, res) => {
   const context = {
     ip: req.ip || req.connection?.remoteAddress,
     userAgent: req.headers['user-agent'],
+    requestId: req.id || req.requestId || req.headers['x-request-id'],
   };
 
   const result = await requestPasswordReset(parsed.data.email, context);
@@ -56,6 +57,7 @@ const validate = asyncHandler(async (req, res) => {
   const context = {
     ip: req.ip || req.connection?.remoteAddress,
     userAgent: req.headers['user-agent'],
+    requestId: req.id || req.requestId || req.headers['x-request-id'],
   };
 
   const result = await validateResetToken(parsed.data.code, context);
@@ -78,6 +80,7 @@ const reset = asyncHandler(async (req, res) => {
   const context = {
     ip: req.ip || req.connection?.remoteAddress,
     userAgent: req.headers['user-agent'],
+    requestId: req.id || req.requestId || req.headers['x-request-id'],
   };
 
   const result = await resetPassword(parsed.data.code, parsed.data.newPassword, context);
