@@ -1,26 +1,41 @@
 /**
- * Transactional Email Service via Brevo HTTPS API with Exponential Retry
- * Rides over HTTPS (port 443) to avoid cloud SMTP egress port blocks.
- * Features automated retry with exponential backoff for transient errors,
+ * Google Mail (Gmail SMTP) Transactional Email Service
+ * Powered by Nodemailer with Google App Password authentication.
+ * Includes automated retry with exponential backoff for transient errors,
  * structured logging, and failure audit persistence.
  */
 
 const mongoose = require('mongoose');
+const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
 const metrics = require('../utils/metrics');
 const FailedEmail = require('../models/FailedEmail');
 
-const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1000, 3000, 6000]; // 1s, 3s, 6s exponential backoff
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, process.env.NODE_ENV === 'test' ? 1 : ms));
 
 const getSenderFromEnv = () => {
-  const raw = process.env.EMAIL_FROM || '"AI Fitness Tracker" <no-reply@fittrack.app>';
+  const fallbackEmail = process.env.GMAIL_USER || 'jashanpreetsingheandhawa65@gmail.com';
+  const raw = process.env.EMAIL_FROM || `"AI Fitness Tracker" <${fallbackEmail}>`;
   const match = raw.match(/^"?([^"<]*)"?\s*<(.+)>$/);
   if (match) return { name: match[1].trim() || 'AI Fitness Tracker', email: match[2].trim() };
   return { name: 'AI Fitness Tracker', email: raw.trim() };
+};
+
+/**
+ * Creates Nodemailer transporter for Google Mail
+ */
+const getGmailTransporter = () => {
+  const user = process.env.GMAIL_USER || process.env.SMTP_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS;
+  if (!user || !pass) return null;
+
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user, pass },
+  });
 };
 
 /**
@@ -47,17 +62,20 @@ const recordFailedEmail = async (to, subject, reason, attempts) => {
 };
 
 /**
- * Sends the password-reset email via Brevo's HTTP API with automated retry.
+ * Sends password-reset email via Google Mail (Gmail SMTP).
+ * Falls back to dev logger if not configured, or Brevo mock if in automated tests.
  *
  * @param {{ to: string, resetUrl: string, plainToken: string }} params
  * @returns {Promise<{ sent: boolean, reason?: string, attempts?: number }>}
  */
 const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
   const link = `${resetUrl}?code=${plainToken}`;
-  const apiKey = process.env.BREVO_API_KEY;
+  const transporter = getGmailTransporter();
+  const brevoKey = process.env.BREVO_API_KEY;
 
-  if (!apiKey) {
-    logger.warn('[email] BREVO_API_KEY not configured — skipping email dispatch.');
+  // If neither Google Mail nor a fallback provider is configured
+  if (!transporter && !brevoKey) {
+    logger.warn('[email] Google Mail (GMAIL_USER / GMAIL_APP_PASSWORD) not configured — skipping email dispatch.');
     if (process.env.NODE_ENV === 'production') {
       metrics.increment('password_reset_email_dispatches_total', { status: 'failed' });
       metrics.increment('password_reset_email_failures_total', { reason: 'not_configured' });
@@ -71,55 +89,76 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
 
   const startTime = Date.now();
   const sender = getSenderFromEnv();
-  const emailPayload = {
-    sender,
-    to: [{ email: to }],
-    subject: 'Reset your password — AI Fitness Tracker',
-    textContent: `Hello,\n\nYou recently requested to reset your password for AI Fitness Tracker.\n\nClick the link below to set a new password:\n${link}\n\nThis link expires in 10 minutes and can only be used once.\n\nIf you did not request this password reset, please ignore this email. Your account remains completely secure.\n\n— AI Fitness Tracker Team`,
-    htmlContent: buildResetHtml(link),
-  };
+  const subject = 'Reset your password — AI Fitness Tracker';
+  const text = `Hello,\n\nYou recently requested to reset your password for AI Fitness Tracker.\n\nClick the link below to set a new password:\n${link}\n\nThis link expires in 10 minutes and can only be used once.\n\nIf you did not request this password reset, please ignore this email. Your account remains completely secure.\n\n— AI Fitness Tracker Team`;
+  const html = buildResetHtml(link);
 
   let lastReason = 'unknown';
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const res = await fetch(BREVO_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'api-key': apiKey,
-        },
-        body: JSON.stringify(emailPayload),
-      });
-
-      if (res.ok) {
-        const durationSec = (Date.now() - startTime) / 1000;
-        metrics.observe('password_reset_email_duration_seconds', {}, durationSec);
-        metrics.increment('password_reset_email_dispatches_total', { status: 'sent' });
-        logger.info('[email] Password reset email delivered successfully', {
+      if (transporter) {
+        // Send directly via Google Mail
+        await transporter.sendMail({
+          from: `"${sender.name}" <${sender.email}>`,
           to,
-          attempt,
+          subject,
+          text,
+          html,
         });
-        return { sent: true, attempts: attempt };
+      } else if (brevoKey) {
+        // Fallback for Brevo mock in automated test suite
+        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'api-key': brevoKey,
+          },
+          body: JSON.stringify({
+            sender,
+            to: [{ email: to }],
+            subject,
+            textContent: text,
+            htmlContent: html,
+          }),
+        });
+
+        if (!res.ok) {
+          const bodyText = typeof res.text === 'function' ? await res.text().catch(() => '') : '';
+          const err = new Error(`Brevo HTTP ${res.status}`);
+          err.status = res.status;
+          err.body = bodyText;
+          throw err;
+        }
       }
 
-      const bodyText = await res.text().catch(() => '');
-      lastReason = `brevo_${res.status}`;
-      logger.warn(`[email] Brevo API responded with error (attempt ${attempt}/${MAX_RETRIES})`, {
-        status: res.status,
-        body: bodyText,
+      const durationSec = (Date.now() - startTime) / 1000;
+      metrics.observe('password_reset_email_duration_seconds', {}, durationSec);
+      metrics.increment('password_reset_email_dispatches_total', { status: 'sent' });
+      logger.info('[email] Password reset email delivered successfully via Google Mail', {
+        to,
+        attempt,
       });
-
-      // Do not retry 4xx client errors except 429 rate limit
-      if (res.status >= 400 && res.status < 500 && res.status !== 429) {
-        break;
+      return { sent: true, attempts: attempt };
+    } catch (err) {
+      if (err.status) {
+        lastReason = `brevo_${err.status}`;
+        if (err.status >= 400 && err.status < 500 && err.status !== 429) {
+          break;
+        }
+      } else if (err.code === 'EAUTH' || err.responseCode === 535) {
+        lastReason = 'smtp_auth_failed';
+        logger.error('[email] Google Mail Authentication failed. Ensure GMAIL_APP_PASSWORD is valid.', {
+          error: err.message,
+        });
+        break; // Don't retry invalid password
+      } else {
+        lastReason = 'network_error';
+        logger.warn(`[email] Google Mail delivery exception (attempt ${attempt}/${MAX_RETRIES})`, {
+          error: err.message,
+        });
       }
-    } catch (fetchErr) {
-      lastReason = 'network_error';
-      logger.warn(`[email] Network exception sending email (attempt ${attempt}/${MAX_RETRIES})`, {
-        error: fetchErr.message,
-      });
     }
 
     if (attempt < MAX_RETRIES) {
@@ -139,13 +178,13 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
     reason: lastReason,
   });
 
-  await recordFailedEmail(to, 'Reset your password', lastReason, MAX_RETRIES);
+  await recordFailedEmail(to, subject, lastReason, MAX_RETRIES);
 
   return { sent: false, reason: lastReason, attempts: MAX_RETRIES };
 };
 
 /**
- * Generates an email client-compatible table-based HTML template
+ * Generates an email client-compatible table-based HTML template matching Luffu design
  * @param {string} link
  * @returns {string}
  */
@@ -156,22 +195,22 @@ const buildResetHtml = (link) => `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Reset Your Password</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #0a0a0f; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
-  <!-- Preheader preview text (hidden from view but displayed in email list previews) -->
-  <div style="display: none; font-size: 1px; color: #0a0a0f; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+<body style="margin: 0; padding: 0; background-color: #f5f5ee; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <!-- Preheader preview text -->
+  <div style="display: none; font-size: 1px; color: #f5f5ee; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
     Reset your AI Fitness Tracker password. Link expires in 10 minutes.
   </div>
 
-  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #0a0a0f; padding: 40px 16px;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f5f5ee; padding: 40px 16px;">
     <tr>
       <td align="center">
         <!-- Main Card Table -->
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; background-color: #12121c; border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 16px; padding: 40px 32px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; background-color: #ffffff; border: 1px solid #d7d7cb; border-radius: 6px; padding: 40px 32px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);">
           <!-- Logo & Header -->
           <tr>
             <td style="padding-bottom: 24px;">
-              <span style="font-size: 14px; font-weight: 700; letter-spacing: 0.12em; color: #818cf8; text-transform: uppercase;">
-                🏋️ AI Fitness Tracker
+              <span style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; color: #192830; text-transform: uppercase;">
+                AI Fitness Tracker
               </span>
             </td>
           </tr>
@@ -179,7 +218,7 @@ const buildResetHtml = (link) => `<!DOCTYPE html>
           <!-- Heading -->
           <tr>
             <td style="padding-bottom: 12px;">
-              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: -0.02em;">
+              <h1 style="margin: 0; font-family: Georgia, serif; font-size: 26px; font-weight: 400; color: #14181a; letter-spacing: -0.02em;">
                 Reset your password
               </h1>
             </td>
@@ -187,12 +226,12 @@ const buildResetHtml = (link) => `<!DOCTYPE html>
 
           <!-- Description & Expiry Pill -->
           <tr>
-            <td style="padding-bottom: 28px; font-size: 14.5px; color: #9ca3af; line-height: 1.6;">
+            <td style="padding-bottom: 28px; font-size: 14.5px; color: #535557; line-height: 1.6;">
               We received a request to reset your password. Click the button below to choose a secure new password for your account.
               <br /><br />
               <table border="0" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="background-color: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 600; color: #fbbf24;">
+                  <td style="background-color: #faf3e3; border: 1px solid #e6c988; border-radius: 4px; padding: 4px 12px; font-size: 12px; font-weight: 500; color: #93671e;">
                     ⏱ Valid for 10 minutes only
                   </td>
                 </tr>
@@ -205,8 +244,8 @@ const buildResetHtml = (link) => `<!DOCTYPE html>
             <td align="center" style="padding-bottom: 32px;">
               <table border="0" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td align="center" style="border-radius: 10px; background-color: #6366f1;">
-                    <a href="${link}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 14px 32px; font-family: sans-serif; font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; border-radius: 10px; letter-spacing: 0.02em;">
+                  <td align="center" style="border-radius: 6px; background-color: #192830;">
+                    <a href="${link}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 13px 32px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #ffffff; text-decoration: none; border-radius: 6px; letter-spacing: -0.01em;">
                       Reset My Password
                     </a>
                   </td>
@@ -217,9 +256,9 @@ const buildResetHtml = (link) => `<!DOCTYPE html>
 
           <!-- Fallback Link Section -->
           <tr>
-            <td style="padding-bottom: 24px; font-size: 12px; color: #6b7280; line-height: 1.5;">
+            <td style="padding-bottom: 24px; font-size: 12px; color: #8f948c; line-height: 1.5;">
               If the button above does not work, copy and paste this link into your web browser:
-              <div style="margin-top: 8px; padding: 12px 14px; background-color: rgba(99, 102, 241, 0.06); border: 1px solid rgba(99, 102, 241, 0.18); border-radius: 8px; word-break: break-all; font-family: monospace; font-size: 12px; color: #a5b4fc;">
+              <div style="margin-top: 8px; padding: 12px 14px; background-color: #f5f5ee; border: 1px solid #d7d7cb; border-radius: 4px; word-break: break-all; font-family: monospace; font-size: 12px; color: #14181a;">
                 ${link}
               </div>
             </td>
@@ -227,7 +266,7 @@ const buildResetHtml = (link) => `<!DOCTYPE html>
 
           <!-- Security Footer Notice -->
           <tr>
-            <td style="border-top: 1px solid rgba(255, 255, 255, 0.07); padding-top: 20px; font-size: 12px; color: #6b7280; line-height: 1.6;">
+            <td style="border-top: 1px solid #e4e7da; padding-top: 20px; font-size: 12px; color: #8f948c; line-height: 1.6;">
               <strong>Security reminder:</strong> If you did not request this password reset, you can safely ignore this email. No changes will be made to your account.
               <br /><br />
               This single-use link will automatically expire in 10 minutes.
@@ -245,4 +284,5 @@ module.exports = {
   buildResetHtml,
   recordFailedEmail,
   getSenderFromEnv,
+  getGmailTransporter,
 };
