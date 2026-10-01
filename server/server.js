@@ -18,6 +18,13 @@ const start = async () => {
 
   app.listen(PORT, HOST, () => {
     console.log(`AI Fitness Tracker API running at http://${HOST}:${PORT}`);
+    if (!process.env.BREVO_API_KEY) {
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('⚠️  [SECURITY WARNING] BREVO_API_KEY is not configured in production. Password reset emails will fail!');
+      } else {
+        console.log('ℹ️  [email] BREVO_API_KEY not configured — reset links will be printed to server console in dev mode.');
+      }
+    }
   });
 };
 

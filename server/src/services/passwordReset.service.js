@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { sendPasswordResetEmail } = require('./email.service');
-const { checkDistributedRateLimit } = require('../utils/redisClient');
+const { checkDistributedRateLimit, clearDistributedRateLimit } = require('../utils/redisClient');
 const { recordSecurityEvent } = require('../utils/auditLogger');
 const metrics = require('../utils/metrics');
 const logger = require('../utils/logger');
@@ -18,6 +18,9 @@ const LOCKOUT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes lockout
 // In-memory fallback stores
 const rateLimitStore = new Map();
 const failedAttemptsStore = new Map();
+
+// Track last async dispatch promise for test inspection
+let _lastDispatchPromise = null;
 
 const generateSecureToken = () => crypto.randomBytes(TOKEN_BYTES).toString('hex');
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
@@ -37,7 +40,7 @@ const checkRateLimit = async (email) => {
 };
 
 /**
- * Check if IP or identifier is temporarily locked out due to repeated failures
+ * Check if IP or identifier is temporarily locked out due to repeated failures (read-only check, Gap 9)
  * @param {string} identifier
  */
 const checkLockout = async (identifier) => {
@@ -46,7 +49,8 @@ const checkLockout = async (identifier) => {
     identifier,
     FAILED_ATTEMPTS_LIMIT,
     LOCKOUT_WINDOW_MS,
-    failedAttemptsStore
+    failedAttemptsStore,
+    { readOnly: true }
   );
   if (result.limited) {
     return {
@@ -58,18 +62,18 @@ const checkLockout = async (identifier) => {
 };
 
 /**
- * Record a failed token verification or reset attempt
+ * Record a failed token verification or reset attempt (increments failure count)
  * @param {string} identifier
  */
 const recordFailedAttempt = async (identifier) => {
-  const key = `lockout:pwreset:${identifier.toLowerCase()}`;
-  const now = Date.now();
-  const entry = failedAttemptsStore.get(key);
-  if (!entry || now > entry.resetAt) {
-    failedAttemptsStore.set(key, { count: 1, resetAt: now + LOCKOUT_WINDOW_MS });
-  } else {
-    entry.count += 1;
-  }
+  await checkDistributedRateLimit(
+    'lockout:pwreset',
+    identifier,
+    FAILED_ATTEMPTS_LIMIT,
+    LOCKOUT_WINDOW_MS,
+    failedAttemptsStore,
+    { readOnly: false }
+  );
 };
 
 /**
@@ -77,8 +81,7 @@ const recordFailedAttempt = async (identifier) => {
  * @param {string} identifier
  */
 const clearFailedAttempts = (identifier) => {
-  const key = `lockout:pwreset:${identifier.toLowerCase()}`;
-  failedAttemptsStore.delete(key);
+  clearDistributedRateLimit('lockout:pwreset', identifier, failedAttemptsStore);
 };
 
 /**
@@ -165,27 +168,11 @@ const requestPasswordReset = async (email, context = {}) => {
     });
   }
 
-  const plainToken = generateSecureToken();
-  user.resetPasswordTokenHash = hashToken(plainToken);
-  user.resetPasswordExpires = new Date(Date.now() + TOKEN_EXPIRY_MS);
-  await user.save({ validateModifiedOnly: true });
-
-  const clientBaseUrl = (process.env.CLIENT_URL || 'https://ai-fitness-tracker1.vercel.app').replace(/\/$/, '');
-  const resetUrl = `${clientBaseUrl}/reset-password`;
-
-  const emailResult = await sendPasswordResetEmail({ to: user.email, resetUrl, plainToken });
-
-  if (!emailResult.sent) {
-    metrics.increment('password_reset_requests_total', { outcome: 'email_failed' });
-    logger.error('[password-reset] Email delivery failed', { reason: emailResult.reason });
-    await recordSecurityEvent({
-      event: 'PASSWORD_RESET_EMAIL_FAILED',
+  // Check if recipient has bounced previously (D2)
+  if (user.emailBounced) {
+    logger.warn('[password-reset] Skipping email dispatch for bounced recipient', {
       userId: user._id,
       email: normalizedEmail,
-      ip,
-      userAgent,
-      status: 'failure',
-      details: { reason: emailResult.reason },
     });
     return {
       success: true,
@@ -194,15 +181,68 @@ const requestPasswordReset = async (email, context = {}) => {
     };
   }
 
-  metrics.increment('password_reset_requests_total', { outcome: 'sent' });
-  await recordSecurityEvent({
-    event: 'PASSWORD_RESET_REQUESTED',
-    userId: user._id,
-    email: normalizedEmail,
-    ip,
-    userAgent,
-    status: 'success',
-  });
+  const plainToken = generateSecureToken();
+  user.resetPasswordTokenHash = hashToken(plainToken);
+  user.resetPasswordExpires = new Date(Date.now() + TOKEN_EXPIRY_MS);
+  await user.save({ validateModifiedOnly: true });
+
+  const clientBaseUrl = (process.env.CLIENT_URL || 'https://ai-fitness-tracker1.vercel.app').replace(/\/$/, '');
+  const resetUrl = `${clientBaseUrl}/reset-password`;
+
+  // Asynchronous background dispatch (D3 / Gap 1: eliminate timing oracle)
+  const dispatchPromise = (async () => {
+    try {
+      const emailResult = await sendPasswordResetEmail({ to: user.email, resetUrl, plainToken });
+
+      if (!emailResult.sent) {
+        metrics.increment('password_reset_requests_total', { outcome: 'email_failed' });
+        logger.error('[password-reset] Email delivery failed', { reason: emailResult.reason });
+        await recordSecurityEvent({
+          event: 'PASSWORD_RESET_EMAIL_FAILED',
+          userId: user._id,
+          email: normalizedEmail,
+          ip,
+          userAgent,
+          status: 'failure',
+          details: { reason: emailResult.reason },
+        });
+
+        // Gap 8: Clear token on email delivery failure to avoid orphaned active tokens
+        try {
+          await User.updateOne(
+            { _id: user._id },
+            { $unset: { resetPasswordTokenHash: 1, resetPasswordExpires: 1 } }
+          );
+        } catch (cleanupErr) {
+          logger.error('[password-reset] Failed to clear token after email delivery failure', {
+            error: cleanupErr.message,
+          });
+        }
+      } else {
+        metrics.increment('password_reset_requests_total', { outcome: 'sent' });
+        await recordSecurityEvent({
+          event: 'PASSWORD_RESET_REQUESTED',
+          userId: user._id,
+          email: normalizedEmail,
+          ip,
+          userAgent,
+          status: 'success',
+        });
+      }
+    } catch (err) {
+      logger.error('[password-reset] Unexpected error in background email dispatch', {
+        error: err.message,
+      });
+      try {
+        await User.updateOne(
+          { _id: user._id },
+          { $unset: { resetPasswordTokenHash: 1, resetPasswordExpires: 1 } }
+        );
+      } catch (_) {}
+    }
+  })();
+
+  _lastDispatchPromise = dispatchPromise;
 
   return {
     success: true,
@@ -443,4 +483,8 @@ module.exports = {
   findUserByToken,
   validateResetToken,
   resetPassword,
+  getLastDispatchPromise: () => _lastDispatchPromise,
+  _resetLastDispatchPromise: () => {
+    _lastDispatchPromise = null;
+  },
 };

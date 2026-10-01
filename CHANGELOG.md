@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [[2.2.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.2.0)] — 2026-10-01
+
+### 📧 Brevo-Only Transactional Email Architecture
+- **Pure HTTPS Port 443 Delivery**: Transitioned outgoing password reset emails to Brevo's REST API (`https://api.brevo.com/v3/smtp/email`), resolving egress SMTP port blocking (ports 25, 465, 587) on hosting environments such as Render.
+- **Zero-Dependency Cleanup**: Uninstalled `nodemailer`, removed all legacy Gmail/SMTP/Resend code, and enforced zero forbidden mail dependencies via automated CI Guard (`scripts/ci-guard-email.js`).
+- **Timing Oracle Protection**: Asynchronous background email dispatch guarantees uniform sub-100ms API response time regardless of email delivery duration, completely preventing user enumeration via timing discrepancies.
+- **Token Hygiene on Delivery Failure**: If Brevo rejects or permanently fails email delivery, the active password reset token hash and expiration are immediately cleared from MongoDB to prevent orphaned valid tokens.
+- **Bounced Recipient Suppression**: Recipients flagged with `emailBounced: true` automatically skip email dispatch while maintaining identical anti-enumeration responses.
+- **Webhook Hardening**: Fortified `/api/webhooks/email` with timing-safe authentication (`BREVO_WEBHOOK_KEY`), SHA-256 event deduplication (`dedupeHash`), 256KB body payload limit, and rate limiting (120 req/min).
+
+---
+
 ## [[2.1.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.1.0)] — 2026-09-28
 
 ### 📦 Modular Packages Ecosystem (`@jashan-randhawa/*`)

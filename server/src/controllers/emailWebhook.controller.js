@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const asyncHandler = require('express-async-handler');
 const mongoose = require('mongoose');
 const EmailEvent = require('../models/EmailEvent');
@@ -18,14 +19,22 @@ const handleBrevoWebhook = asyncHandler(async (req, res) => {
 
   // Handle single event or batch of events
   const events = Array.isArray(payload) ? payload : [payload];
+  let processedCount = 0;
 
   for (const item of events) {
     const eventType = item.event || item.type || 'unknown';
     const email = (item.email || '').toLowerCase().trim();
     const messageId = item['message-id'] || item.messageId || String(item.id || '');
     const reason = item.reason || item.description || undefined;
+    const eventTime = item.date || item.ts_event || item.timestamp || '';
 
     if (!email) continue;
+
+    // Deduplication hash
+    const dedupeHash = crypto
+      .createHash('sha256')
+      .update(`${messageId}:${eventType}:${email}:${eventTime}`)
+      .digest('hex');
 
     metrics.increment('email_webhook_events_total', { event: eventType });
 
@@ -35,7 +44,7 @@ const handleBrevoWebhook = asyncHandler(async (req, res) => {
       messageId,
     });
 
-    // 1. Record event log if DB is connected
+    // 1. Record event log if DB is connected, checking for duplicate
     if (mongoose.connection && mongoose.connection.readyState === 1) {
       try {
         await EmailEvent.create({
@@ -44,14 +53,21 @@ const handleBrevoWebhook = asyncHandler(async (req, res) => {
           event: eventType,
           ip: req.ip,
           reason,
+          dedupeHash,
           rawPayload: item,
         });
       } catch (dbErr) {
+        if (dbErr.code === 11000) {
+          logger.info('[email-webhook] Duplicate event ignored (dedupeHash match)', { dedupeHash });
+          continue; // Already processed this exact webhook delivery
+        }
         logger.warn('[email-webhook] Error saving email event:', { error: dbErr.message });
       }
     }
 
-    // 2. If address hard bounced or marked as spam, flag user account
+    processedCount++;
+
+    // 2. If address hard bounced or marked as spam/blocked, flag user account
     if (eventType === 'hard_bounce' || eventType === 'spam' || eventType === 'blocked') {
       try {
         const updated = await User.findOneAndUpdate(
@@ -70,7 +86,7 @@ const handleBrevoWebhook = asyncHandler(async (req, res) => {
     }
   }
 
-  res.status(200).json({ status: 'received', count: events.length });
+  res.status(200).json({ status: 'received', count: processedCount });
 });
 
 module.exports = { handleBrevoWebhook };

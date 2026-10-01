@@ -77,12 +77,18 @@ Add a TXT record to enforce DMARC compliance:
 
 ## 🔔 3. Webhook Setup for Bounce & Spam Suppression
 
-FitTrack AI includes a built-in webhook listener at `POST /api/webhooks/email` to track delivery and automatically flag bad email addresses.
+FitTrack AI includes a hardened webhook listener at `POST /api/webhooks/email` to track delivery and automatically flag bad email addresses.
 
-### Setting up in Brevo:
+### 3.1 Security & Authentication
+- Configure `BREVO_WEBHOOK_KEY` in your backend environment.
+- In Brevo Webhook settings, provide the key in the custom header `X-Sib-Webhook-Key: <your_key>` or query string `?key=<your_key>`.
+- The endpoint performs constant-time token comparison (`crypto.timingSafeEqual`) and fails-closed in production if the key is missing or unconfigured.
+- Includes automatic deduplication (`dedupeHash`), 256KB request body limit, and rate limiting (120 req/min).
+
+### 3.2 Setting up in Brevo:
 1. Go to **Settings** → **Webhooks** in the Brevo dashboard.
 2. Click **Add a new webhook**.
-3. Set URL to: `https://your-api-domain.com/api/webhooks/email`
+3. Set URL to: `https://your-api-domain.com/api/webhooks/email?key=YOUR_BREVO_WEBHOOK_KEY` (or pass header `X-Sib-Webhook-Key`).
 4. Select events:
    - ✅ Delivered
    - ✅ Hard Bounce
@@ -91,9 +97,23 @@ FitTrack AI includes a built-in webhook listener at `POST /api/webhooks/email` t
    - ✅ Blocked
 5. Save the webhook.
 
-When a `hard_bounce` or `spam` complaint occurs:
+When a `hard_bounce`, `blocked`, or `spam` complaint occurs:
 - The user document in MongoDB is updated with `emailBounced: true`.
+- Future password reset requests for this address skip email dispatch.
 - An audit record is created in the `EmailEvent` collection.
+
+---
+
+## 🧪 5. Testing & Diagnostics
+
+To verify live transactional email delivery via Brevo:
+
+```bash
+cd server
+npm run test:email recipient@example.com
+```
+
+This tests the exact HTTPS REST payload against the Brevo endpoint and verifies sender authorization, API key status, and response receipt.
 
 ---
 

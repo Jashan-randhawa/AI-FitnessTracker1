@@ -66,7 +66,7 @@ server/
 | `ctx.state.user` (JWT + users-permissions) | `req.user`, set by `middleware/auth.js` |
 | Core controller factories | Explicit Express route handlers |
 | Bootstrap permissions (`src/index.ts`) | Route-level `protect` middleware |
-| Email plugin | `nodemailer` via `services/email.service.js` |
+| Email plugin | Brevo REST API (HTTPS/443) via `services/email.service.js` |
 | Google OAuth (`grant` under the hood) | Plain OAuth2 authorization-code flow in `auth.controller.js` |
 
 ## Deliberate differences from the original

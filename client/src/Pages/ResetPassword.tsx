@@ -24,7 +24,8 @@ type PageState = "validating" | "ready" | "invalid" | "saving" | "done";
 const ResetPassword = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const code = searchParams.get("code") ?? "";
+  // Capture token into memory immediately so it survives URL cleanup
+  const [resetCode] = useState(() => searchParams.get("code") ?? "");
 
   const newPwId = useId();
   const confirmPwId = useId();
@@ -39,9 +40,25 @@ const ResetPassword = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null);
 
-  // ── On mount: validate the ?code= token ────────────────────────────────────
+  // ── On mount: validate the ?code= token, strip token from URL, enforce no-referrer ────
   useEffect(() => {
-    if (!code) {
+    // Enforce no-referrer policy to avoid leaking reset token in HTTP Referer headers
+    let meta = document.querySelector('meta[name="referrer"]');
+    let addedMeta = false;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "referrer");
+      meta.setAttribute("content", "no-referrer");
+      document.head.appendChild(meta);
+      addedMeta = true;
+    }
+
+    // Strip sensitive token from browser address bar immediately
+    if (window.location.search && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (!resetCode) {
       queueMicrotask(() => {
         setInvalidReason("No reset code found in this link. Please request a new one.");
         setPageState("invalid");
@@ -50,7 +67,7 @@ const ResetPassword = () => {
     }
 
     api
-      .get(`/api/password-reset/validate?code=${encodeURIComponent(code)}`)
+      .get(`/api/password-reset/validate?code=${encodeURIComponent(resetCode)}`)
       .then(() => setPageState("ready"))
       .catch((err: unknown) => {
         const error = err as AxiosError<{ message?: string }>;
@@ -60,7 +77,13 @@ const ResetPassword = () => {
         setInvalidReason(msg);
         setPageState("invalid");
       });
-  }, [code]);
+
+    return () => {
+      if (addedMeta && meta && meta.parentNode) {
+        meta.parentNode.removeChild(meta);
+      }
+    };
+  }, [resetCode]);
 
   // ── Auto-redirect timer when done ──────────────────────────────────────────
   useEffect(() => {
@@ -85,7 +108,7 @@ const ResetPassword = () => {
 
     // Client-side Zod validation
     const validation = resetPasswordSchema.safeParse({
-      code,
+      code: resetCode,
       newPassword: password,
       confirmPassword,
     });
@@ -99,7 +122,7 @@ const ResetPassword = () => {
     setPageState("saving");
     try {
       await api.post("/api/password-reset/reset", {
-        code,
+        code: resetCode,
         newPassword: password,
       });
       setPageState("done");

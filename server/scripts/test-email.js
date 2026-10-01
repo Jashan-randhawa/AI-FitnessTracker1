@@ -1,47 +1,31 @@
 /**
- * Diagnostic tool to verify transactional email delivery (Brevo, Resend, or Google Mail)
+ * Diagnostic tool to verify transactional email delivery via Brevo REST API
  * Usage: node scripts/test-email.js [recipient@example.com]
  */
 require('dotenv').config();
 const { sendPasswordResetEmail, getSenderFromEnv } = require('../src/services/email.service');
 
 const brevoKey = process.env.BREVO_API_KEY;
-const resendKey = process.env.RESEND_API_KEY;
-const gmailUser = process.env.GMAIL_USER || process.env.SMTP_USER;
-const gmailPass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS;
-
 const sender = getSenderFromEnv();
 const recipient = process.argv[2] || 'jashanpreetsinghrandhawa642@gmail.com';
 
 console.log('\n=============================================');
-console.log('   FitTrack Email Service Diagnostic Test    ');
+console.log('   FitTrack Brevo Email Diagnostic Test      ');
 console.log('=============================================\n');
 
 console.log(`• NODE_ENV:       ${process.env.NODE_ENV || 'development (default)'}`);
 console.log(`• SENDER NAME:    ${sender.name}`);
 console.log(`• SENDER EMAIL:   ${sender.email}`);
 console.log(`• BREVO_API_KEY:  ${brevoKey ? '•••••••••••••••• (Configured)' : '❌ NOT SET'}`);
-console.log(`• RESEND_API_KEY: ${resendKey ? '•••••••••••••••• (Configured)' : '❌ NOT SET'}`);
-console.log(`• GMAIL_USER:     ${gmailUser ? gmailUser : '❌ NOT SET'}`);
-console.log(`• TEST RECIPIENT: ${recipient}\n`);
+console.log(`• RECIPIENT:      ${recipient}\n`);
 
-const activeProvider = resendKey ? 'Resend HTTP API (Port 443)' : brevoKey ? 'Brevo HTTP API (Port 443)' : gmailUser && gmailPass ? 'Google Mail SMTP' : null;
-
-if (!activeProvider) {
-  console.error('❌ ERROR: No email provider configured in server/.env.\n');
-  console.log('Configure one of the following in server/.env:');
-  console.log('1. Brevo HTTP API (Recommended for Render):');
-  console.log('   BREVO_API_KEY=xkeysib-...\n');
-  console.log('2. Resend HTTP API:');
-  console.log('   RESEND_API_KEY=re_...\n');
-  console.log('3. Google Mail SMTP:');
-  console.log('   GMAIL_USER=you@gmail.com');
-  console.log('   GMAIL_APP_PASSWORD=your_16_char_password\n');
+if (!brevoKey) {
+  console.error('❌ ERROR: BREVO_API_KEY is not configured in environment.');
+  console.error('Set BREVO_API_KEY in server/.env or your hosting dashboard.\n');
   process.exit(1);
 }
 
-console.log(`Selected Provider: 🚀 ${activeProvider}`);
-console.log(`Sending test password-reset email to: ${recipient}...`);
+console.log('Sending test password reset email via Brevo REST API (HTTPS port 443)...');
 
 sendPasswordResetEmail({
   to: recipient,
@@ -51,15 +35,19 @@ sendPasswordResetEmail({
   .then((result) => {
     if (result.sent) {
       console.log('\n🎉 SUCCESS! Test email has been dispatched successfully!');
-      console.log(`• Provider: ${activeProvider}`);
-      console.log(`• Attempts: ${result.attempts || 1}`);
-      console.log(`\nCheck the inbox (and spam folder) of: ${recipient}\n`);
+      console.log(`• Provider:   ${result.provider}`);
+      console.log(`• Message ID: ${result.messageId || 'N/A'}`);
+      console.log(`• Attempts:   ${result.attempts || 1}`);
+      console.log(`\nCheck the inbox (and spam/promotions folder) of: ${recipient}\n`);
     } else {
       console.error('\n❌ Email Delivery Failed:');
       console.error(`• Reason: ${result.reason}`);
+      process.exit(1);
     }
   })
   .catch((err) => {
     console.error('\n❌ Unexpected Error:');
     console.error(err.message);
+    process.exit(1);
   });
+

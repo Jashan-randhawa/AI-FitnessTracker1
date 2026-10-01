@@ -1,46 +1,45 @@
 /**
- * Google Mail (Gmail SMTP) Transactional Email Service
- * Powered by Nodemailer with Google App Password authentication.
+ * Brevo-Only Transactional Email Service
+ * Powered by Brevo HTTP REST API over HTTPS (Port 443).
  * Includes automated retry with exponential backoff for transient errors,
- * structured logging, and failure audit persistence.
+ * timeout handling via AbortSignal, structured logging, and failure audit persistence.
  */
 
-const mongoose = require('mongoose');
-const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
 const metrics = require('../utils/metrics');
 const FailedEmail = require('../models/FailedEmail');
 
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1000, 3000, 6000]; // 1s, 3s, 6s exponential backoff
+const REQUEST_TIMEOUT_MS = 10000; // 10s per request attempt
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, process.env.NODE_ENV === 'test' ? 1 : ms));
 
-const getSenderFromEnv = () => {
-  const fallbackEmail = process.env.GMAIL_USER || 'jashanpreetsinghrandhawa65@gmail.com';
-  let raw = process.env.EMAIL_FROM || `"AI Fitness Tracker" <${fallbackEmail}>`;
-  // Auto-correct typo if eandhawa was entered instead of verified sender randhawa
-  raw = raw.replace('eandhawa', 'randhawa');
-  const match = raw.match(/^"?([^"<]*)"?\s*<(.+)>$/);
-  if (match) return { name: match[1].trim() || 'AI Fitness Tracker', email: match[2].trim() };
-  return { name: 'AI Fitness Tracker', email: raw.trim() };
+/**
+ * Mask recipient email for log privacy (e.g. j***2@gmail.com)
+ * @param {string} email
+ * @returns {string}
+ */
+const maskEmail = (email) => {
+  if (!email || typeof email !== 'string') return '';
+  const [local, domain] = email.split('@');
+  if (!domain) return '***';
+  const maskedLocal = local.length <= 2 ? `${local[0]}***` : `${local[0]}***${local[local.length - 1]}`;
+  return `${maskedLocal}@${domain}`;
 };
 
 /**
- * Creates Nodemailer transporter for Google Mail
+ * Parse verified sender from EMAIL_FROM environment variable
+ * Format: "Sender Name" <sender@example.com> or sender@example.com
+ * @returns {{ name: string, email: string }}
  */
-const getGmailTransporter = () => {
-  const user = process.env.GMAIL_USER || process.env.SMTP_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS;
-  if (!user || !pass) return null;
-
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user, pass },
-    connectionTimeout: 10000, // 10s connection timeout
-    greetingTimeout: 10000,   // 10s greeting timeout
-    socketTimeout: 15000,     // 15s socket activity timeout
-  });
+const getSenderFromEnv = () => {
+  const raw = process.env.EMAIL_FROM || 'jashanpreetsinghrandhawa65@gmail.com';
+  const match = raw.match(/^"?([^"<]*)"?\s*<(.+)>$/);
+  if (match) {
+    return { name: match[1].trim() || 'AI Fitness Tracker', email: match[2].trim() };
+  }
+  return { name: 'AI Fitness Tracker', email: raw.trim() };
 };
 
 /**
@@ -52,47 +51,42 @@ const getGmailTransporter = () => {
  */
 const recordFailedEmail = async (to, subject, reason, attempts) => {
   try {
-    if (mongoose.connection && mongoose.connection.readyState === 1) {
-      await FailedEmail.create({
-        to: to.toLowerCase().trim(),
-        subject,
-        reason,
-        attempts,
-        lastAttemptAt: new Date(),
-      });
-    }
+    await FailedEmail.create({
+      to: to.toLowerCase().trim(),
+      subject,
+      reason,
+      attempts,
+      lastAttemptAt: new Date(),
+    });
   } catch (err) {
     logger.warn('[email] Could not record failed email to database:', { error: err.message });
   }
 };
 
 /**
- * Sends password-reset email via:
- * 1. Resend API (HTTPS port 443 — works everywhere including Render Free tier)
- * 2. Brevo API (HTTPS port 443 — works everywhere including Render Free tier)
- * 3. Google Mail SMTP via Nodemailer (works on local machine or unblocked SMTP environments)
+ * Sends password-reset email exclusively via Brevo REST API (HTTPS Port 443).
  *
  * @param {{ to: string, resetUrl: string, plainToken: string }} params
- * @returns {Promise<{ sent: boolean, reason?: string, attempts?: number }>}
+ * @returns {Promise<{ sent: boolean, provider?: string, messageId?: string, reason?: string, attempts?: number }>}
  */
 const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
   const link = `${resetUrl}?code=${plainToken}`;
-  const resendKey = process.env.RESEND_API_KEY;
   const brevoKey = process.env.BREVO_API_KEY;
-  const transporter = getGmailTransporter();
+  const isExplicitDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
 
-  // If no email provider is configured at all
-  if (!transporter && !brevoKey && !resendKey) {
-    logger.warn('[email] No email service configured (set BREVO_API_KEY, RESEND_API_KEY, or GMAIL_USER/GMAIL_APP_PASSWORD).');
-    if (process.env.NODE_ENV === 'production') {
+  // If Brevo API key is not configured
+  if (!brevoKey) {
+    if (!isExplicitDevOrTest) {
+      logger.warn('[email] BREVO_API_KEY is not configured in production or unset environment.');
       metrics.increment('password_reset_email_dispatches_total', { status: 'failed' });
       metrics.increment('password_reset_email_failures_total', { reason: 'not_configured' });
       return { sent: false, reason: 'not_configured' };
     }
-    // In local development or test mode, log link and report success
+
+    // In explicit development or test mode, log link and return dev-log provider
     metrics.increment('password_reset_email_dispatches_total', { status: 'sent' });
-    logger.info(`[email] Dev Reset link for ${to}: ${link}`);
-    return { sent: true };
+    logger.info(`[email] Dev Reset link for ${maskEmail(to)}: ${link}`);
+    return { sent: true, provider: 'dev-log' };
   }
 
   const startTime = Date.now();
@@ -101,112 +95,98 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
   const text = `Hello,\n\nYou recently requested to reset your password for AI Fitness Tracker.\n\nClick the link below to set a new password:\n${link}\n\nThis link expires in 10 minutes and can only be used once.\n\nIf you did not request this password reset, please ignore this email. Your account remains completely secure.\n\n— AI Fitness Tracker Team`;
   const html = buildResetHtml(link);
 
-  let lastReason = 'unknown';
+  const payload = {
+    sender: { name: sender.name, email: sender.email },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+    textContent: text,
+    tags: ['password-reset'],
+  };
 
-  // 1. If an HTTP-based provider (Brevo or Resend) is configured, prioritize it
-  // Cloud providers like Render Free tier block outbound SMTP (ports 25, 465, 587)
-  // but allow HTTPS (port 443) seamlessly.
-  const useHttpApiFirst = Boolean(brevoKey || resendKey);
+  const headers = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    'api-key': brevoKey,
+  };
+
+  if (process.env.BREVO_SANDBOX === 'true') {
+    headers['X-Sib-Sandbox'] = 'drop';
+  }
+
+  let lastReason = 'unknown';
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      if (useHttpApiFirst) {
-        if (resendKey) {
-          // Send via Resend REST API (HTTPS Port 443)
-          const res = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${resendKey}`,
-            },
-            body: JSON.stringify({
-              from: `${sender.name} <${sender.email}>`,
-              to: [to],
-              subject,
-              text,
-              html,
-            }),
-          });
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
 
-          if (!res.ok) {
-            const errBody = await res.text().catch(() => '');
-            const err = new Error(`Resend HTTP ${res.status}`);
-            err.status = res.status;
-            err.body = errBody;
-            throw err;
-          }
-        } else if (brevoKey) {
-          // Send via Brevo REST API (HTTPS Port 443)
-          const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json',
-              'api-key': brevoKey,
-            },
-            body: JSON.stringify({
-              sender: { name: sender.name, email: sender.email },
-              to: [{ email: to }],
-              subject,
-              textContent: text,
-              htmlContent: html,
-            }),
-          });
-
-          if (!res.ok) {
-            const bodyText = typeof res.text === 'function' ? await res.text().catch(() => '') : '';
-            const err = new Error(`Brevo HTTP ${res.status}`);
-            err.status = res.status;
-            err.body = bodyText;
-            throw err;
-          }
+      if (res.ok) {
+        let messageId = null;
+        try {
+          const data = await res.json();
+          messageId = data?.messageId;
+        } catch {
+          // Fallback if response text wasn't JSON
+          const rawText = await res.text().catch(() => '');
+          const match = rawText.match(/"messageId"\s*:\s*"([^"]+)"/);
+          if (match) messageId = match[1];
         }
-      } else if (transporter) {
-        // Send via Nodemailer (Google Mail SMTP)
-        await transporter.sendMail({
-          from: `"${sender.name}" <${sender.email}>`,
-          to,
-          subject,
-          text,
-          html,
+
+        const durationSec = (Date.now() - startTime) / 1000;
+        metrics.observe('password_reset_email_duration_seconds', {}, durationSec);
+        metrics.increment('password_reset_email_dispatches_total', { status: 'sent' });
+        logger.info('[email] Password reset email accepted by Brevo', {
+          to: maskEmail(to),
+          messageId,
+          attempt,
         });
+
+        return {
+          sent: true,
+          provider: 'brevo',
+          messageId,
+          attempts: attempt,
+        };
       }
 
-      const durationSec = (Date.now() - startTime) / 1000;
-      metrics.observe('password_reset_email_duration_seconds', {}, durationSec);
-      metrics.increment('password_reset_email_dispatches_total', { status: 'sent' });
-      logger.info('[email] Password reset email delivered successfully', {
-        to,
-        provider: resendKey ? 'resend' : brevoKey ? 'brevo' : 'google_smtp',
-        attempt,
-      });
-      return { sent: true, attempts: attempt };
-    } catch (err) {
-      if (err.status) {
-        lastReason = brevoKey ? `brevo_${err.status}` : `http_${err.status}`;
-        if (err.status >= 400 && err.status < 500 && err.status !== 429) {
-          break; // Permanent HTTP 4xx error (e.g. invalid API key) — don't retry
+      // Handle non-2xx responses
+      lastReason = `brevo_${res.status}`;
+
+      if (res.status === 401 || res.status === 403) {
+        logger.error('[email] Brevo authentication failed. Check BREVO_API_KEY, IP authorization, or sender verification.', {
+          status: res.status,
+        });
+        break; // Do not retry invalid credentials
+      }
+
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+        const errText = await res.text().catch(() => '');
+        logger.warn(`[email] Brevo client error (${res.status}): ${errText}`);
+        break; // Do not retry bad requests
+      }
+
+      if (res.status === 429) {
+        const retryHeader = res.headers?.get ? res.headers.get('retry-after') : null;
+        const retryAfterSec = retryHeader ? Math.min(parseInt(retryHeader, 10) || 2, 10) : null;
+        logger.warn('[email] Brevo rate limit encountered (429)', { retryAfterSec });
+        if (attempt < MAX_RETRIES && retryAfterSec) {
+          await sleep(retryAfterSec * 1000);
+          continue;
         }
-      } else if (err.code === 'EAUTH' || err.responseCode === 535) {
-        lastReason = 'smtp_auth_failed';
-        logger.error('[email] Google Mail Authentication failed. Ensure GMAIL_APP_PASSWORD is valid.', {
-          error: err.message,
-        });
-        break; // Don't retry invalid password
-      } else if (
-        err.code === 'ENETUNREACH' ||
-        err.code === 'ETIMEDOUT' ||
-        err.message?.includes('timeout') ||
-        err.message?.includes('ENETUNREACH')
-      ) {
-        lastReason = 'smtp_port_blocked';
-        logger.warn('[email] SMTP connection blocked by hosting environment (Render Free plan blocks ports 25/465/587). Please configure BREVO_API_KEY or RESEND_API_KEY to send emails via HTTPS port 443.', {
-          error: err.message,
-        });
-        break; // Don't waste minutes retrying blocked ports
+      }
+    } catch (err) {
+      if (err.name === 'TimeoutError' || err.message?.includes('timeout') || err.message?.includes('aborted')) {
+        lastReason = 'brevo_timeout';
+        logger.warn(`[email] Brevo request timeout after ${REQUEST_TIMEOUT_MS}ms (attempt ${attempt}/${MAX_RETRIES})`);
+        break; // Do not retry hung connections
       } else {
-        lastReason = 'network_error';
-        logger.warn(`[email] Email delivery exception (attempt ${attempt}/${MAX_RETRIES})`, {
+        lastReason = 'brevo_network';
+        logger.warn(`[email] Brevo network exception (attempt ${attempt}/${MAX_RETRIES})`, {
           error: err.message,
         });
       }
@@ -218,14 +198,14 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
     }
   }
 
-  // All retries failed
+  // All attempts exhausted
   const durationSec = (Date.now() - startTime) / 1000;
   metrics.observe('password_reset_email_duration_seconds', {}, durationSec);
   metrics.increment('password_reset_email_dispatches_total', { status: 'failed' });
   metrics.increment('password_reset_email_failures_total', { reason: lastReason });
 
   logger.error('[email] Password reset email delivery permanently failed after retries', {
-    to,
+    to: maskEmail(to),
     reason: lastReason,
   });
 
@@ -335,5 +315,5 @@ module.exports = {
   buildResetHtml,
   recordFailedEmail,
   getSenderFromEnv,
-  getGmailTransporter,
+  maskEmail,
 };

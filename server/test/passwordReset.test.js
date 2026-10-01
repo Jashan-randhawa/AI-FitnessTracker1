@@ -314,7 +314,9 @@ describe('Email Delivery, Templates & Webhook Tests', () => {
 
   it('sendPasswordResetEmail handles development mode without API key', async () => {
     const originalApiKey = process.env.BREVO_API_KEY;
+    const originalEnv = process.env.NODE_ENV;
     delete process.env.BREVO_API_KEY;
+    process.env.NODE_ENV = 'development';
 
     try {
       const result = await sendPasswordResetEmail({
@@ -325,6 +327,7 @@ describe('Email Delivery, Templates & Webhook Tests', () => {
       assert.equal(result.sent, true);
     } finally {
       process.env.BREVO_API_KEY = originalApiKey;
+      process.env.NODE_ENV = originalEnv;
     }
   });
 

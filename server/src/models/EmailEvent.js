@@ -18,6 +18,12 @@ const emailEventSchema = new mongoose.Schema(
     },
     ip: String,
     reason: String,
+    dedupeHash: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     timestamp: {
       type: Date,
       default: Date.now,
