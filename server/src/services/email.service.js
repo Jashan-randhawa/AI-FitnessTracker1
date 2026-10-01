@@ -34,7 +34,10 @@ const maskEmail = (email) => {
  * @returns {{ name: string, email: string }}
  */
 const getSenderFromEnv = () => {
-  const raw = process.env.EMAIL_FROM || 'jashanpreetsinghrandhawa65@gmail.com';
+  const raw = process.env.EMAIL_FROM;
+  if (!raw || !raw.trim()) {
+    throw new Error('EMAIL_FROM is required. Set EMAIL_FROM in environment.');
+  }
   const match = raw.match(/^"?([^"<]*)"?\s*<(.+)>$/);
   if (match) {
     return { name: match[1].trim() || 'AI Fitness Tracker', email: match[2].trim() };
@@ -69,7 +72,7 @@ const recordFailedEmail = async (to, subject, reason, attempts) => {
  * @param {{ to: string, resetUrl: string, plainToken: string }} params
  * @returns {Promise<{ sent: boolean, provider?: string, messageId?: string, reason?: string, attempts?: number }>}
  */
-const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
+const sendPasswordResetEmail = async ({ to, resetUrl, plainToken, isGoogleAccount = false, _customPayload }) => {
   const link = `${resetUrl}?code=${plainToken}`;
   const brevoKey = process.env.BREVO_API_KEY;
   const isExplicitDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
@@ -91,9 +94,12 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
 
   const startTime = Date.now();
   const sender = getSenderFromEnv();
-  const subject = 'Reset your password — AI Fitness Tracker';
-  const text = `Hello,\n\nYou recently requested to reset your password for AI Fitness Tracker.\n\nClick the link below to set a new password:\n${link}\n\nThis link expires in 10 minutes and can only be used once.\n\nIf you did not request this password reset, please ignore this email. Your account remains completely secure.\n\n— AI Fitness Tracker Team`;
-  const html = buildResetHtml(link);
+  const subject = _customPayload?.subject || 'Reset your password — AI Fitness Tracker';
+  const customNotice = isGoogleAccount
+    ? 'You signed in with Google. You can keep doing that, or use this link to set a password.'
+    : 'We received a request to reset your password. Click the button below to choose a secure new password for your account.';
+  const text = _customPayload?.textContent || `Hello,\n\n${customNotice}\n\nClick the link below to set a new password:\n${link}\n\nThis link expires in 10 minutes and can only be used once.\n\nIf you did not request this password reset, please ignore this email. Your account remains completely secure.\n\n— AI Fitness Tracker Team`;
+  const html = _customPayload?.htmlContent || buildResetHtml(link, isGoogleAccount);
 
   const payload = {
     sender: { name: sender.name, email: sender.email },
@@ -101,7 +107,7 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
     subject,
     htmlContent: html,
     textContent: text,
-    tags: ['password-reset'],
+    tags: _customPayload?.tags || ['password-reset'],
   };
 
   const headers = {
@@ -217,19 +223,27 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
 /**
  * Generates an email client-compatible table-based HTML template matching Luffu design
  * @param {string} link
+ * @param {boolean} [isGoogleAccount=false]
  * @returns {string}
  */
-const buildResetHtml = (link) => `<!DOCTYPE html>
+const buildResetHtml = (link, isGoogleAccount = false) => {
+  const heading = isGoogleAccount ? 'Set your password' : 'Reset your password';
+  const desc = isGoogleAccount
+    ? 'You typically sign in with Google. Setting a password will allow you to sign in using either your Google account or your email + password. Click the button below to choose a secure password for your account.'
+    : 'We received a request to reset your password. Click the button below to choose a secure new password for your account.';
+  const btnText = isGoogleAccount ? 'Set My Password' : 'Reset My Password';
+
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reset Your Password</title>
+  <title>${heading}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f5f5ee; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
   <!-- Preheader preview text -->
   <div style="display: none; font-size: 1px; color: #f5f5ee; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
-    Reset your AI Fitness Tracker password. Link expires in 10 minutes.
+    ${isGoogleAccount ? 'Set' : 'Reset'} your AI Fitness Tracker password. Link expires in 10 minutes.
   </div>
 
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f5f5ee; padding: 40px 16px;">
@@ -250,7 +264,7 @@ const buildResetHtml = (link) => `<!DOCTYPE html>
           <tr>
             <td style="padding-bottom: 12px;">
               <h1 style="margin: 0; font-family: Georgia, serif; font-size: 26px; font-weight: 400; color: #14181a; letter-spacing: -0.02em;">
-                Reset your password
+                ${heading}
               </h1>
             </td>
           </tr>
@@ -258,7 +272,7 @@ const buildResetHtml = (link) => `<!DOCTYPE html>
           <!-- Description & Expiry Pill -->
           <tr>
             <td style="padding-bottom: 28px; font-size: 14.5px; color: #535557; line-height: 1.6;">
-              We received a request to reset your password. Click the button below to choose a secure new password for your account.
+              ${desc}
               <br /><br />
               <table border="0" cellpadding="0" cellspacing="0">
                 <tr>
@@ -277,7 +291,7 @@ const buildResetHtml = (link) => `<!DOCTYPE html>
                 <tr>
                   <td align="center" style="border-radius: 6px; background-color: #192830;">
                     <a href="${link}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 13px 32px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #ffffff; text-decoration: none; border-radius: 6px; letter-spacing: -0.01em;">
-                      Reset My Password
+                      ${btnText}
                     </a>
                   </td>
                 </tr>
@@ -309,9 +323,63 @@ const buildResetHtml = (link) => `<!DOCTYPE html>
   </table>
 </body>
 </html>`;
+};
+
+/**
+ * Dispatch security notice email when credentials change
+ * @param {{ to: string, kind: 'password_added'|'password_changed'|'google_linked' }} params
+ */
+const sendSecurityNoticeEmail = async ({ to, kind }) => {
+  const titles = {
+    password_added: 'Password Added to Your Account',
+    password_changed: 'Your Password Was Changed',
+    google_linked: 'Google Sign-In Linked',
+  };
+  const title = titles[kind] || 'Security Notice';
+  const subject = `${title} — AI Fitness Tracker`;
+  const text = `Hello,\n\nA security update was applied to your AI Fitness Tracker account: ${title}.\n\nIf you made this change, you can safely ignore this email.\nIf you did NOT authorize this change, please reset your password immediately at https://ai-fitness-tracker1.vercel.app/forgot-password\n\n— AI Fitness Tracker Security Team`;
+  const html = `<!DOCTYPE html><html><body style="font-family: sans-serif; padding: 20px;"><h2>${title}</h2><p>A security update was applied to your AI Fitness Tracker account: <strong>${title}</strong>.</p><p>If you made this change, no action is required.</p><p style="color: #b91c1c;"><strong>If you did not authorize this change</strong>, please reset your password immediately at <a href="https://ai-fitness-tracker1.vercel.app/forgot-password">https://ai-fitness-tracker1.vercel.app/forgot-password</a>.</p></body></html>`;
+
+  return sendPasswordResetEmail({
+    to,
+    resetUrl: 'https://ai-fitness-tracker1.vercel.app/forgot-password',
+    plainToken: '',
+    _customPayload: {
+      subject,
+      htmlContent: html,
+      textContent: text,
+      tags: ['security-notice', kind],
+    },
+  });
+};
+
+/**
+ * Dispatch signup email verification link
+ * @param {{ to: string, verifyUrl: string, plainToken: string }} params
+ */
+const sendVerificationEmail = async ({ to, verifyUrl, plainToken }) => {
+  const link = `${verifyUrl}?code=${plainToken}`;
+  const subject = 'Verify your email — AI Fitness Tracker';
+  const text = `Hello,\n\nPlease verify your email address for AI Fitness Tracker by clicking the link below:\n${link}\n\nThis link expires in 24 hours.\n\n— AI Fitness Tracker Team`;
+  const html = `<!DOCTYPE html><html><body style="font-family: sans-serif; padding: 20px;"><h2>Verify Your Email</h2><p>Thank you for joining AI Fitness Tracker! Click the button below to verify your email address:</p><p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#192830;color:#fff;text-decoration:none;border-radius:4px;">Verify Email</a></p><p>Or copy this link: ${link}</p></body></html>`;
+
+  return sendPasswordResetEmail({
+    to,
+    resetUrl: verifyUrl,
+    plainToken,
+    _customPayload: {
+      subject,
+      htmlContent: html,
+      textContent: text,
+      tags: ['email-verification'],
+    },
+  });
+};
 
 module.exports = {
   sendPasswordResetEmail,
+  sendSecurityNoticeEmail,
+  sendVerificationEmail,
   buildResetHtml,
   recordFailedEmail,
   getSenderFromEnv,

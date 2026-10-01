@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
-const { sendPasswordResetEmail } = require('./email.service');
+const { sendPasswordResetEmail, sendSecurityNoticeEmail } = require('./email.service');
 const { checkDistributedRateLimit, clearDistributedRateLimit } = require('../utils/redisClient');
 const { recordSecurityEvent } = require('../utils/auditLogger');
 const metrics = require('../utils/metrics');
@@ -188,11 +188,17 @@ const requestPasswordReset = async (email, context = {}) => {
 
   const clientBaseUrl = (process.env.CLIENT_URL || 'https://ai-fitness-tracker1.vercel.app').replace(/\/$/, '');
   const resetUrl = `${clientBaseUrl}/reset-password`;
+  const isGoogleAccount = Boolean(user.provider === 'google' || user.googleId);
 
   // Asynchronous background dispatch (D3 / Gap 1: eliminate timing oracle)
   const dispatchPromise = (async () => {
     try {
-      const emailResult = await sendPasswordResetEmail({ to: user.email, resetUrl, plainToken });
+      const emailResult = await sendPasswordResetEmail({
+        to: user.email,
+        resetUrl,
+        plainToken,
+        isGoogleAccount,
+      });
 
       if (!emailResult.sent) {
         metrics.increment('password_reset_requests_total', { outcome: 'email_failed' });
@@ -454,10 +460,22 @@ const resetPassword = async (token, newPassword, context = {}) => {
   }
 
   user.password = newPassword; // pre-save hook hashes it with bcrypt
-  user.provider = 'local'; // Enable local password login
+  user.hasPassword = true;
+  user.emailVerified = true;
+  user.passwordChangedAt = new Date();
   user.resetPasswordTokenHash = undefined;
   user.resetPasswordExpires = undefined;
   await user.save();
+
+  // Async security notice
+  sendSecurityNoticeEmail({
+    to: user.email,
+    kind: 'password_changed',
+  }).catch((err) => {
+    logger.error('[security-notice] Failed to dispatch password change notice after reset', {
+      error: err.message,
+    });
+  });
 
   if (ip) clearFailedAttempts(ip);
 

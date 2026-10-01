@@ -29,7 +29,21 @@ const GoogleCallback = () => {
 
     googleLogin(accessToken)
       .then(() => navigate("/"))
-      .catch(() => setError("Google login failed. Please check your Google OAuth provider settings."));
+      .catch((err: any) => {
+        const code = err.response?.data?.code || err.response?.data?.error?.code;
+        const msg = err.response?.data?.message || err.response?.data?.error?.message;
+        if (code === "google_account_mismatch") {
+          setError(
+            "This email address is already connected to a different Google account. Please sign in with that Google account or reset your password."
+          );
+        } else if (code === "google_email_unverified") {
+          setError("Your Google email is not verified. Please verify your email with Google first.");
+        } else if (code === "account_blocked") {
+          setError("Your account has been suspended by an administrator.");
+        } else {
+          setError(msg || "Google login failed. Please check your Google account and try again.");
+        }
+      });
   }, [googleLogin, navigate]);
 
   if (error) {

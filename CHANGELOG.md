@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [[2.3.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.3.0)] — 2026-10-01
+
+### 🔐 Unified Dual Sign-In Architecture (Google OAuth + Password)
+- **One Account, Two Ways to Sign In**: Enables users with verified email addresses to link Google OAuth and standard password credentials to a single shared MongoDB user record without creating duplicate accounts or losing health logs.
+- **6-Case Account Linking Matrix**:
+  - Direct login for matching `googleId`.
+  - Strict rejection with `google_account_mismatch` if an email is tied to a different Google account.
+  - Safe automated binding for legacy Google accounts.
+  - Linking with security notice dispatch for verified password accounts.
+  - Reclaiming of unverified squatted accounts with password wiping and session invalidation.
+- **Session Safety & Instant Invalidation**:
+  - Auth middleware checks `decoded.iat < user.passwordChangedAt` on every protected route and instantly revokes tokens on password change/reset.
+  - Step-up authentication middleware (`requireRecentLogin`) enforces a 15-minute window for sensitive credential additions.
+- **Unified Password Policy & History Prevention**:
+  - Enforced 8+ character strong password policy (uppercase, lowercase, number, special character).
+  - Password history tracking (last 5 hashes) prevents credential reuse.
+- **Signup Email Verification Flow**:
+  - Built-in verification tokens (24-hour expiration) and dedicated `/verify-email` endpoint & UI.
+- **Client Profile & Auth UI Enhancements**:
+  - Added "Sign-in methods" management card to user profile.
+  - Interactive "Add Password" / "Change Password" modal with live `PasswordStrengthMeter`.
+  - First-login nudge banner for Google-only users.
+  - Added "Continue with Google" to Forgot Password flow.
+
+---
+
 ## [[2.2.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.2.0)] — 2026-10-01
 
 ### 📧 Brevo-Only Transactional Email Architecture

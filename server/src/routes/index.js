@@ -14,6 +14,7 @@ router.use(require('./foodEstimate.routes'));
 router.use(require('./news.routes'));
 router.use(require('./youtube.routes'));
 router.use(require('./passwordReset.routes'));
+router.use(require('./emailVerification.routes'));
 router.use(require('./emailWebhook.routes'));
 router.use(require('./metrics.routes'));
 

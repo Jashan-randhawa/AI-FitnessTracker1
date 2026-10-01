@@ -42,6 +42,35 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+      select: false,
+    },
+    hasPassword: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    passwordChangedAt: {
+      type: Date,
+      select: false,
+    },
+
+    // ── Email verification tokens ──
+    emailVerificationTokenHash: {
+      type: String,
+      select: false,
+    },
+    emailVerificationExpires: {
+      type: Date,
+      select: false,
+    },
 
     // ── Fitness profile (extended fields from users-permissions schema) ──
     age: Number,
@@ -79,7 +108,19 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+userSchema.virtual('googleLinked').get(function () {
+  return Boolean(this.googleId || (this.provider === 'google' && !this.hasPassword));
+});
+
+userSchema.pre('validate', function syncHasPassword(next) {
+  if (this.isModified('password') || this.hasPassword === undefined) {
+    this.hasPassword = Boolean(this.password);
+  }
+  next();
+});
+
 userSchema.pre('save', async function hashPassword(next) {
+  this.hasPassword = Boolean(this.password);
   if (!this.isModified('password') || !this.password) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
@@ -92,7 +133,16 @@ userSchema.methods.comparePassword = async function comparePassword(candidate) {
 };
 
 toJSONPlugin(userSchema, {
-  hide: ['password', 'resetPasswordTokenHash', 'resetPasswordExpires', 'passwordHistory'],
+  hide: [
+    'password',
+    'resetPasswordTokenHash',
+    'resetPasswordExpires',
+    'passwordHistory',
+    'googleId',
+    'passwordChangedAt',
+    'emailVerificationTokenHash',
+    'emailVerificationExpires',
+  ],
 });
 
 module.exports = mongoose.model('User', userSchema);
