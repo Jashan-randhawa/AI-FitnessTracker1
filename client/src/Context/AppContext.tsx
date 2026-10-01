@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { initialState, type ActivityEntry, type Credentials, type FoodEntry, type User } from "../assets/types";
 import { useNavigate } from "react-router-dom";
 import api from "../configs/api";
@@ -77,7 +77,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const googleLogin = async (googleAccessToken: string) => {
+  const googleLogin = useCallback(async (googleAccessToken: string) => {
     try {
       localStorage.removeItem("token");
       setAllFoodLogs([]);
@@ -110,7 +110,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       toast.error(error.response?.data?.message || "Google login failed. Please try again.");
       throw error;
     }
-  };
+  }, []);
 
   const fetchUser = async (token: string) => {
     try {
