@@ -11,21 +11,23 @@ const Layout = () => {
 
   return (
     <div
-      className={`layout-container ${
-        isChat ? "h-[100dvh] max-h-[100dvh] overflow-hidden" : ""
-      }`}
+      className={
+        isChat
+          ? "h-[100dvh] max-h-[100dvh] min-h-0 w-full flex flex-col lg:flex-row bg-white dark:bg-slate-950 transition-colors duration-200 overflow-hidden"
+          : "layout-container"
+      }
     >
       <Sidebar />
       <main
         className={`${
           isChat
-            ? "chat-main-container"
+            ? "flex-1 min-w-0 flex flex-col h-full overflow-hidden"
             : "flex-1 min-w-0 overflow-y-auto pb-18 lg:pb-0"
         } no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
       >
         <Outlet />
       </main>
-      <BottomNav />
+      {!isChat && <BottomNav />}
     </div>
   );
 };

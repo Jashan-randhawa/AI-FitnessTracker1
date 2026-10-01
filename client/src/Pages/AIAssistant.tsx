@@ -1346,7 +1346,7 @@ export default function AIAssistant() {
       )}
 
       {/* Chat Input Section */}
-      <div className={`${cardCls} px-2.5 py-2 sm:px-4 sm:py-2.5 shrink-0 border-t shadow-sm`}>
+      <div className={`${cardCls} px-2.5 py-2 sm:px-4 sm:py-2.5 shrink-0 border-t shadow-sm sticky bottom-0 z-30 safe-area-pb bg-white/95 dark:bg-slate-900/95 backdrop-blur-md`}>
         <div className="max-w-2xl mx-auto">
           <div className="flex gap-1.5 sm:gap-2.5 items-end">
             <textarea
@@ -1358,7 +1358,7 @@ export default function AIAssistant() {
                 isNearBottomRef.current = true;
                 setTimeout(() => scrollToBottom(true), 150);
               }}
-              placeholder={isListening ? "Listening... speak now" : "Ask FitBot anything (workouts, food, macros)…"}
+              placeholder={isListening ? "Listening… speak now" : ""}
               rows={1}
               className={`chat-input-scrollable flex-1 resize-none bg-slate-100 dark:bg-slate-700/60 border rounded-xl px-3 py-2 text-[16px] sm:text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all leading-snug ${
                 isListening
