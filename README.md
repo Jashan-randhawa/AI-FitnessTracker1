@@ -3,6 +3,7 @@
 # ⚡ FitTrack AI
 ### Intelligent Health, Nutrition & Fitness Operating System
 
+[![Version](https://img.shields.io/badge/Version-v2.4.0-emerald?style=for-the-badge)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.4.0)
 [![CI](https://github.com/Jashan-randhawa/AI-FitnessTracker1/actions/workflows/ci.yml/badge.svg)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/actions/workflows/ci.yml)
 [![GitHub Packages](https://img.shields.io/badge/GitHub_Packages-7_Published-2ea44f?style=for-the-badge&logo=github)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-blue?style=for-the-badge&logo=github)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki)
@@ -13,13 +14,13 @@
 [![Express](https://img.shields.io/badge/Express-4.19-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E=20.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tests](https://img.shields.io/badge/Unit_Tests-35_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
+[![Tests](https://img.shields.io/badge/Unit_Tests-134_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
 [![Audit](https://img.shields.io/badge/Vulnerabilities-0-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://ai-fitness-tracker1.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
 
 <p align="center">
-  A full-stack, AI-powered health and fitness companion designed to transform daily habits into measurable progress. Featuring multimodal AI meal logging, real-time context-aware coaching, interactive activity heatmaps, adaptive workout and meal planners, and a mobile-optimized interface.
+  A full-stack, AI-powered health and fitness companion designed to transform daily habits into measurable progress. Featuring multimodal AI meal logging, real-time context-aware coaching, interactive activity heatmaps, adaptive workout and meal planners, dual Google + password authentication, and a mobile-optimized interface.
 </p>
 
 [🚀 **Explore Live Demo**](https://ai-fitness-tracker1.vercel.app) • [📦 **Modular Packages**](#-modular-packages-ecosystem) • [📖 **Wiki Documentation**](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki) • [✨ **Features**](#-features) • [📱 **Mobile View**](#-mobile-experience) • [🧪 **Testing & CI**](#-testing--cicd) • [🛠️ **Quick Start**](#-quick-start) • [📡 **API Reference**](#-api-reference)
@@ -123,12 +124,27 @@ npm install @jashan-randhawa/fitness-utils
 - **Curated Fitness Blog:** Informative fitness articles with search and category tags.
 
 ### 🔐 5. Security & Authentication Hardening
-- **Zero-Vulnerability Security Baseline:** Continuous dependency audits with `npm audit` ensuring 0 known vulnerabilities across client and server packages. Critical advisories (e.g. transitive `dompurify` XSS) resolved by upgrading `jspdf` to `^4.2.1`.
-- **Secure JWT Auth:** Stateless token-based authentication with encrypted password hashing via bcryptjs.
-- **IP Rate Limiting:** Enforced via `express-rate-limit` on auth (`5 req/15m`), password reset (`3 req/hour`), AI endpoints (`20 req/min`), and YouTube search (`30 req/min`).
-- **Secure Google OAuth 2.0:** Tokens transferred via URL fragment (`#access_token=`) and exchanged over POST body to prevent token leakage in browser history and HTTP Referer headers.
+- **Unified Dual Sign-In Architecture (Google OAuth + Password):** Allows users to seamlessly authenticate with Google OAuth, standard password credentials, or both on a single shared account. Features a 6-case automated linking matrix, squat account protection, and cross-provider security alerts.
+- **Session Safety & Instant Revocation:** Tokens are verified against `user.passwordChangedAt` on every protected request, immediately invalidating active JWTs across devices upon password change or reset. Step-up authentication (`requireRecentLogin`) enforces a 15-minute window for password changes.
+- **Unified Password Policy & History Prevention:** Enforces 8+ character passwords with uppercase, numbers, and special characters. Maintains a rolling 5-password history hash to strictly block password reuse.
+- **Signup Email Verification:** Built-in cryptographic verification tokens with 24-hour expiration, anti-enumeration endpoints, and dedicated verification screens.
+- **Brevo HTTPS Transactional Email with 5-Layer Resilience (F1–F5):**
+  - **F1 (Double-Click Interceptor):** Synchronous `inFlightRef` guard blocks duplicate API triggers before React state updates.
+  - **F2 (60s Token Debouncing):** Suppresses duplicate dispatches within 60s cooldown, keeping the existing reset link valid.
+  - **F3 (Retry Hardening):** Strict timeout handling breaks retry loops immediately to eliminate duplicate sends after remote acceptance.
+  - **F4 (Distributed Rate Limiting):** Distributed atomic Redis rate limiting with automatic in-memory fallback.
+  - **F5 (Request Tracing):** Correlates `requestId` end-to-end across controllers, background workers, and audit logs.
+- **Zero-Vulnerability Security Baseline:** Continuous dependency audits with `npm audit` ensuring 0 known vulnerabilities across client and server packages.
 - **Anti-Enumeration Password Recovery:** Uniform responses across all scenarios — including non-existent accounts, third-party OAuth providers, and upstream email delivery errors — ensuring no observable timing or oracle leaks exist.
 - **Production Error Masking:** All database errors (`MongoServerError`, Mongoose internals) and unhandled 5xx exceptions are strictly masked with generic client messages in production (`NODE_ENV === 'production'`), shielding database topologies and credentials from client disclosure.
+
+### 👤 6. Profile Customization & Data Management
+- **Editable Username:** Users can update their username directly from the Profile card with live validation (3–30 characters) and case-insensitive conflict prevention.
+- **Goal & Biometrics Management:** Fine-tune target calorie intake, calorie burn goals, age, weight, and height with real-time recalculations.
+- **Data Exports (PDF, CSV & PNG):**
+  - **Formatted PDF Report:** Multi-page progress report with stats summary, profile metrics, food logs, and activity records powered by jsPDF and AutoTable.
+  - **Raw CSV Spreadsheets:** Comma-separated food and activity history with timestamps, categories, and nutritional values.
+  - **Shareable Progress Card:** Canvas-rendered progress cards for streak milestones and stats.
 
 ---
 
@@ -329,12 +345,19 @@ OPENROUTER_API_KEY=your_openrouter_api_key
 NEWS_API_KEY=your_newsapi_key
 RAPIDAPI_KEY=your_rapidapi_key
 
-# OAuth & Mail
+# OAuth & Mail (Brevo HTTPS REST API)
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_CALLBACK_URL=http://localhost:1337/api/connect/google/callback
 BREVO_API_KEY=your_brevo_api_key
+BREVO_WEBHOOK_KEY=your_brevo_webhook_secret_key
 EMAIL_FROM="FitTrack AI <no-reply@fittrack.app>"
+
+# Optional Distributed Rate Limiting (Automatic in-memory fallback if omitted)
+REDIS_URL=redis://default:password@your-redis-host:6379
+
+# Observability
+METRICS_TOKEN=your_secret_metrics_token
 
 CLIENT_URL=http://localhost:5173
 ```
@@ -371,16 +394,23 @@ npm run dev
 All requests requiring authorization must include the header:  
 `Authorization: Bearer <JWT_TOKEN>`
 
-### Authentication & User
+### Authentication & User Management
 | Method | Endpoint | Description | Rate Limit | Access |
 |---|---|---|---|---|
-| `POST` | `/api/auth/local/register` | Register new user account | 5 req / 15m | Public |
+| `POST` | `/api/auth/local/register` | Register new user account with email verification | 5 req / 15m | Public |
 | `POST` | `/api/auth/local` | Authenticate with email & password | 5 req / 15m | Public |
+| `POST` | `/api/auth/google/callback` | Exchange Google OAuth access token for JWT session | — | Public |
+| `POST` | `/api/auth/verify-email` | Confirm account email verification token | 10 req / 15m | Public |
+| `POST` | `/api/auth/resend-verification` | Request fresh email verification link | 3 req / 15m | Public |
 | `GET` | `/api/users/me` | Fetch authenticated profile details | — | Private |
-| `PUT` | `/api/users/:id` | Update profile goals, height, weight | — | Private |
+| `PUT` | `/api/users/:id` | Update profile biometrics, goals, and **username** | — | Private |
+| `POST` | `/api/users/me/password` | Set password (OAuth) or update password (step-up required) | 5 req / 15m | Private |
 | `GET` | `/api/connect/google` | Initiate Google OAuth sign-in | — | Public |
-| `POST` | `/api/password-reset/request` | Request password reset email | 3 req / 1h | Public |
-| `POST` | `/api/password-reset/reset` | Reset password using valid token | 3 req / 1h | Public |
+| `POST` | `/api/password-reset/request` | Request password reset email (Brevo HTTPS, 60s debounce) | 3 req / 1h | Public |
+| `GET` | `/api/password-reset/validate` | Validate password reset token without consuming | 10 req / 15m | Public |
+| `POST` | `/api/password-reset/reset` | Reset password using valid token (5-history protection) | 3 req / 1h | Public |
+| `POST` | `/api/webhooks/email` | Brevo email delivery & bounce webhook receiver | 120 req / 1m | Webhook Key |
+| `GET` | `/metrics` | Prometheus-style application metrics endpoint | — | Token Auth |
 
 ### Nutrition & Food Logging
 | Method | Endpoint | Description | Rate Limit | Access |

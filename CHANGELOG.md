@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [[2.4.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.4.0)] — 2026-10-01
+
+### 🛡️ Email Delivery Resilience & Duplicate Interception (F1–F5)
+- **F1: Synchronous Double-Click Interceptor (`useRef`)**: Added synchronous `inFlightRef` in `ForgotPassword.tsx` to unconditionally intercept rapid duplicate click events before batched React state updates, preventing double submit triggers.
+- **F2: 60-Second Active Token Debouncing**: If an active password reset token was issued within the last 60 seconds, `passwordReset.service.js` skips regenerating tokens and suppresses duplicate email dispatches. Keeps previous active link valid and prevents inbox spam while maintaining uniform anti-enumeration responses.
+- **F3: Retry Hardening & Disconnect Protection**: Brevo REST API dispatch (`sendPasswordResetEmail`) halts immediately on timeout exceptions (`brevo_timeout`) without retry, preventing duplicate sends after remote acceptance.
+- **F4: Distributed Redis Rate Limiting**: Verified atomic multi-command (INCR + TTL) rate limiting with automatic in-memory fallback during network drops.
+- **F5: End-to-End Request ID Tracing**: Integrated `requestId` (`x-request-id`) through controllers, background dispatch workers, and structured security audit logs for 1:1 request traceability.
+
+### 👤 Profile Customization & Username Management
+- **Editable Username**: Enabled users to update their username directly from the Profile page and Edit Profile modal.
+- **Live Validation & Conflict Prevention**: Enforced 3–30 character length constraints and case-insensitive MongoDB collision checks returning `409 Conflict` if taken.
+- **Instant UI Synchronization**: Connected profile updates to React context (`useappcontext`) and storage for instant zero-reload updates.
+- **Zero Vulnerability Audit**: Resolved package audit vulnerabilities; clean 0-vulnerability baseline across client and server.
+
+---
+
 ## [[2.3.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.3.0)] — 2026-10-01
 
 ### 🔐 Unified Dual Sign-In Architecture (Google OAuth + Password)

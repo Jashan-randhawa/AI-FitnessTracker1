@@ -33,8 +33,10 @@ See `.env.example` for the full list with comments. Summary:
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_CALLBACK_URL` | Google sign-in |
 | `NEWS_API_KEY` | Health news headlines |
 | `RAPIDAPI_KEY` | YouTube workout video search |
-| `CLIENT_URL` | Used for CORS and building redirect/reset links |
-| `SMTP_*` / `EMAIL_FROM` | Password reset emails (any standard SMTP provider, e.g. Gmail with an App Password) |
+| `BREVO_API_KEY` / `EMAIL_FROM` | Password reset & security notice emails via Brevo HTTPS REST API (Port 443) |
+| `BREVO_WEBHOOK_KEY` | Optional HMAC key for `/api/webhooks/email` |
+| `REDIS_URL` | Optional Redis URL for distributed rate limiting & token store |
+| `METRICS_TOKEN` | Optional bearer token for Prometheus `/metrics` |
 
 `GOOGLE_CALLBACK_URL` must point at **this server** (e.g.
 `http://localhost:1337/api/connect/google/callback`), and that exact URL
