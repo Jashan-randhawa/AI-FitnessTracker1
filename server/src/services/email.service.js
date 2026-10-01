@@ -65,20 +65,23 @@ const recordFailedEmail = async (to, subject, reason, attempts) => {
 };
 
 /**
- * Sends password-reset email via Google Mail (Gmail SMTP).
- * Falls back to dev logger if not configured, or Brevo mock if in automated tests.
+ * Sends password-reset email via:
+ * 1. Resend API (HTTPS port 443 — works everywhere including Render Free tier)
+ * 2. Brevo API (HTTPS port 443 — works everywhere including Render Free tier)
+ * 3. Google Mail SMTP via Nodemailer (works on local machine or unblocked SMTP environments)
  *
  * @param {{ to: string, resetUrl: string, plainToken: string }} params
  * @returns {Promise<{ sent: boolean, reason?: string, attempts?: number }>}
  */
 const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
   const link = `${resetUrl}?code=${plainToken}`;
-  const transporter = getGmailTransporter();
+  const resendKey = process.env.RESEND_API_KEY;
   const brevoKey = process.env.BREVO_API_KEY;
+  const transporter = getGmailTransporter();
 
-  // If neither Google Mail nor a fallback provider is configured
-  if (!transporter && !brevoKey) {
-    logger.warn('[email] Google Mail (GMAIL_USER / GMAIL_APP_PASSWORD) not configured — skipping email dispatch.');
+  // If no email provider is configured at all
+  if (!transporter && !brevoKey && !resendKey) {
+    logger.warn('[email] No email service configured (set BREVO_API_KEY, RESEND_API_KEY, or GMAIL_USER/GMAIL_APP_PASSWORD).');
     if (process.env.NODE_ENV === 'production') {
       metrics.increment('password_reset_email_dispatches_total', { status: 'failed' });
       metrics.increment('password_reset_email_failures_total', { reason: 'not_configured' });
@@ -98,10 +101,66 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
 
   let lastReason = 'unknown';
 
+  // 1. If an HTTP-based provider (Brevo or Resend) is configured, prioritize it
+  // Cloud providers like Render Free tier block outbound SMTP (ports 25, 465, 587)
+  // but allow HTTPS (port 443) seamlessly.
+  const useHttpApiFirst = Boolean(brevoKey || resendKey);
+
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      if (transporter) {
-        // Send directly via Google Mail
+      if (useHttpApiFirst) {
+        if (resendKey) {
+          // Send via Resend REST API (HTTPS Port 443)
+          const res = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${resendKey}`,
+            },
+            body: JSON.stringify({
+              from: `${sender.name} <${sender.email}>`,
+              to: [to],
+              subject,
+              text,
+              html,
+            }),
+          });
+
+          if (!res.ok) {
+            const errBody = await res.text().catch(() => '');
+            const err = new Error(`Resend HTTP ${res.status}`);
+            err.status = res.status;
+            err.body = errBody;
+            throw err;
+          }
+        } else if (brevoKey) {
+          // Send via Brevo REST API (HTTPS Port 443)
+          const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              'api-key': brevoKey,
+            },
+            body: JSON.stringify({
+              sender: { name: sender.name, email: sender.email },
+              to: [{ email: to }],
+              subject,
+              textContent: text,
+              htmlContent: html,
+            }),
+          });
+
+          if (!res.ok) {
+            const bodyText = typeof res.text === 'function' ? await res.text().catch(() => '') : '';
+            const err = new Error(`Brevo HTTP ${res.status}`);
+            err.status = res.status;
+            err.body = bodyText;
+            throw err;
+          }
+        }
+      } else if (transporter) {
+        // Send via Nodemailer (Google Mail SMTP)
         await transporter.sendMail({
           from: `"${sender.name}" <${sender.email}>`,
           to,
@@ -109,46 +168,22 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
           text,
           html,
         });
-      } else if (brevoKey) {
-        // Fallback for Brevo mock in automated test suite
-        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            'api-key': brevoKey,
-          },
-          body: JSON.stringify({
-            sender,
-            to: [{ email: to }],
-            subject,
-            textContent: text,
-            htmlContent: html,
-          }),
-        });
-
-        if (!res.ok) {
-          const bodyText = typeof res.text === 'function' ? await res.text().catch(() => '') : '';
-          const err = new Error(`Brevo HTTP ${res.status}`);
-          err.status = res.status;
-          err.body = bodyText;
-          throw err;
-        }
       }
 
       const durationSec = (Date.now() - startTime) / 1000;
       metrics.observe('password_reset_email_duration_seconds', {}, durationSec);
       metrics.increment('password_reset_email_dispatches_total', { status: 'sent' });
-      logger.info('[email] Password reset email delivered successfully via Google Mail', {
+      logger.info('[email] Password reset email delivered successfully', {
         to,
+        provider: resendKey ? 'resend' : brevoKey ? 'brevo' : 'google_smtp',
         attempt,
       });
       return { sent: true, attempts: attempt };
     } catch (err) {
       if (err.status) {
-        lastReason = `brevo_${err.status}`;
+        lastReason = brevoKey ? `brevo_${err.status}` : `http_${err.status}`;
         if (err.status >= 400 && err.status < 500 && err.status !== 429) {
-          break;
+          break; // Permanent HTTP 4xx error (e.g. invalid API key) — don't retry
         }
       } else if (err.code === 'EAUTH' || err.responseCode === 535) {
         lastReason = 'smtp_auth_failed';
@@ -156,9 +191,20 @@ const sendPasswordResetEmail = async ({ to, resetUrl, plainToken }) => {
           error: err.message,
         });
         break; // Don't retry invalid password
+      } else if (
+        err.code === 'ENETUNREACH' ||
+        err.code === 'ETIMEDOUT' ||
+        err.message?.includes('timeout') ||
+        err.message?.includes('ENETUNREACH')
+      ) {
+        lastReason = 'smtp_port_blocked';
+        logger.warn('[email] SMTP connection blocked by hosting environment (Render Free plan blocks ports 25/465/587). Please configure BREVO_API_KEY or RESEND_API_KEY to send emails via HTTPS port 443.', {
+          error: err.message,
+        });
+        break; // Don't waste minutes retrying blocked ports
       } else {
         lastReason = 'network_error';
-        logger.warn(`[email] Google Mail delivery exception (attempt ${attempt}/${MAX_RETRIES})`, {
+        logger.warn(`[email] Email delivery exception (attempt ${attempt}/${MAX_RETRIES})`, {
           error: err.message,
         });
       }
