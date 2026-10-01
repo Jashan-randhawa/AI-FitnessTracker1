@@ -24,7 +24,6 @@ import {
 import { useappcontext } from "../Context/AppContext";
 import api from "../configs/api";
 import toast from "react-hot-toast";
-import CollapsiblePlanCard from "../components/animations/CollapsiblePlanCard";
 import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { FITBOT_CONFIG } from "../constants/fitbot";
@@ -104,333 +103,19 @@ const playCompletionChime = () => {
   }
 };
 
-// Helper to identify if a heading represents a structured multi-day/week plan or workout routine
-const isPlanCardHeader = (title: string): boolean => {
-  const clean = title.replace(/[:*#]/g, "").trim();
-  // Only turn substantial workout or meal routines/plans into collapsible cards
-  return /^\s*(?:\d+[- ]*(?:day|week|month)|weekly|daily|full|custom)?\s*(?:workout|meal|exercise|training|nutrition)\s*(?:plan|routine|schedule|breakdown|program)/i.test(clean);
-};
 
-// ── Markdown Parser with Tables & Plan Cards ────────────────
-const RenderMessage = React.memo(({ text }: { text: string; isLatest?: boolean }) => {
-  const lines = text.split("\n");
-  const elements: React.ReactNode[] = [];
-  let listItems: string[] = [];
-  let listType: "ul" | "ol" | null = null;
-  let inPlanCard = false;
-  let planTitle = "";
-  let planLines: React.ReactNode[] = [];
-  let inTable = false;
-  let tableHeaders: string[] = [];
-  let tableRows: string[][] = [];
 
-  const applyInline = (raw: string): React.ReactNode[] => {
-    if (!raw) return [];
+// Note: Message rendering is handled by MarkdownMessage.tsx
 
-    // Tokenize by inline code (`...`), bold with optional trailing colon (**...**:?), italics (*...* or _..._)
-    const tokenRegex = /(`[^`]+`|\*\*[^*]+\*\*:?|\*[^*]+\*)/g;
-    const parts = raw.split(tokenRegex);
 
-    return parts.map((part, i) => {
-      if (!part) return null;
-
-      // Inline Code: `code`
-      if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
-        return (
-          <code
-            key={i}
-            className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/80 font-mono text-xs text-emerald-600 dark:text-emerald-400 border border-slate-200 dark:border-slate-600 mx-0.5"
-          >
-            {part.slice(1, -1)}
-          </code>
-        );
-      }
-
-      // Bold text, e.g. **text** or **text**: or **text:**
-      if (part.startsWith("**")) {
-        const endsWithColon = part.endsWith(":");
-        const cleanEnd = endsWithColon ? part.slice(0, -1) : part;
-
-        if (cleanEnd.endsWith("**") && cleanEnd.length >= 4) {
-          const innerText = cleanEnd.slice(2, -2).trim();
-          const hasColon = endsWithColon || innerText.endsWith(":");
-          const displayText = endsWithColon && !innerText.endsWith(":") ? `${innerText}:` : innerText;
-
-          if (hasColon) {
-            return (
-              <strong
-                key={i}
-                className="font-bold text-emerald-600 dark:text-emerald-400 mr-1.5 inline"
-              >
-                {displayText}
-              </strong>
-            );
-          }
-
-          return (
-            <strong key={i} className="font-bold text-gray-900 dark:text-white inline">
-              {displayText}
-            </strong>
-          );
-        }
-      }
-
-      // Italics: *text*
-      if (part.startsWith("*") && part.endsWith("*") && part.length >= 2 && !part.startsWith("**")) {
-        return (
-          <em key={i} className="italic text-gray-700 dark:text-slate-300">
-            {part.slice(1, -1)}
-          </em>
-        );
-      }
-
-      // Regular text (including the text that appears after **)
-      return (
-        <span key={i} className="text-gray-800 dark:text-slate-200">
-          {part}
-        </span>
-      );
-    });
-  };
-
-  const flushList = (key: string) => {
-    if (!listItems.length) return;
-    const target = inPlanCard ? planLines : elements;
-    if (listType === "ul") {
-      target.push(
-        <ul key={key} className="list-none space-y-2 my-2">
-          {listItems.map((item, i) => (
-            <li key={i} className="flex items-start gap-2.5">
-              <span className="mt-2 shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-2xs" />
-              <span className="flex-1 leading-relaxed text-gray-800 dark:text-slate-200">
-                {applyInline(item)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      );
-    } else {
-      target.push(
-        <ol key={key} className="list-none space-y-2 my-2">
-          {listItems.map((item, i) => (
-            <li key={i} className="flex items-start gap-2.5">
-              <span className="shrink-0 font-bold text-emerald-500 text-xs min-w-[20px] mt-0.5">
-                {i + 1}.
-              </span>
-              <span className="flex-1 leading-relaxed text-gray-800 dark:text-slate-200">
-                {applyInline(item)}
-              </span>
-            </li>
-          ))}
-        </ol>
-      );
-    }
-    listItems = [];
-    listType = null;
-  };
-
-  const flushTable = (key: string) => {
-    if (!inTable || tableHeaders.length === 0) {
-      inTable = false;
-      tableHeaders = [];
-      tableRows = [];
-      return;
-    }
-    const target = inPlanCard ? planLines : elements;
-    target.push(
-      <div key={key} className="overflow-x-auto my-2.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs -mx-0.5 sm:mx-0 [webkit-overflow-scrolling:touch]">
-        <table className="w-full text-[11px] sm:text-xs text-left border-collapse min-w-full">
-          <thead className="bg-slate-100/90 dark:bg-slate-700/60 text-slate-800 dark:text-slate-200 font-semibold">
-            <tr>
-              {tableHeaders.map((header, hIdx) => (
-                <th key={hIdx} className="px-2.5 py-1.5 sm:px-3 sm:py-2 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap sm:whitespace-normal">
-                  {applyInline(header)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-            {tableRows.map((row, rIdx) => (
-              <tr key={rIdx} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                {row.map((cell, cIdx) => (
-                  <td key={cIdx} className="px-2.5 py-1.5 sm:px-3 sm:py-2 text-slate-700 dark:text-slate-300">
-                    {applyInline(cell)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-    inTable = false;
-    tableHeaders = [];
-    tableRows = [];
-  };
-
-  const flushPlanCard = (key: string) => {
-    flushList(`plan-inner-list-${key}`);
-    flushTable(`plan-inner-tbl-${key}`);
-    if (inPlanCard && planLines.length > 0) {
-      elements.push(
-        <CollapsiblePlanCard key={key} title={planTitle || "Suggested Plan"} defaultOpen={true}>
-          <div className="space-y-1.5 text-xs sm:text-sm text-gray-800 dark:text-slate-200">
-            {planLines}
-          </div>
-        </CollapsiblePlanCard>
-      );
-      planLines = [];
-      inPlanCard = false;
-      planTitle = "";
-    }
-  };
-
-  lines.forEach((line, idx) => {
-    const trimmed = line.trim();
-
-    // Check for markdown table row: e.g. "| Day | Workout | Sets |"
-    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
-      flushList(`tbl-list-${idx}`);
-      const rawCols = trimmed
-        .slice(1, -1)
-        .split("|")
-        .map((c) => c.trim());
-
-      // Check if this is separator row like "|---|---|---|"
-      const isSeparator = rawCols.every((col) => /^:?-+:?$/.test(col));
-      if (isSeparator) {
-        inTable = true;
-        return;
-      }
-
-      if (!inTable && tableHeaders.length === 0) {
-        tableHeaders = rawCols;
-        inTable = true;
-      } else {
-        tableRows.push(rawCols);
-      }
-      return;
-    } else {
-      flushTable(`table-end-${idx}`);
-    }
-
-    // Check for H1, H2, H3 or standalone bold headers
-    const h1Match = trimmed.match(/^#\s+(.+)/);
-    const h2Match = trimmed.match(/^##\s+(.+)/);
-    const h3Match = trimmed.match(/^###\s+(.+)/);
-    const boldHeaderMatch = trimmed.match(/^\*\*([^*]+)\*\*$/);
-
-    if (h1Match) {
-      flushList(`list-h1-${idx}`);
-      flushTable(`tbl-h1-${idx}`);
-      flushPlanCard(`plan-h1-${idx}`);
-      elements.push(
-        <h1 key={`h1-${idx}`} className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mt-3 mb-1.5 pb-1 border-b border-slate-200 dark:border-slate-700">
-          {applyInline(h1Match[1])}
-        </h1>
-      );
-      return;
-    }
-
-    if (h2Match) {
-      flushList(`list-h2-${idx}`);
-      flushTable(`tbl-h2-${idx}`);
-      flushPlanCard(`plan-h2-${idx}`);
-      elements.push(
-        <h2 key={`h2-${idx}`} className="text-sm sm:text-base font-bold text-gray-900 dark:text-white mt-3 mb-1.5">
-          {applyInline(h2Match[1])}
-        </h2>
-      );
-      return;
-    }
-
-    if (h3Match || boldHeaderMatch) {
-      const headerText = h3Match ? h3Match[1] : boldHeaderMatch![1];
-      if (isPlanCardHeader(headerText)) {
-        flushList(`list-pre-${idx}`);
-        flushTable(`tbl-pre-${idx}`);
-        flushPlanCard(`plan-pre-${idx}`);
-        inPlanCard = true;
-        planTitle = headerText.replace(/[:*]/g, "").trim();
-        return;
-      } else {
-        flushList(`list-h3-${idx}`);
-        flushTable(`tbl-h3-${idx}`);
-        flushPlanCard(`plan-h3-${idx}`);
-        elements.push(
-          <div key={`h3-${idx}`} className="mt-3 mb-1.5 flex items-center gap-1.5">
-            <span className="w-1.5 h-3.5 rounded-full bg-emerald-500 shrink-0" />
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white">
-              {applyInline(headerText)}
-            </h3>
-          </div>
-        );
-        return;
-      }
-    }
-
-    // Check for blockquotes: e.g. "> Tip: Drink plenty of water"
-    if (trimmed.startsWith(">")) {
-      flushList(`quote-list-${idx}`);
-      flushTable(`quote-tbl-${idx}`);
-      const quoteText = trimmed.replace(/^>\s*/, "");
-      const quoteNode = (
-        <blockquote
-          key={`quote-${idx}`}
-          className="my-2 pl-3 border-l-2 border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 py-1.5 text-xs sm:text-sm text-emerald-900 dark:text-emerald-200 rounded-r-lg"
-        >
-          {applyInline(quoteText)}
-        </blockquote>
-      );
-      if (inPlanCard) planLines.push(quoteNode);
-      else elements.push(quoteNode);
-      return;
-    }
-
-    const bulletMatch = trimmed.match(/^[-•*]\s+(.+)/);
-    const numberedMatch = trimmed.match(/^\d+\.\s+(.+)/);
-
-    if (bulletMatch) {
-      if (listType === "ol") flushList(`flush-ol-${idx}`);
-      listType = "ul";
-      listItems.push(bulletMatch[1]);
-    } else if (numberedMatch) {
-      if (listType === "ul") flushList(`flush-ul-${idx}`);
-      listType = "ol";
-      listItems.push(numberedMatch[1]);
-    } else {
-      flushList(`flush-${idx}`);
-      if (trimmed) {
-        const paragraphNode = (
-          <p key={idx} className="my-1.5 leading-relaxed text-gray-800 dark:text-slate-200">
-            {applyInline(trimmed)}
-          </p>
-        );
-        if (inPlanCard) {
-          planLines.push(paragraphNode);
-        } else {
-          elements.push(paragraphNode);
-        }
-      }
-    }
-  });
-
-  flushList("final-list");
-  flushTable("final-table");
-  flushPlanCard("final-plan");
-
-  return <div className="text-sm leading-relaxed space-y-1">{elements}</div>;
-});
-
-RenderMessage.displayName = "RenderMessage";
 
 // ── Memoized Chat Message Item ─────────────────────────────
 interface ChatMessageItemProps {
   msg: Message;
   isLast: boolean;
   isLoading: boolean;
-  copiedId: string | null;
-  speakingId: string | null;
+  isCopied: boolean;
+  isSpeaking: boolean;
   onCopy: (id: string, text: string) => void;
   onRegenerate: () => void;
   onSpeakToggle: (id: string, text: string) => void;
@@ -441,15 +126,14 @@ const ChatMessageItem = React.memo(({
   msg,
   isLast,
   isLoading,
-  copiedId,
-  speakingId,
+  isCopied,
+  isSpeaking,
   onCopy,
   onRegenerate,
   onSpeakToggle,
   onRetry,
 }: ChatMessageItemProps) => {
   const isAssistant = msg.role === "assistant";
-  const isSpeakingThis = speakingId === msg.id;
 
   if (isAssistant) {
     return (
@@ -459,7 +143,7 @@ const ChatMessageItem = React.memo(({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="flex gap-2.5 sm:gap-3.5 items-start w-full group py-1"
+        className="flex gap-2.5 sm:gap-3.5 items-start w-full group py-1 transform-gpu"
       >
         <FitBotAvatar
           size="sm"
@@ -479,7 +163,7 @@ const ChatMessageItem = React.memo(({
             <span className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500">
               {formatTime(msg.timestamp)}
             </span>
-            {isSpeakingThis && (
+            {isSpeaking && (
               <span className="flex items-center gap-1 text-[11px] text-emerald-500 font-medium animate-pulse">
                 <Volume2 className="w-3 h-3 shrink-0" />
                 <span>Speaking…</span>
@@ -515,7 +199,7 @@ const ChatMessageItem = React.memo(({
                 aria-label="Copy response"
                 title="Copy response"
               >
-                {copiedId === msg.id ? (
+                {isCopied ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-500" />
                     <span className="text-[11px] text-emerald-500">Copied</span>
@@ -531,15 +215,15 @@ const ChatMessageItem = React.memo(({
               <button
                 onClick={() => onSpeakToggle(msg.id, msg.text)}
                 className={`inline-flex items-center gap-1 px-2 py-1 rounded-md transition-all cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                  isSpeakingThis
+                  isSpeaking
                     ? "bg-emerald-500/15 text-emerald-500 font-medium"
                     : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
                 }`}
-                aria-label={isSpeakingThis ? "Stop speaking" : "Listen (Read aloud)"}
-                title={isSpeakingThis ? "Stop speaking" : "Listen (Read aloud)"}
+                aria-label={isSpeaking ? "Stop speaking" : "Listen (Read aloud)"}
+                title={isSpeaking ? "Stop speaking" : "Listen (Read aloud)"}
               >
-                {isSpeakingThis ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                <span className="text-[11px]">{isSpeakingThis ? "Stop" : "Listen"}</span>
+                {isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                <span className="text-[11px]">{isSpeaking ? "Stop" : "Listen"}</span>
               </button>
 
               {isLast && !isLoading && (
@@ -568,7 +252,7 @@ const ChatMessageItem = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="flex gap-2 sm:gap-3 flex-row-reverse items-end w-full group py-1"
+      className="flex gap-2 sm:gap-3 flex-row-reverse items-end w-full group py-1 transform-gpu"
     >
       <div className="shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-white shadow-xs bg-emerald-500 mb-1">
         <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -584,7 +268,7 @@ const ChatMessageItem = React.memo(({
             aria-label="Copy user message"
             title="Copy"
           >
-            {copiedId === msg.id ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3" />}
+            {isCopied ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3" />}
           </button>
         </div>
       </div>
@@ -866,14 +550,22 @@ export default function AIAssistant() {
     }
   }, []);
 
+    const scrollTickingRef = useRef(false);
+
   const handleScroll = useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const { scrollTop, scrollHeight, clientHeight } = el;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    const isNear = distanceFromBottom <= 120;
-    isNearBottomRef.current = isNear;
-    setShowScrollBottom(!isNear);
+    if (scrollTickingRef.current) return;
+    scrollTickingRef.current = true;
+    requestAnimationFrame(() => {
+      const el = scrollContainerRef.current;
+      if (el) {
+        const { scrollTop, scrollHeight, clientHeight } = el;
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+        const isNear = distanceFromBottom <= 120;
+        isNearBottomRef.current = isNear;
+        setShowScrollBottom((prev) => (prev !== !isNear ? !isNear : prev));
+      }
+      scrollTickingRef.current = false;
+    });
   }, []);
 
   useEffect(() => {
@@ -1535,7 +1227,7 @@ export default function AIAssistant() {
         role="log"
         aria-live="polite"
         aria-label="FitBot conversation history"
-        className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 overscroll-contain no-scrollbar relative"
+        className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 no-scrollbar relative transform-gpu [will-change:scroll-position]"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
@@ -1578,8 +1270,8 @@ export default function AIAssistant() {
                   msg={msg}
                   isLast={isLast}
                   isLoading={isLoading}
-                  copiedId={copiedId}
-                  speakingId={speakingId}
+                  isCopied={copiedId === msg.id}
+                  isSpeaking={speakingId === msg.id}
                   onCopy={handleCopy}
                   onRegenerate={regenerateLastMessage}
                   onSpeakToggle={toggleSpeakMessage}

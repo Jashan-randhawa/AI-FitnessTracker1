@@ -21,10 +21,8 @@ export const CollapsiblePlanCard = ({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <motion.div
-      layout
-      transition={{ layout: { duration: 0.32, ease: [0.16, 1, 0.3, 1] } }}
-      className="my-3 rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/80 overflow-hidden shadow-sm"
+    <div
+      className="my-3 rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/80 overflow-hidden shadow-sm transition-shadow"
     >
       <button
         type="button"
@@ -94,7 +92,7 @@ export const CollapsiblePlanCard = ({
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 };
 

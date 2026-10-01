@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check, Copy } from "lucide-react";
@@ -304,7 +304,7 @@ const parsePlanSegments = (markdown: string): TextSegment[] => {
  */
 export const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
   ({ content, className = "" }) => {
-    const segments = parsePlanSegments(content);
+    const segments = useMemo(() => parsePlanSegments(content), [content]);
 
     return (
       <div className={`markdown-message max-w-prose space-y-2 text-ink dark:text-slate-100 ${className}`}>
