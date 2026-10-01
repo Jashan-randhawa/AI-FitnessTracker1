@@ -18,7 +18,9 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, process.env.N
 
 const getSenderFromEnv = () => {
   const fallbackEmail = process.env.GMAIL_USER || 'jashanpreetsinghrandhawa65@gmail.com';
-  const raw = process.env.EMAIL_FROM || `"AI Fitness Tracker" <${fallbackEmail}>`;
+  let raw = process.env.EMAIL_FROM || `"AI Fitness Tracker" <${fallbackEmail}>`;
+  // Auto-correct typo if eandhawa was entered instead of verified sender randhawa
+  raw = raw.replace('eandhawa', 'randhawa');
   const match = raw.match(/^"?([^"<]*)"?\s*<(.+)>$/);
   if (match) return { name: match[1].trim() || 'AI Fitness Tracker', email: match[2].trim() };
   return { name: 'AI Fitness Tracker', email: raw.trim() };
