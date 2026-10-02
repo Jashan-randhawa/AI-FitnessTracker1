@@ -112,16 +112,33 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  const fetchUser = async (token: string) => {
+  const fetchUser = async (token: string, retries = 2) => {
     try {
       const { data } = await api.get("/api/users/me", { headers: { Authorization: `Bearer ${token}` } });
       setUser({ ...data, token });
       if (data?.age && data?.weight && data?.goal) setOnboardingCompleted(true);
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      setIsUserFetched(true);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to fetch user.");
+      const status = error.response?.status;
+      // If token is genuinely invalid, expired, or revoked (401/403), scrub token and show login
+      if (status === 401 || status === 403) {
+        localStorage.removeItem("token");
+        setUser(null);
+        setIsUserFetched(true);
+        return;
+      }
+
+      // If backend is waking up or cold-starting (timeout / 502 / 503 / 504 / network error), retry
+      if (retries > 0) {
+        await new Promise((res) => setTimeout(res, 2000));
+        return fetchUser(token, retries - 1);
+      }
+
+      // Only alert if exhausted
+      toast.error(error.response?.data?.message || "Server is waking up, please wait a moment...");
+      setIsUserFetched(true);
     }
-    setIsUserFetched(true);
   };
 
   const fetchFoodLogs = async (token: string) => {
@@ -175,7 +192,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      Promise.all([fetchUser(token), fetchFoodLogs(token), fetchActivityLogs(token), fetchWaterLogs(token)]);
+      fetchUser(token).then(() => {
+        // Fetch supplemental logs in background once session is confirmed
+        fetchFoodLogs(token);
+        fetchActivityLogs(token);
+        fetchWaterLogs(token);
+      });
+    } else {
+      setIsUserFetched(true);
     }
   }, []);
 
