@@ -1,16 +1,30 @@
 const mongoose = require('mongoose');
 const toJSONPlugin = require('../utils/toJSONPlugin');
 
+const exerciseSetSchema = new mongoose.Schema(
+  {
+    setNumber: Number,
+    weight: Number,
+    reps: Number,
+    completed: { type: Boolean, default: false },
+    rpe: Number,
+  },
+  { _id: false }
+);
+
+const loggedExerciseSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    sets: [exerciseSetSchema],
+  },
+  { _id: false }
+);
+
 const activityLogSchema = new mongoose.Schema(
   {
     name: String,
     duration: Number,
     calories: Number,
-    // The original Strapi schema never declared this field, even though its
-    // controller tried to set it — Strapi silently dropped it on save, so
-    // logs only ever had `createdAt` to sort/filter by. Declaring it here
-    // for real fixes that silent data loss with zero behavior change for
-    // the client (it already falls back to `createdAt` when absent).
     date: {
       type: Date,
       default: Date.now,
@@ -21,6 +35,32 @@ const activityLogSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    // Additive extensions for workout session and planner tracking
+    type: {
+      type: String,
+      enum: ['cardio', 'strength', 'hiit', 'yoga', 'mobility', 'general'],
+      default: 'general',
+    },
+    intensity: {
+      type: String,
+      enum: ['low', 'medium', 'high'],
+      default: 'medium',
+    },
+    source: {
+      type: String,
+      enum: ['manual', 'planner', 'live-session', 'quick-log'],
+      default: 'manual',
+    },
+    planId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'WorkoutPlan',
+      default: null,
+    },
+    planDay: {
+      type: String,
+      default: null,
+    },
+    exercises: [loggedExerciseSchema],
   },
   { timestamps: true }
 );

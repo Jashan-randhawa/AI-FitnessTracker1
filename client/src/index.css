@@ -189,6 +189,10 @@ body {
   @apply bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-6 pt-12 transition-colors duration-200;
 }
 
+:root {
+  --nav-h: 3.75rem;
+}
+
 .layout-container {
   @apply min-h-screen flex flex-col lg:flex-row lg:h-screen lg:max-h-screen bg-white dark:bg-slate-950 transition-colors duration-200 overflow-x-hidden;
 }
@@ -197,9 +201,19 @@ body {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
+.page-pad-bottom {
+  padding-bottom: calc(var(--nav-h) + max(0.5rem, env(safe-area-inset-bottom, 0px)) + 1rem);
+}
+
+@media (min-width: 1024px) {
+  .page-pad-bottom {
+    padding-bottom: 0;
+  }
+}
+
 .chat-main-container {
   @apply flex-1 min-w-0 flex flex-col overflow-hidden;
-  margin-bottom: calc(3.75rem + max(0.5rem, env(safe-area-inset-bottom, 0px)));
+  margin-bottom: calc(var(--nav-h) + max(0.5rem, env(safe-area-inset-bottom, 0px)));
 }
 
 @media (min-width: 1024px) {
@@ -758,6 +772,13 @@ body {
   .page-header-blog,
   .page-header-profile {
     animation: none !important;
+  }
+  .wo-root *,
+  .wo-root *::before,
+  .wo-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

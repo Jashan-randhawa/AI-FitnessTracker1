@@ -39,6 +39,20 @@ export type ActivityEntry = {
   calories?: number;
   caloriesBurned?: number;
   date: string;
+  intensity?: "low" | "medium" | "high";
+  source?: "manual" | "planner" | "live-session" | "quick-log";
+  planId?: string | null;
+  planDay?: string | null;
+  exercises?: Array<{
+    name: string;
+    sets: Array<{
+      setNumber: number;
+      weight: number;
+      reps: number;
+      completed: boolean;
+      rpe?: number;
+    }>;
+  }>;
 };
 
 // ── Water Log entry ──

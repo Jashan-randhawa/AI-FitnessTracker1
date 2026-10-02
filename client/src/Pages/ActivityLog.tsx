@@ -346,7 +346,7 @@ export default function ActivityLog() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200 pb-60">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200">
 
       {/* ── Header ── */}
       <div className="page-header-activity">

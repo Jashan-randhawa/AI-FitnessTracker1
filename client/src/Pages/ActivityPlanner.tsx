@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import api from "../configs/api";
 import { useappcontext } from "../Context/AppContext";
@@ -86,6 +86,53 @@ export default function ActivityPlanner() {
 
   const calorieBurnTarget = user?.dailycaloriesburned ?? 400;
 
+  // Load active plan from database on mount
+  useEffect(() => {
+    let isSubscribed = true;
+    api
+      .get("/api/workout-plans/active")
+      .then((res) => {
+        if (!isSubscribed) return;
+        const activePlan = res.data?.plan;
+        if (activePlan && Array.isArray(activePlan.days) && activePlan.days.length > 0) {
+          const reconstructed: ActivityDayPlan[] = activePlan.days.map((d: any) => {
+            const rawActs: any[] = Array.isArray(d.exercises) ? d.exercises : [];
+            const activities: PlannedActivity[] = rawActs.map((a: any) => ({
+              name: a.name || "Workout",
+              type: a.type || "custom",
+              duration: typeof a.duration === "number" ? a.duration : parseInt(String(a.duration || 30), 10) || 30,
+              caloriesBurned: a.caloriesBurned || 150,
+              intensity: a.intensity || "medium",
+              targetMuscles: a.targetMuscles || ["full body"],
+              notes: a.notes || "",
+              warmup: a.warmup,
+              cooldown: a.cooldown,
+            }));
+            const dur = activities.reduce((acc, a) => acc + (a.duration || 0), 0);
+            const cals = activities.reduce((acc, a) => acc + (a.caloriesBurned || 0), 0);
+            return {
+              day: d.day || "Day",
+              activities,
+              totalDuration: dur,
+              totalCaloriesBurned: cals,
+              recoveryFocus: d.focus || "Recovery & hydration",
+            };
+          });
+          setPlan(reconstructed);
+          if (activePlan.daysPerWeek) setDays(activePlan.daysPerWeek);
+          if (activePlan.split) setFocus(activePlan.split);
+          if (activePlan.level) setLevel(activePlan.level);
+        }
+      })
+      .catch(() => {
+        // Fallback silently if no active plan
+      });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, []);
+
   const generatePlan = async () => {
     setLoading(true);
     setPlan([]);
@@ -148,6 +195,24 @@ Requirements:
       if (!data.reply) throw new Error("Empty AI response received.");
       const parsed = planFromReply(data.reply);
       setPlan(parsed);
+
+      // Persist plan to server for cross-device & reload durability
+      api.post("/api/workout-plans", {
+        plan: {
+          title: `${focus} ${days}-Day Plan`,
+          goal: user?.goal || "maintain",
+          level,
+          daysPerWeek: days,
+          split: focus,
+          days: parsed.map((d) => ({
+            day: d.day,
+            focus: d.recoveryFocus,
+            duration: `${d.totalDuration} min`,
+            exercises: d.activities,
+          })),
+        },
+      }).catch((e) => console.warn("Failed to auto-save workout plan:", e));
+
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to generate activity plan. Please try again.";
       toast.error(msg);
@@ -158,7 +223,6 @@ Requirements:
 
   const logActivity = async (activity: PlannedActivity, dayIndex: number, activityIndex: number) => {
     const key = `${dayIndex}-${activityIndex}`;
-    const token = localStorage.getItem("token");
     setLoggedActivities((prev) => new Set([...prev, key]));
     try {
       const { data: raw } = await api.post("/api/activitylogs", {
@@ -166,9 +230,12 @@ Requirements:
           name: activity.name,
           duration: activity.duration,
           caloriesBurned: activity.caloriesBurned,
+          type: activity.type || "custom",
+          intensity: activity.intensity || "medium",
+          source: "planner",
           date: new Date().toISOString(),
         },
-      }, { headers: { Authorization: `Bearer ${token}` } });
+      });
 
       const entry = normalizeActivityEntry(raw);
       if (!entry) throw new Error("Invalid activity response");
@@ -188,22 +255,28 @@ Requirements:
   };
 
   const logAllActivitiesForDay = async (dayPlan: ActivityDayPlan, dayIndex: number) => {
-    const token = localStorage.getItem("token");
     let count = 0;
+    let failed = 0;
     for (let i = 0; i < dayPlan.activities.length; i++) {
       const key = `${dayIndex}-${i}`;
       if (loggedActivities.has(key)) continue;
       const activity = dayPlan.activities[i];
       setLoggedActivities((prev) => new Set([...prev, key]));
       try {
-        const { data: raw } = await api.post("/api/activitylogs", {
-          data: {
-            name: activity.name,
-            duration: activity.duration,
-            caloriesBurned: activity.caloriesBurned,
-            date: new Date().toISOString(),
-          },
-        }, { headers: { Authorization: `Bearer ${token}` } });
+        const { data: raw } = await api.post(
+          "/api/activitylogs",
+          {
+            data: {
+              name: activity.name,
+              duration: activity.duration,
+              caloriesBurned: activity.caloriesBurned,
+              type: activity.type || "custom",
+              intensity: activity.intensity || "medium",
+              source: "planner",
+              date: new Date().toISOString(),
+            },
+          }
+        );
         const entry = normalizeActivityEntry(raw);
         if (!entry) continue;
         setAllActivityLogs((prev: ActivityEntry[]) => {
@@ -212,10 +285,23 @@ Requirements:
         });
         count++;
       } catch {
-        // Skip and continue logging remaining items.
+        setLoggedActivities((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+        failed++;
       }
     }
-    toast.success(`${count} activities logged for ${dayPlan.day}!`);
+    if (failed > 0) {
+      toast.error(
+        `${count} activities logged, ${failed} failed. Tap to retry.`
+      );
+    } else if (count > 0) {
+      toast.success(`${count} activities logged for ${dayPlan.day}!`);
+    } else {
+      toast("All activities for this day were already logged.");
+    }
   };
 
   const currentDay = plan[activeDay];

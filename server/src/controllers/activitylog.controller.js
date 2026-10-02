@@ -2,9 +2,10 @@ const asyncHandler = require('express-async-handler');
 const ActivityLog = require('../models/ActivityLog');
 const sendError = require('../utils/sendError');
 
-// POST /api/activitylogs — body: { data: { name, duration, caloriesBurned, date } }
+// POST /api/activitylogs — body: { data: { ... } } or flat { ... }
 const create = asyncHandler(async (req, res) => {
-  const body = { ...(req.body.data || {}) };
+  const raw = req.body.data || req.body || {};
+  const body = { ...raw };
 
   // Original controller normalized `caloriesBurned` (client field name) to
   // `calories` (schema field name) — the client still sends caloriesBurned.

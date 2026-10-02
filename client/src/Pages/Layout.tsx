@@ -22,7 +22,7 @@ const Layout = () => {
         className={`${
           isChat
             ? "flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden"
-            : "flex-1 min-w-0 overflow-y-auto pb-18 lg:pb-0"
+            : "flex-1 min-w-0 overflow-y-auto page-pad-bottom"
         } no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
       >
         <Outlet />

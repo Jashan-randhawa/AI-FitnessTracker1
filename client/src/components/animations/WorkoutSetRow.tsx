@@ -7,6 +7,7 @@ export interface SetData {
   reps: number;
   weight: number;
   completed: boolean;
+  rpe?: number;
 }
 
 interface WorkoutSetRowProps {
@@ -33,19 +34,31 @@ export const WorkoutSetRow = ({
     onToggleComplete(set.id, nextState);
   };
 
+  const adjustWeight = (delta: number) => {
+    if (!onUpdate || set.completed) return;
+    const next = Math.max(0, Math.round((set.weight + delta) * 10) / 10);
+    onUpdate(set.id, { weight: next });
+  };
+
+  const adjustReps = (delta: number) => {
+    if (!onUpdate || set.completed) return;
+    const next = Math.max(1, set.reps + delta);
+    onUpdate(set.id, { reps: next });
+  };
+
   return (
     <motion.div
       layout
       animate={
         justToggled
-          ? { scale: [1, 1.04, 1] }
+          ? { scale: [1, 1.03, 1] }
           : { scale: 1 }
       }
       transition={{ duration: 0.28, ease: "easeOut" }}
-      className={`relative flex items-center justify-between px-3.5 py-2.5 rounded-xl border transition-colors duration-500 ${
+      className={`relative flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 p-3 sm:px-4 sm:py-3 rounded-2xl border transition-colors duration-300 ${
         set.completed
-          ? "bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/30 text-emerald-950 dark:text-emerald-100"
-          : "bg-white dark:bg-slate-800/70 border-slate-200 dark:border-slate-700/50 text-gray-900 dark:text-white hover:border-slate-300 dark:hover:border-slate-600"
+          ? "bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/35 text-emerald-950 dark:text-emerald-100"
+          : "bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/60 text-gray-900 dark:text-white hover:border-slate-300 dark:hover:border-slate-600 shadow-sm"
       }`}
     >
       {/* Row Flash Overlay */}
@@ -54,78 +67,119 @@ export const WorkoutSetRow = ({
           initial={{ opacity: 0.6 }}
           animate={{ opacity: 0 }}
           transition={{ duration: 0.65, ease: "easeOut" }}
-          className="absolute inset-0 bg-emerald-400/25 pointer-events-none rounded-xl"
+          className="absolute inset-0 bg-emerald-400/20 pointer-events-none rounded-2xl"
         />
       )}
 
-      {/* Set Number Badge */}
-      <div className="flex items-center gap-3">
+      {/* Set Number & Spec Inputs */}
+      <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
         <span
-          className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center transition-colors ${
+          className={`w-7 h-7 rounded-xl text-xs font-black flex items-center justify-center transition-colors shrink-0 ${
             set.completed
               ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/30"
-              : "bg-slate-100 dark:bg-slate-700 text-gray-500 dark:text-slate-300"
+              : "bg-slate-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300"
           }`}
         >
           {set.setNumber}
         </span>
 
-        {/* Inputs / Specs */}
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          {onUpdate ? (
-            <>
-              <input
-                type="number"
-                value={set.weight}
-                onChange={(e) => onUpdate(set.id, { weight: Number(e.target.value) || 0 })}
-                disabled={set.completed}
-                className="w-14 px-2 py-1 text-center text-sm font-bold bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:border-emerald-500"
-              />
-              <span className="text-xs text-gray-400 font-normal">kg ×</span>
-              <input
-                type="number"
-                value={set.reps}
-                onChange={(e) => onUpdate(set.id, { reps: Number(e.target.value) || 0 })}
-                disabled={set.completed}
-                className="w-12 px-2 py-1 text-center text-sm font-bold bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:border-emerald-500"
-              />
-              <span className="text-xs text-gray-400 font-normal">reps</span>
-            </>
-          ) : (
-            <span>
-              {set.weight} kg × {set.reps} reps
-            </span>
+        {/* Weight Stepper */}
+        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60">
+          {onUpdate && !set.completed && (
+            <button
+              type="button"
+              onClick={() => adjustWeight(-2.5)}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold transition-colors cursor-pointer select-none"
+              title="-2.5 kg"
+            >
+              -
+            </button>
+          )}
+          <input
+            type="number"
+            step="0.5"
+            value={set.weight}
+            onChange={(e) => onUpdate && onUpdate(set.id, { weight: Number(e.target.value) || 0 })}
+            disabled={set.completed}
+            className="w-12 text-center text-xs sm:text-sm font-bold bg-transparent border-0 focus:outline-none"
+          />
+          <span className="text-[10px] sm:text-xs text-slate-400 font-medium pr-1">kg</span>
+          {onUpdate && !set.completed && (
+            <button
+              type="button"
+              onClick={() => adjustWeight(2.5)}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold transition-colors cursor-pointer select-none"
+              title="+2.5 kg"
+            >
+              +
+            </button>
+          )}
+        </div>
+
+        <span className="text-slate-400 font-bold text-xs select-none">×</span>
+
+        {/* Reps Stepper */}
+        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60">
+          {onUpdate && !set.completed && (
+            <button
+              type="button"
+              onClick={() => adjustReps(-1)}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold transition-colors cursor-pointer select-none"
+              title="-1 rep"
+            >
+              -
+            </button>
+          )}
+          <input
+            type="number"
+            value={set.reps}
+            onChange={(e) => onUpdate && onUpdate(set.id, { reps: Number(e.target.value) || 0 })}
+            disabled={set.completed}
+            className="w-10 text-center text-xs sm:text-sm font-bold bg-transparent border-0 focus:outline-none"
+          />
+          <span className="text-[10px] sm:text-xs text-slate-400 font-medium pr-1">reps</span>
+          {onUpdate && !set.completed && (
+            <button
+              type="button"
+              onClick={() => adjustReps(1)}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold transition-colors cursor-pointer select-none"
+              title="+1 rep"
+            >
+              +
+            </button>
           )}
         </div>
       </div>
 
-      {/* Action Buttons: Checkmark & Delete */}
-      <div className="flex items-center gap-2">
-        {onDelete && (
+      {/* Action Buttons: Delete & 44px Checkmark */}
+      <div className="flex items-center gap-2 ml-auto">
+        {onDelete && !set.completed && (
           <button
             type="button"
             onClick={() => onDelete(set.id)}
-            className="w-7 h-7 rounded-lg text-gray-300 dark:text-slate-600 hover:text-rose-500 hover:bg-rose-500/10 transition-colors flex items-center justify-center cursor-pointer text-xs"
+            className="min-w-[36px] min-h-[36px] sm:w-8 sm:h-8 rounded-xl text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors flex items-center justify-center cursor-pointer text-xs"
             title="Delete set"
+            aria-label="Delete set"
           >
             ✕
           </button>
         )}
 
-        {/* Tactile Animated SVG Checkmark */}
+        {/* 44px Tactile Animated SVG Checkmark */}
         <motion.button
           type="button"
-          whileTap={{ scale: 0.86 }}
+          whileTap={{ scale: 0.88 }}
           onClick={handleToggle}
-          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 cursor-pointer ${
+          aria-label={set.completed ? "Mark set incomplete" : "Complete set"}
+          className={`min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 cursor-pointer ${
             set.completed
               ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
-              : "border-2 border-slate-300 dark:border-slate-600 hover:border-emerald-400 text-transparent bg-slate-50/50 dark:bg-slate-800/40"
+              : "border-2 border-slate-300 dark:border-slate-600 hover:border-emerald-500 text-transparent bg-slate-50/50 dark:bg-slate-800/40"
           }`}
         >
           <svg
-            width="16"
-            height="16"
+            width="20"
+            height="20"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
