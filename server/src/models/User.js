@@ -47,7 +47,6 @@ const userSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
       index: true,
-      select: false,
     },
     hasPassword: {
       type: Boolean,
