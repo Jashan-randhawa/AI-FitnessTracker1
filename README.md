@@ -14,7 +14,7 @@
 [![Express](https://img.shields.io/badge/Express-4.19-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E=20.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tests](https://img.shields.io/badge/Unit_Tests-134_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
+[![Tests](https://img.shields.io/badge/Unit_Tests-139_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
 [![Audit](https://img.shields.io/badge/Vulnerabilities-0-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://ai-fitness-tracker1.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
@@ -125,9 +125,10 @@ npm install @jashan-randhawa/fitness-utils
 
 ### 🔐 5. Security & Authentication Hardening
 - **Unified Dual Sign-In Architecture (Google OAuth + Password):** Allows users to seamlessly authenticate with Google OAuth, standard password credentials, or both on a single shared account. Features a 6-case automated linking matrix, squat account protection, and cross-provider security alerts.
+- **Resilient Google OAuth Callback Handling:** Frontend `GoogleCallback` utilizes a single-execution `useRef` lifecycle guard to eliminate duplicate OAuth code exchange triggers, timing-safe fragment scrubbing before React state changes, explicit URL parameter error code mapping (`access_denied`, `google_state_invalid`, `oauth_failed`), and an interactive fallback retry screen.
 - **Session Safety & Instant Revocation:** Tokens are verified against `user.passwordChangedAt` on every protected request, immediately invalidating active JWTs across devices upon password change or reset. Step-up authentication (`requireRecentLogin`) enforces a 15-minute window for password changes.
 - **Unified Password Policy & History Prevention:** Enforces 8+ character passwords with uppercase, numbers, and special characters. Maintains a rolling 5-password history hash to strictly block password reuse.
-- **Signup Email Verification:** Built-in cryptographic verification tokens with 24-hour expiration, anti-enumeration endpoints, and dedicated verification screens.
+- **Signup & Profile Email Verification:** Built-in cryptographic verification tokens with 24-hour expiration, anti-enumeration endpoints, 60-second rate-limited resend debouncing with live UI countdown timer, unverified account warning banners, and dedicated verification screens.
 - **Brevo HTTPS Transactional Email with 5-Layer Resilience (F1–F5):**
   - **F1 (Double-Click Interceptor):** Synchronous `inFlightRef` guard blocks duplicate API triggers before React state updates.
   - **F2 (60s Token Debouncing):** Suppresses duplicate dispatches within 60s cooldown, keeping the existing reset link valid.
@@ -140,6 +141,7 @@ npm install @jashan-randhawa/fitness-utils
 
 ### 👤 6. Profile Customization & Data Management
 - **Editable Username:** Users can update their username directly from the Profile card with live validation (3–30 characters) and case-insensitive conflict prevention.
+- **Unified Sign-in Methods Card:** Symmetrical, responsive layout displaying Google Account linkage (`Linked`/`Not linked`) and Password credentials alongside an Email Verification card with live verification status badges (`Verified` / `Pending Verification`), resend verification triggers with 60s cooldown, and unverified account alert banners.
 - **Goal & Biometrics Management:** Fine-tune target calorie intake, calorie burn goals, age, weight, and height with real-time recalculations.
 - **Data Exports (PDF, CSV & PNG):**
   - **Formatted PDF Report:** Multi-page progress report with stats summary, profile metrics, food logs, and activity records powered by jsPDF and AutoTable.
@@ -154,11 +156,12 @@ FitTrack AI features a dedicated mobile architecture designed for modern smartph
 
 | Feature | Description |
 |---|---|
-| **Bottom Navigation Dock** | Quick-access tab bar (Home, Food, Activity, Workouts, AI Coach) fixed to the bottom with active micro-animations. |
+| **Bottom Navigation Dock** | Quick-access tab bar (Home, Food, Activity, Workouts, AI Coach) fixed to the bottom with active micro-animations, persisting cleanly across screens including the FitBot AI Coach. |
+| **Full-Height Chat Viewport** | Dynamic `100dvh` layout with auto-scroll lock eliminates jitter, while preserving bottom navigation and input controls above mobile soft keyboards. |
 | **Safe-Area Insets** | `viewport-fit=cover` and `.safe-area-pb` support to prevent clipping on iPhone dynamic islands and home indicators. |
 | **Adaptive Goal Rings** | 3-column responsive goal rings that fit cleanly on compact mobile viewports without broken line wraps. |
 | **Unified Mobile Drawer** | Slide-over drawer with user profile summary, one-tap theme toggle, and mobile logout functionality. |
-| **Full-Height Chat Viewport** | Dynamic `100dvh` layout prevents mobile keyboards or bottom bars from hiding message history or the input bar. |
+| **Responsive Sign-in & Verification UI** | Responsive mobile cards for authentication methods and email verification status chips with touch-friendly actions and cooldown feedback. |
 
 ---
 
@@ -216,8 +219,11 @@ cd server
 npm test
 ```
 
-Test coverage includes **35 unit tests** across **13 suites**:
+Test coverage includes **139 unit tests** across **37 suites** (0 external runner overhead):
 - **Auth & JWT (`test/auth.test.js`):** Token generation, signature validation, payload integrity, username/email/password registration validators, and login validation.
+- **Dual Sign-In Matrix & Password Policy (`test/authDualSign.test.js`):** Google OAuth 6-case automated linking matrix, squat account protection, password setting/updating with step-up verification (`requireRecentLogin`), and rolling 5-password history prevention.
+- **Signup & Verification Token Flows (`test/authVerification.test.js`):** 64-character token crypto hashing, 24-hour expiration, anti-enumeration behavior, and state updates.
+- **Email Resilience & Debouncing (`test/emailService.test.js`):** 5-layer transactional email tests (F1–F5), 60s cooldown debouncing, Brevo 429/5xx retry handling, and timeout safeguards.
 - **AI Assistant Guardrails & Truncation (`test/aiAssistant.test.js`):** Message array boundary checks, maximum character length limits, graceful sliding-window history truncation, and friendly outage responses (`503`).
 - **OpenRouter Resilience & Prompts (`test/openrouter.test.js`):** Transient error detection (429/5xx/timeouts), primary/fallback model defaults, JSON code fence extraction, and versioned FitBot prompt generation.
 - **Structured Logger & Secret Scrubber (`test/logger.test.js`):** Automated redaction of passwords, tokens, API keys, Bearer tokens, and JWTs while preserving token usage metrics.
