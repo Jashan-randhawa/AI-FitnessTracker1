@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import { useappcontext } from "../Context/AppContext";
 
 const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "").replace(/\/$/, "");
@@ -48,19 +49,23 @@ const GoogleCallback = () => {
 
     googleLogin(accessToken)
       .then(() => navigate("/", { replace: true }))
-      .catch((err: any) => {
-        const code = err.response?.data?.code || err.response?.data?.error?.code;
-        const msg = err.response?.data?.message || err.response?.data?.error?.message;
-        if (code === "google_account_mismatch") {
-          setError(
-            "This email address is already connected to a different Google account. Please sign in with that Google account or reset your password."
-          );
-        } else if (code === "google_email_unverified") {
-          setError("Your Google email is not verified. Please verify your email with Google first.");
-        } else if (code === "account_blocked") {
-          setError("Your account has been suspended by an administrator.");
+      .catch((err: unknown) => {
+        if (axios.isAxiosError(err)) {
+          const code = err.response?.data?.code || err.response?.data?.error?.code;
+          const msg = err.response?.data?.message || err.response?.data?.error?.message;
+          if (code === "google_account_mismatch") {
+            setError(
+              "This email address is already connected to a different Google account. Please sign in with that Google account or reset your password."
+            );
+          } else if (code === "google_email_unverified") {
+            setError("Your Google email is not verified. Please verify your email with Google first.");
+          } else if (code === "account_blocked") {
+            setError("Your account has been suspended by an administrator.");
+          } else {
+            setError(msg || "Google login failed. Please check your Google account and try again.");
+          }
         } else {
-          setError(msg || "Google login failed. Please check your Google account and try again.");
+          setError("Google login failed. Please check your Google account and try again.");
         }
       });
   }, [googleLogin, navigate]);

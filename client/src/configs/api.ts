@@ -22,8 +22,13 @@ const api = axios.create({
 // Automatically attach Bearer token from localStorage to every outgoing request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
-  if (token && !config.headers.Authorization) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    if (config.headers && typeof config.headers.set === "function") {
+      config.headers.set("Authorization", `Bearer ${token}`);
+    } else {
+      config.headers = config.headers || {};
+      config.headers["Authorization"] = `Bearer ${token}`;
+    }
   }
   return config;
 });

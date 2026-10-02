@@ -37,10 +37,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const signup = async (credentials: Credentials) => {
     try {
       const { data } = await api.post("/api/auth/local/register", credentials);
+      localStorage.setItem("token", data.jwt);
       setUser({ ...data.user, token: data.jwt });
       if (data?.user?.age && data?.user?.weight && data?.user?.goal) setOnboardingCompleted(true);
-      localStorage.setItem("token", data.jwt);
-      api.defaults.headers.common["Authorization"] = `Bearer ${data.jwt}`;
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Signup failed. Please try again.");
       throw error;
@@ -57,7 +56,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
       const { data } = await api.post("/api/auth/local", { identifier: credentials.email, password: credentials.password });
       localStorage.setItem("token", data.jwt);
-      api.defaults.headers.common["Authorization"] = `Bearer ${data.jwt}`;
 
       const [foodRes, activityRes, waterRes] = await Promise.all([
         api.get("/api/foodlogs", { headers: { Authorization: `Bearer ${data.jwt}` } }),
@@ -91,7 +89,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const jwtToken = data.jwt;
 
       localStorage.setItem("token", jwtToken);
-      api.defaults.headers.common["Authorization"] = `Bearer ${jwtToken}`;
       setUser({ ...data.user, token: jwtToken });
 
       if (data.user?.age && data.user?.weight && data.user?.goal) setOnboardingCompleted(true);
@@ -117,7 +114,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const { data } = await api.get("/api/users/me", { headers: { Authorization: `Bearer ${token}` } });
       setUser({ ...data, token });
       if (data?.age && data?.weight && data?.goal) setOnboardingCompleted(true);
-      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       setIsUserFetched(true);
     } catch (error: any) {
       const status = error.response?.status;
@@ -175,13 +171,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     setAllActivityLogs([]);
     setAllWaterLogs([]);
     setOnboardingCompleted(false);
-    api.defaults.headers.common["Authorization"] = "";
     navigate("/");
   };
 
   const setSessionToken = (jwt: string, updatedUser?: Partial<User>) => {
     localStorage.setItem("token", jwt);
-    api.defaults.headers.common["Authorization"] = `Bearer ${jwt}`;
     setUser((prev: any) => ({
       ...(prev || {}),
       ...(updatedUser || {}),
