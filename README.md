@@ -3,7 +3,7 @@
 # ⚡ FitTrack AI
 ### Intelligent Health, Nutrition & Fitness Operating System
 
-[![Version](https://img.shields.io/badge/Version-v2.4.0-emerald?style=for-the-badge)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.4.0)
+[![Version](https://img.shields.io/badge/Version-v2.5.0-emerald?style=for-the-badge)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.5.0)
 [![CI](https://github.com/Jashan-randhawa/AI-FitnessTracker1/actions/workflows/ci.yml/badge.svg)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/actions/workflows/ci.yml)
 [![GitHub Packages](https://img.shields.io/badge/GitHub_Packages-7_Published-2ea44f?style=for-the-badge&logo=github)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-blue?style=for-the-badge&logo=github)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki)
@@ -14,7 +14,7 @@
 [![Express](https://img.shields.io/badge/Express-4.19-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E=20.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tests](https://img.shields.io/badge/Unit_Tests-139_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
+[![Tests](https://img.shields.io/badge/Unit_Tests-142_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
 [![Audit](https://img.shields.io/badge/Vulnerabilities-0-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://ai-fitness-tracker1.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
@@ -39,7 +39,7 @@
 - **Tailored Multi-Day Planners:** Custom meal schedules and multi-split activity routines created to match your schedule and fitness targets.
 - **Hardened Security & Rate Limiting:** Protected with `express-rate-limit`, strict AI payload caps, secure fragment-based Google OAuth, and anti-enumeration password resets.
 - **Mobile-First Experience:** Built with responsive bottom-dock navigation, edge-to-edge notch handling, and adaptive data cards for desktop and mobile screens.
-- **Comprehensive Wellness Hub:** Includes YouTube workout streaming, Bhangra & gym pump playlists, real-time weather & Air Quality Index (AQI), and live fitness news.
+- **Comprehensive Wellness Hub:** Includes YouTube workout streaming with server-side caching, live workout tracker with draft persistence, Bhangra & gym pump playlists, persistent AI workout plans, real-time weather & Air Quality Index (AQI), and live fitness news.
 
 ---
 
@@ -113,10 +113,22 @@ npm install @jashan-randhawa/fitness-utils
   - **Raw CSV Spreadsheets:** Downloadable comma-separated records of food and activity history with timestamps, categories, and nutritional values.
   - **PNG Progress Card:** Shareable visual progress cards generated client-side with html2canvas for streak milestones and stats.
 
-### 🏋️ 3. Workout Studio & Music Player
-- **Curated Workout Categories:** Strength, Cardio, HIIT, Yoga, and Mobility.
-- **In-App Video Streaming:** Embedded modal video player powered by YouTube search (authenticated & rate-limited via backend proxy).
+### 🏋️ 3. Workout Studio, Live Tracker & Music Player
+- **Three-Tab Segmented Control:** Instantly switch between **Videos**, **Today's Plan**, and **Music** with compact mobile hero and animated tab transitions.
+- **Today's Plan (Persistent Workout Plans):**
+  - Auto-loads your active workout plan from the server on mount. Switch between multiple saved plans, mark one as active, or delete unused ones.
+  - Activity Planner auto-saves AI-generated plans to `/api/workout-plans` for cross-session persistence — no more losing generated routines on page reload.
+  - Enriched activity log payloads with `type`, `intensity`, and `source: "planner"` for granular analytics.
+- **Live Workout Tracker:**
+  - Full-featured in-session tracker launched from BottomSheet modals with drag-to-dismiss, body scroll lock, focus trapping, and Escape key support.
+  - **Weight & Rep Stepper Controls:** ±2.5 kg weight and ±1 rep steppers with 44px minimum touch targets and responsive `flex-wrap` layout.
+  - **Wall-Clock Accurate Rest Timer:** Uses `Date.now()` differential (not `setInterval` drift) for sub-second accuracy. Haptic `navigator.vibrate` feedback on timer completion.
+  - **Draft Auto-Save & Restore:** Workout-in-progress automatically persisted to `localStorage`; resume mid-session even after accidental tab close.
+  - **Finish & Log Session:** One-tap "Finish & Log Session" POSTs structured exercise/set data to `/api/activitylogs`, or "Discard" to clear the draft.
+- **In-App Video Streaming:** Embedded modal video player powered by YouTube search with **24-hour TTL server-side caching** (Redis with in-memory `Map` fallback) and `X-Cache: HIT/MISS` response headers.
+- **Horizontally Scrollable Filter Chips:** Category, level, and mood filters with swipe-to-scroll on mobile. All interactive elements meet 44px minimum tap target guidelines.
 - **High-Energy Punjabi Gym Playlists:** Curated pump-up mixes (Diljit Dosanjh, AP Dhillon, Sidhu Moosewala, Karan Aujla, Shubh) tagged by BPM and mood (Hype, Pump, Warm-Up, Cool-Down).
+- **Accessible BottomSheet Modals:** Framer Motion drag-to-dismiss with `max-h-[92dvh]`, safe-area bottom padding, focus trapping, and `prefers-reduced-motion` support.
 
 ### 🌤️ 4. Outdoor Weather & Health News
 - **Live Weather & AQI:** Real-time temperature, wind, humidity, and Air Quality Index powered by Open-Meteo to plan safe outdoor training sessions.
@@ -172,6 +184,7 @@ graph TD
     Client["Client (React 19 + TypeScript + Tailwind v4 + Vite)"]
     Server["Server (Node.js >=20 + Express 4.19)"]
     DB[("Database (MongoDB Atlas)")]
+    Redis[("Redis (Optional Cache & Rate Limiting)")]
     OpenRouter["OpenRouter AI (LLM / Vision)"]
     OpenMeteo["Open-Meteo (Weather & AQI)"]
     Brevo["Brevo API (Transactional Email)"]
@@ -180,6 +193,7 @@ graph TD
     Client -->|REST API / JWT| Server
     Client -->|Direct Weather API| OpenMeteo
     Server -->|Mongoose ODM| DB
+    Server -.->|24h TTL Cache & Distributed Rate Limit| Redis
     Server -->|Vision / Chat / Nutrition| OpenRouter
     Server -->|Password Reset Emails| Brevo
     Server -->|Workout Video Query| YouTube
@@ -219,7 +233,7 @@ cd server
 npm test
 ```
 
-Test coverage includes **139 unit tests** across **37 suites** (0 external runner overhead):
+Test coverage includes **142 unit tests** across **38 suites** (0 external runner overhead):
 - **Auth & JWT (`test/auth.test.js`):** Token generation, signature validation, payload integrity, username/email/password registration validators, and login validation.
 - **Dual Sign-In Matrix & Password Policy (`test/authDualSign.test.js`):** Google OAuth 6-case automated linking matrix, squat account protection, password setting/updating with step-up verification (`requireRecentLogin`), and rolling 5-password history prevention.
 - **Signup & Verification Token Flows (`test/authVerification.test.js`):** 64-character token crypto hashing, 24-hour expiration, anti-enumeration behavior, and state updates.
@@ -231,6 +245,7 @@ Test coverage includes **139 unit tests** across **37 suites** (0 external runne
 - **Error Handling & Production Masking (`test/errorHandler.test.js`):** Multer errors, Mongoose validation/cast/duplicate key errors, and production internal database error masking.
 - **Nutrition & Calorie Estimation (`test/estimates.test.js`):** Input validation for duration, activity name, food items, and numeric boundaries.
 - **Password Reset (`test/passwordReset.test.js`):** Email format verification and non-string/missing payload handling.
+- **Workout Plans & ActivityLog Extensions (`test/workoutPlan.test.js`):** WorkoutPlan model initialization, additive ActivityLog schema fields (type, intensity, source, exercises with nested sets), and savePlan validation.
 
 ### Continuous Integration (GitHub Actions)
 The repository includes a GitHub Actions CI workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) running on Node.js 20:
@@ -255,9 +270,9 @@ AI-FitnessTracker1/
 │   │   │   ├── FoodLog.tsx              # Nutrition logging, AI food snap & heatmap
 │   │   │   ├── ActivityLog.tsx          # Exercise tracker & activity heatmap
 │   │   │   ├── AIAssistant.tsx          # FitBot AI chat interface
-│   │   │   ├── Workouts.tsx             # Video library & Punjabi playlists
+│   │   │   ├── Workouts.tsx             # 3-tab studio (Videos / Today's Plan / Music)
 │   │   │   ├── MealPlanner.tsx          # Multi-day meal generator
-│   │   │   ├── ActivityPlanner.tsx      # Multi-day workout generator
+│   │   │   ├── ActivityPlanner.tsx      # Multi-day workout generator (auto-save plans)
 │   │   │   ├── Weather.tsx              # Live forecast & AQI
 │   │   │   ├── Blog.tsx / BlogPost.tsx  # Fitness articles & news feed
 │   │   │   ├── Profile.tsx              # User metrics, PDF & CSV export
@@ -272,7 +287,19 @@ AI-FitnessTracker1/
 │   │   │   ├── CalendarHeatmap.tsx      # 90-day activity & nutrition heatmap
 │   │   │   ├── Logo.tsx                 # Dynamic SVG animated logo
 │   │   │   ├── DateDropdown.tsx         # Date selector component
-│   │   │   └── ui/                      # Shared reusable UI primitives
+│   │   │   ├── ui/                      # Shared reusable UI primitives
+│   │   │   │   └── BottomSheet.tsx      # Accessible drag-to-dismiss modal
+│   │   │   └── animations/
+│   │   │       ├── RestCountdownTimer.tsx     # Wall-clock accurate rest timer
+│   │   │       ├── WorkoutSetRow.tsx          # Weight/rep stepper controls
+│   │   │       └── LiveWorkoutTrackerModal.tsx # In-session tracker with draft save
+│   │   ├── features/
+│   │   │   └── workouts/
+│   │   │       ├── types.ts             # Workout plan & exercise TypeScript types
+│   │   │       └── data/
+│   │   │           └── playlists.ts     # Static playlist data & filter constants
+│   │   ├── hooks/
+│   │   │   └── useVideoSearch.ts        # Unified video search hook (YouTube API)
 │   │   ├── Context/
 │   │   │   ├── AppContext.tsx           # Global user state & records
 │   │   │   └── Themecontext.tsx         # Light/Dark mode state
@@ -285,24 +312,25 @@ AI-FitnessTracker1/
 │
 ├── server/                              # Express + MongoDB API
 │   ├── server.js                        # Server entry point
-│   ├── test/                            # Unit tests (node --test - 35 tests)
+│   ├── test/                            # Unit tests (node --test - 38 suites)
 │   │   ├── aiAssistant.test.js          # AI payload caps & truncation tests
 │   │   ├── auth.test.js                 # Auth & JWT unit tests
 │   │   ├── errorHandler.test.js         # Error handling & production masking tests
 │   │   ├── estimates.test.js            # Calorie & food estimate tests
-│   │   ├── health.test.js               # Health check & request-ID tests
-│   │   ├── logger.test.js               # Logger & secret scrubber tests
-│   │   ├── openrouter.test.js           # OpenRouter resilience & prompt tests
-│   │   └── passwordReset.test.js        # Password reset validation tests
+│   │   ├── health.test.js              # Health check & request-ID tests
+│   │   ├── logger.test.js              # Logger & secret scrubber tests
+│   │   ├── openrouter.test.js          # OpenRouter resilience & prompt tests
+│   │   ├── passwordReset.test.js       # Password reset validation tests
+│   │   └── workoutPlan.test.js         # Workout plan & activity log schema tests
 │   └── src/
 │       ├── app.js                       # Express configuration & middleware
 │       ├── config/db.js                 # MongoDB connection
-│       ├── models/                      # Mongoose schemas (User, Food, Activity, Water, Blog, Chat)
-│       ├── controllers/                 # Business logic controllers
-│       ├── routes/                      # API endpoint definitions
+│       ├── models/                      # Mongoose schemas (User, Food, Activity, Water, Blog, Chat, WorkoutPlan)
+│       ├── controllers/                 # Business logic controllers (incl. workoutPlan.controller.js)
+│       ├── routes/                      # API endpoint definitions (incl. workoutPlan.routes.js)
 │       ├── prompts/                     # Versioned AI system prompts (fitbot.prompt.js)
 │       ├── middleware/                  # JWT auth, rateLimiter, requestId, httpLogger, errorHandler
-│       ├── utils/                       # Structured JSON logger & secret scrubber
+│       ├── utils/                       # Structured JSON logger, secret scrubber, Redis client
 │       └── services/                    # OpenRouter AI with fallback, Brevo email services
 │
 ├── IMPLEMENTATION_GUIDE.md              # Technical architecture & deployment guide
@@ -429,8 +457,17 @@ All requests requiring authorization must include the header:
 | Method | Endpoint | Description | Rate Limit | Access |
 |---|---|---|---|---|
 | `GET` | `/api/activitylogs` | List all workout logs | — | Private |
-| `POST` | `/api/activitylogs` | Log new activity (duration, calories) | — | Private |
+| `POST` | `/api/activitylogs` | Log activity with optional structured exercises, sets, type, intensity & source | — | Private |
 | `DELETE` | `/api/activitylogs/:id` | Delete activity record | — | Private |
+
+### Workout Plans
+| Method | Endpoint | Description | Rate Limit | Access |
+|---|---|---|---|---|
+| `GET` | `/api/workout-plans` | List all saved workout plans for current user | — | Private |
+| `GET` | `/api/workout-plans/active` | Fetch the currently active workout plan | — | Private |
+| `POST` | `/api/workout-plans` | Save a new workout plan (auto-deactivates previous active plan) | — | Private |
+| `PUT` | `/api/workout-plans/:id/activate` | Set a specific plan as the active plan | — | Private |
+| `DELETE` | `/api/workout-plans/:id` | Delete a workout plan | — | Private |
 
 ### Water Intake
 | Method | Endpoint | Description | Rate Limit | Access |
@@ -451,7 +488,7 @@ All requests requiring authorization must include the header:
 | `POST` | `/api/image-analysis` | Analyze meal photo for nutrition | 30 req / 1m | Private |
 | `POST` | `/api/food-estimate` | Natural language text nutrition estimator | 30 req / 1m | Private |
 | `POST` | `/api/calorie-estimate` | Estimate calories burned from exercise | 30 req / 1m | Private |
-| `GET` | `/api/youtube/search` | Search workout videos via RapidAPI proxy | 30 req / 1m | Private |
+| `GET` | `/api/youtube/search` | Search workout videos via RapidAPI proxy (24h TTL cache) | 30 req / 1m | Private |
 
 ---
 
