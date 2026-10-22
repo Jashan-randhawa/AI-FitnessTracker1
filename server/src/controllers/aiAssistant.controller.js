@@ -8,6 +8,25 @@ const MAX_TOTAL_CHARS = 40000;
 const MAX_USER_CONTEXT_CHARS = 4000;
 const MAX_MEMORY_CONTEXT_CHARS = 1200;
 
+// Concurrency limits to prevent upstream budget exhaustion and runaway thread saturation
+const MAX_CONCURRENT_AI_REQUESTS = parseInt(process.env.MAX_CONCURRENT_AI_REQUESTS, 10) || 25;
+const MAX_USER_CONCURRENT_AI_REQUESTS = parseInt(process.env.MAX_USER_CONCURRENT_AI_REQUESTS, 10) || 2;
+
+let activeRequestsTotal = 0;
+const activeRequestsPerUser = new Map();
+
+const getActiveConcurrencyStats = () => ({
+  activeTotal: activeRequestsTotal,
+  activeUsers: activeRequestsPerUser.size,
+  maxTotal: MAX_CONCURRENT_AI_REQUESTS,
+  maxPerUser: MAX_USER_CONCURRENT_AI_REQUESTS,
+});
+
+const resetConcurrencyStats = () => {
+  activeRequestsTotal = 0;
+  activeRequestsPerUser.clear();
+};
+
 /**
  * Normalizes and gracefully truncates messages array and text lengths (FitBot Plan §4 #8).
  * Drops oldest messages when history exceeds limits, ensuring active conversations never crash.
@@ -65,7 +84,7 @@ const prepareMessages = (rawMessages) => {
   return { valid: true, messages: sanitized, totalChars };
 };
 
-// POST /api/ai-assistant/chat — body: { messages, userContext?, memoryContext?, systemInstruction?, expectJson? }
+// POST /api/ai-assistant/chat — body: { messages, userContext?, memoryContext?, systemInstruction?, expectJson?, options? }
 const chat = asyncHandler(async (req, res) => {
   const {
     messages: rawMessages,
@@ -80,7 +99,24 @@ const chat = asyncHandler(async (req, res) => {
   } = req.body;
   const startTime = Date.now();
   const userId = req.user?.id || req.user?._id;
-  const requestId = req.id || req.requestId;
+  const requestId = req.id || req.requestId || `req-${Date.now()}`;
+  const userKey = String(userId || req.ip || 'anonymous');
+
+  // Check in-flight concurrency caps
+  if (activeRequestsTotal >= MAX_CONCURRENT_AI_REQUESTS) {
+    return res.status(429).json({
+      error: 'FitBot is currently processing many requests. Please wait a moment and try again.',
+      retryAfter: 2,
+    });
+  }
+
+  const userInFlight = activeRequestsPerUser.get(userKey) || 0;
+  if (userInFlight >= MAX_USER_CONCURRENT_AI_REQUESTS) {
+    return res.status(429).json({
+      error: 'You already have an AI request in progress. Please wait for it to finish.',
+      retryAfter: 2,
+    });
+  }
 
   const prepared = prepareMessages(rawMessages);
   if (!prepared.valid) {
@@ -131,7 +167,14 @@ const chat = asyncHandler(async (req, res) => {
     skipCache: Boolean(skipCache || regenerate || options?.skipCache || options?.regenerate),
     signal: abortController.signal,
     memoryContext,
+    model: options?.model,
+    maxTokens: options?.maxTokens,
+    fetchFn: options?.fetchFn,
   };
+
+  // Track concurrency in flight
+  activeRequestsTotal++;
+  activeRequestsPerUser.set(userKey, userInFlight + 1);
 
   try {
     const result = await chatWithAssistant(messages, userContext, chatOptions);
@@ -199,15 +242,28 @@ const chat = asyncHandler(async (req, res) => {
     });
 
     res.status(status).json({ error: friendlyMessage });
+  } finally {
+    // Release in-flight concurrency slots
+    activeRequestsTotal = Math.max(0, activeRequestsTotal - 1);
+    const remaining = (activeRequestsPerUser.get(userKey) || 1) - 1;
+    if (remaining <= 0) {
+      activeRequestsPerUser.delete(userKey);
+    } else {
+      activeRequestsPerUser.set(userKey, remaining);
+    }
   }
 });
 
 module.exports = {
   chat,
   prepareMessages,
+  getActiveConcurrencyStats,
+  resetConcurrencyStats,
   MAX_MESSAGES,
   MAX_SINGLE_MESSAGE_CHARS,
   MAX_TOTAL_CHARS,
   MAX_USER_CONTEXT_CHARS,
   MAX_MEMORY_CONTEXT_CHARS,
+  MAX_CONCURRENT_AI_REQUESTS,
+  MAX_USER_CONCURRENT_AI_REQUESTS,
 };

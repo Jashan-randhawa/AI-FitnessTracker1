@@ -1,20 +1,69 @@
 const crypto = require('crypto');
-const { chatCompletionDetailed } = require('./openrouter.service');
+const { chatCompletionDetailed, DEFAULT_MODEL } = require('./openrouter.service');
 const { buildFitBotPrompt, PROMPT_VERSION } = require('../prompts/fitbot.prompt');
 const logger = require('../utils/logger');
 
-// In-memory 5-minute TTL cache with entry cap for identical prompt queries (FitBot Plan §4 #5)
-const CACHE_TTL_MS = 5 * 60 * 1000;
-const MAX_CACHE_ENTRIES = 200;
+// In-memory configurable TTL and capacity bounded LRU cache (FitBot Phase 4)
+const CACHE_TTL_MS = parseInt(process.env.AI_CACHE_TTL_MS, 10) || 5 * 60 * 1000;
+const MAX_CACHE_ENTRIES = parseInt(process.env.AI_CACHE_MAX_ENTRIES, 10) || 200;
+const DEFAULT_MAX_OUTPUT_TOKENS = parseInt(process.env.AI_MAX_OUTPUT_TOKENS, 10) || 2500;
+
 const responseCache = new Map();
+
+// Cache observability metrics
+const cacheStats = {
+  hits: 0,
+  misses: 0,
+  expirations: 0,
+  evictions: 0,
+};
 
 const cleanExpiredCache = () => {
   const now = Date.now();
   for (const [key, value] of responseCache.entries()) {
     if (now - value.timestamp > CACHE_TTL_MS) {
       responseCache.delete(key);
+      cacheStats.expirations++;
     }
   }
+};
+
+const getCacheStats = () => ({
+  size: responseCache.size,
+  maxCapacity: MAX_CACHE_ENTRIES,
+  ttlMs: CACHE_TTL_MS,
+  hits: cacheStats.hits,
+  misses: cacheStats.misses,
+  expirations: cacheStats.expirations,
+  evictions: cacheStats.evictions,
+});
+
+const resetCache = () => {
+  responseCache.clear();
+  cacheStats.hits = 0;
+  cacheStats.misses = 0;
+  cacheStats.expirations = 0;
+  cacheStats.evictions = 0;
+};
+
+const computeCacheKey = ({
+  messages,
+  isJsonRequest = false,
+  model = DEFAULT_MODEL,
+  maxTokens = DEFAULT_MAX_OUTPUT_TOKENS,
+}) => {
+  return crypto
+    .createHash('sha256')
+    .update(
+      JSON.stringify({
+        messages,
+        isJsonRequest: Boolean(isJsonRequest),
+        model,
+        maxTokens,
+        version: PROMPT_VERSION,
+      })
+    )
+    .digest('hex');
 };
 
 const extractCleanJson = (text) => {
@@ -29,18 +78,21 @@ const extractCleanJson = (text) => {
 };
 
 /**
- * Communicates with FitBot AI via OpenRouter with caching, fallback,
+ * Communicates with FitBot AI via OpenRouter with bounded LRU caching, fallback,
  * cancellation propagation, distinct memoryContext, and JSON parse validation retry for structured plans.
  *
- * @param {Array<{ role: 'user'|'model'|'assistant', parts?: { text: string }[], content?: string }>} messages
+ * @param {Array<{ role: 'user'|'model'|'assistant', parts?: { text: string }[], content?: string, text?: string }>} messages
  * @param {string|object} [userContext]
  * @param {Object} [options]
  * @param {string} [options.memoryContext]
  * @param {boolean} [options.expectJson]
  * @param {boolean} [options.skipCache]
  * @param {boolean} [options.regenerate]
+ * @param {string} [options.model]
+ * @param {number} [options.maxTokens]
  * @param {AbortSignal} [options.signal]
- * @returns {Promise<{ reply: string, usage: object, model: string, cached: boolean }>}
+ * @param {Function} [options.fetchFn]
+ * @returns {Promise<{ reply: string, usage: object, model: string, cached: boolean, fallbackUsed?: boolean, attempts?: number }>}
  */
 const chatWithAssistant = async (messages, userContext, options = {}) => {
   cleanExpiredCache();
@@ -56,6 +108,8 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
         text = m.parts.map((p) => (p && typeof p.text === 'string' ? p.text : '')).join('');
       } else if (typeof m.content === 'string') {
         text = m.content;
+      } else if (typeof m.text === 'string') {
+        text = m.text;
       }
       return {
         role: m.role === 'model' || m.role === 'assistant' ? 'assistant' : 'user',
@@ -64,24 +118,41 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
     }),
   ];
 
-  // Check if query requests structured JSON (e.g. Activity Planner)
+  // Check if query requests structured JSON (e.g. Activity Planner / Meal Planner)
   const lastUserMsg = openRouterMessages[openRouterMessages.length - 1]?.content || '';
-  const isJsonRequest = options.expectJson || /return (only )?valid json/i.test(lastUserMsg);
+  const isJsonRequest = Boolean(options.expectJson || /return (only )?valid json/i.test(lastUserMsg));
+
+  // Determine token ceiling based on request type
+  const maxTokens = isJsonRequest ? 4000 : (options.maxTokens || DEFAULT_MAX_OUTPUT_TOKENS);
+  const targetModel = options.model || DEFAULT_MODEL;
 
   const skipCache = Boolean(options.skipCache || options.regenerate);
 
-  // Compute cache key based on prompt messages and user context
-  const cacheKey = crypto
-    .createHash('sha256')
-    .update(JSON.stringify({ messages: openRouterMessages, isJsonRequest, version: PROMPT_VERSION }))
-    .digest('hex');
+  // Compute comprehensive cache key including all settings that affect completion
+  const cacheKey = computeCacheKey({
+    messages: openRouterMessages,
+    isJsonRequest,
+    model: targetModel,
+    maxTokens,
+  });
 
+  // Check LRU cache if not bypassing
   if (!skipCache) {
     const cachedEntry = responseCache.get(cacheKey);
-    if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_TTL_MS) {
-      logger.debug(`[AI Assistant] Cache hit for prompt hash ${cacheKey.slice(0, 8)}`);
-      return { ...cachedEntry.data, cached: true };
+    if (cachedEntry) {
+      if (Date.now() - cachedEntry.timestamp < CACHE_TTL_MS) {
+        // Move to most recently used position (LRU policy)
+        responseCache.delete(cacheKey);
+        responseCache.set(cacheKey, { ...cachedEntry, timestamp: Date.now() });
+        cacheStats.hits++;
+        logger.debug(`[AI Assistant] Cache hit for prompt hash ${cacheKey.slice(0, 8)}`);
+        return { ...cachedEntry.data, cached: true };
+      } else {
+        responseCache.delete(cacheKey);
+        cacheStats.expirations++;
+      }
     }
+    cacheStats.misses++;
   } else {
     logger.debug(`[AI Assistant] Bypassing response cache for hash ${cacheKey.slice(0, 8)} due to regenerate/skipCache`);
   }
@@ -89,18 +160,22 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
   logger.info('[AI Assistant] Dispatching request to OpenRouter', {
     messageCount: openRouterMessages.length,
     isJsonRequest,
+    model: targetModel,
+    maxTokens,
     promptVersion: PROMPT_VERSION,
   });
 
   let result = await chatCompletionDetailed({
     messages: openRouterMessages,
     title: 'FitTrack AI Assistant',
-    maxTokens: 4000,
+    model: targetModel,
+    maxTokens,
     returnUsage: true,
     signal: options.signal,
+    fetchFn: options.fetchFn,
   });
 
-  // Gap 6: Structured JSON validation guard with 1 repair retry
+  // Structured JSON validation guard with 1 repair retry if unparseable
   if (isJsonRequest && !extractCleanJson(result.content)) {
     logger.warn('[AI Assistant] Model returned unparseable JSON for structured request; attempting repair retry...');
     const repairMessages = [
@@ -116,9 +191,11 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
       const repairedResult = await chatCompletionDetailed({
         messages: repairMessages,
         title: 'FitTrack AI Assistant (JSON Repair)',
-        maxTokens: 4000,
+        model: targetModel,
+        maxTokens,
         returnUsage: true,
         signal: options.signal,
+        fetchFn: options.fetchFn,
       });
 
       if (extractCleanJson(repairedResult.content)) {
@@ -135,19 +212,24 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
     usage: result.usage,
     model: result.model,
     cached: false,
+    fallbackUsed: result.fallbackUsed || false,
+    attempts: result.attempts || 1,
   };
 
-  // Enforce memory cache size cap
-  if (responseCache.size >= MAX_CACHE_ENTRIES) {
-    const oldestKey = responseCache.keys().next().value;
-    responseCache.delete(oldestKey);
-  }
+  // Only cache non-empty, successful responses
+  if (!skipCache && responsePayload.reply && responsePayload.reply.trim().length > 0) {
+    if (responseCache.size >= MAX_CACHE_ENTRIES) {
+      // Evict least recently used (first inserted/accessed) entry
+      const oldestKey = responseCache.keys().next().value;
+      responseCache.delete(oldestKey);
+      cacheStats.evictions++;
+    }
 
-  // Cache successful responses
-  responseCache.set(cacheKey, {
-    data: responsePayload,
-    timestamp: Date.now(),
-  });
+    responseCache.set(cacheKey, {
+      data: responsePayload,
+      timestamp: Date.now(),
+    });
+  }
 
   return responsePayload;
 };
@@ -155,7 +237,11 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
 module.exports = {
   chatWithAssistant,
   extractCleanJson,
+  computeCacheKey,
   responseCache,
+  getCacheStats,
+  resetCache,
   CACHE_TTL_MS,
   MAX_CACHE_ENTRIES,
+  DEFAULT_MAX_OUTPUT_TOKENS,
 };
