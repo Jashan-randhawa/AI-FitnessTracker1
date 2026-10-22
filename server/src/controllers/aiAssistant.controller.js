@@ -6,6 +6,7 @@ const MAX_MESSAGES = 50;
 const MAX_SINGLE_MESSAGE_CHARS = 8000;
 const MAX_TOTAL_CHARS = 40000;
 const MAX_USER_CONTEXT_CHARS = 4000;
+const MAX_MEMORY_CONTEXT_CHARS = 1200;
 
 /**
  * Normalizes and gracefully truncates messages array and text lengths (FitBot Plan §4 #8).
@@ -35,6 +36,8 @@ const prepareMessages = (rawMessages) => {
       text = m.parts.map((p) => (p && typeof p.text === 'string' ? p.text : '')).join('');
     } else if (typeof m.content === 'string') {
       text = m.content;
+    } else if (typeof m.text === 'string') {
+      text = m.text;
     } else {
       return { valid: false, error: `Message at index ${i} missing valid text/content.` };
     }
@@ -62,11 +65,13 @@ const prepareMessages = (rawMessages) => {
   return { valid: true, messages: sanitized, totalChars };
 };
 
-// POST /api/ai-assistant/chat — body: { messages, userContext?, systemInstruction?, expectJson? }
+// POST /api/ai-assistant/chat — body: { messages, userContext?, memoryContext?, systemInstruction?, expectJson? }
 const chat = asyncHandler(async (req, res) => {
   const {
     messages: rawMessages,
     userContext: rawUserContext,
+    memoryContext: rawMemoryContext,
+    context: rawStructuredContext,
     systemInstruction,
     expectJson,
     options,
@@ -82,13 +87,27 @@ const chat = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: prepared.error });
   }
 
-  // Gracefully accept userContext or legacy systemInstruction from client
-  let userContext = typeof rawUserContext === 'string' && rawUserContext.trim().length > 0
-    ? rawUserContext
-    : (typeof systemInstruction === 'string' ? systemInstruction : undefined);
+  // Gracefully accept userContext, structured context, or legacy systemInstruction
+  let userContext = undefined;
+  if (typeof rawUserContext === 'string' && rawUserContext.trim().length > 0) {
+    userContext = rawUserContext.trim();
+  } else if (rawStructuredContext && typeof rawStructuredContext === 'object') {
+    try {
+      userContext = JSON.stringify(rawStructuredContext);
+    } catch {
+      userContext = undefined;
+    }
+  } else if (typeof systemInstruction === 'string' && systemInstruction.trim().length > 0) {
+    userContext = systemInstruction.trim();
+  }
 
   if (userContext && typeof userContext === 'string' && userContext.length > MAX_USER_CONTEXT_CHARS) {
     userContext = userContext.slice(0, MAX_USER_CONTEXT_CHARS);
+  }
+
+  let memoryContext = undefined;
+  if (typeof rawMemoryContext === 'string' && rawMemoryContext.trim().length > 0) {
+    memoryContext = rawMemoryContext.trim().slice(0, MAX_MEMORY_CONTEXT_CHARS);
   }
 
   const { messages, totalChars } = prepared;
@@ -111,6 +130,7 @@ const chat = asyncHandler(async (req, res) => {
     expectJson: Boolean(expectJson || options?.expectJson),
     skipCache: Boolean(skipCache || regenerate || options?.skipCache || options?.regenerate),
     signal: abortController.signal,
+    memoryContext,
   };
 
   try {
@@ -125,7 +145,7 @@ const chat = asyncHandler(async (req, res) => {
 
     const latencyMs = Date.now() - startTime;
 
-    // AI-Specific Structured Metric Logging (FitBot Plan §5.3)
+    // AI-Specific Structured Metric Logging (FitBot Plan §5.3) - preserves user privacy (no raw prompts/tokens)
     logger.aiMetric({
       requestId,
       userId,
@@ -189,4 +209,5 @@ module.exports = {
   MAX_SINGLE_MESSAGE_CHARS,
   MAX_TOTAL_CHARS,
   MAX_USER_CONTEXT_CHARS,
+  MAX_MEMORY_CONTEXT_CHARS,
 };

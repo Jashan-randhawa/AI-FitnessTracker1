@@ -5,15 +5,74 @@ const ChatHistory = require('../models/ChatHistory');
 
 const messageTurnSchema = z.object({
   role: z.enum(['user', 'assistant', 'model']),
-  text: z.string().max(8000, 'Message text exceeds 8,000 characters limit'),
+  text: z.string().trim().min(1, 'Message text cannot be empty').max(8000, 'Message text exceeds 8,000 characters limit'),
 });
 
-const chatHistoryPayloadSchema = z.object({
-  sessionId: z.string().max(128, 'sessionId must not exceed 128 characters').optional(),
-  revision: z.number().int().min(1, 'revision must be an integer >= 1').optional(),
-  summary: z.string().max(2000, 'summary must not exceed 2,000 characters').optional().default(''),
-  messages: z.array(messageTurnSchema).max(100, 'Session messages array must not exceed 100 turns').optional().default([]),
-});
+const chatHistoryPayloadSchema = z
+  .object({
+    sessionId: z.string().trim().max(128, 'sessionId must not exceed 128 characters').optional(),
+    revision: z.number().int().min(1, 'revision must be an integer >= 1').optional(),
+    summary: z.string().max(2000, 'summary must not exceed 2,000 characters').optional().default(''),
+    messages: z
+      .array(messageTurnSchema)
+      .max(100, 'Session messages array must not exceed 100 turns')
+      .optional()
+      .default([]),
+  })
+  .refine(
+    (data) => {
+      const totalChars = (data.messages || []).reduce((sum, m) => sum + m.text.length, 0);
+      return totalChars <= 50000;
+    },
+    { message: 'Total session messages payload exceeds 50,000 characters limit' }
+  );
+
+/**
+ * Normalizes a stored ChatHistory document to ensure consistent shape
+ * for both new and legacy historical documents.
+ *
+ * @param {Object} doc
+ * @returns {Object|null}
+ */
+const normalizeHistoryDoc = (doc) => {
+  if (!doc) return null;
+  const json = typeof doc.toJSON === 'function' ? doc.toJSON() : { ...doc };
+
+  // Normalize sessionId: fallback to string representation of id / _id
+  if (!json.sessionId && json.id) {
+    json.sessionId = String(json.id);
+  } else if (!json.sessionId && json._id) {
+    json.sessionId = String(json._id);
+  }
+
+  // Normalize revision
+  json.revision = typeof json.revision === 'number' && json.revision >= 1 ? json.revision : 1;
+
+  // Normalize summary
+  json.summary = typeof json.summary === 'string' ? json.summary : '';
+
+  // Normalize messages array
+  const rawMessages = Array.isArray(json.messages) ? json.messages : [];
+  json.messages = rawMessages
+    .map((m) => {
+      if (!m || typeof m !== 'object') return null;
+      let text = '';
+      if (typeof m.text === 'string') {
+        text = m.text;
+      } else if (typeof m.content === 'string') {
+        text = m.content;
+      } else if (Array.isArray(m.parts)) {
+        text = m.parts.map((p) => (p && typeof p.text === 'string' ? p.text : '')).join('');
+      }
+
+      if (!text || typeof text !== 'string') return null;
+      const role = m.role === 'model' || m.role === 'assistant' ? 'assistant' : 'user';
+      return { role, text: text.trim() };
+    })
+    .filter(Boolean);
+
+  return json;
+};
 
 /**
  * GET /api/chathistories
@@ -26,7 +85,7 @@ const find = asyncHandler(async (req, res) => {
     .sort({ updatedAt: -1, createdAt: -1 })
     .limit(limit);
 
-  res.json(result.map((r) => r.toJSON()));
+  res.json(result.map(normalizeHistoryDoc));
 });
 
 /**
@@ -48,7 +107,7 @@ const getSession = asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Chat session not found' });
   }
 
-  res.json(entry.toJSON());
+  res.json(normalizeHistoryDoc(entry));
 });
 
 /**
@@ -124,7 +183,7 @@ const create = asyncHandler(async (req, res) => {
   }
 
   const { doc, created } = await saveOrUpdateSession(req.user, parsed.data);
-  res.status(created ? 201 : 200).json(doc.toJSON());
+  res.status(created ? 201 : 200).json(normalizeHistoryDoc(doc));
 });
 
 /**
@@ -144,7 +203,7 @@ const upsertSession = asyncHandler(async (req, res) => {
   }
 
   const { doc, created } = await saveOrUpdateSession(req.user, parsed.data);
-  res.status(created ? 201 : 200).json(doc.toJSON());
+  res.status(created ? 201 : 200).json(normalizeHistoryDoc(doc));
 });
 
 /**
@@ -185,5 +244,6 @@ module.exports = {
   upsertSession,
   deleteSession,
   deleteAll,
+  normalizeHistoryDoc,
   chatHistoryPayloadSchema,
 };

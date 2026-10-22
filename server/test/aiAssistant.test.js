@@ -166,7 +166,9 @@ describe('AI Assistant FitBot Prompt Contract v1.3.0', () => {
     const context = 'Weight: 75kg, Goal: lose weight';
     const built = buildFitBotPrompt(context);
     assert.ok(built.includes(FITBOT_SYSTEM_PROMPT));
-    assert.ok(built.includes('User context:\nWeight: 75kg'));
+    assert.ok(built.includes('User context:'));
+    assert.ok(built.includes('<user_context>'));
+    assert.ok(built.includes('Weight: 75kg'));
   });
 });
 

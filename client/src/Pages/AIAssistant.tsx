@@ -34,16 +34,15 @@ import {
   getRegenerateContext,
   buildSessionSummary,
   getValidMessages,
+  buildNormalizedContext,
+  formatMemoryContext,
+  isSameCalendarDay,
 } from "../utils/fitbotHistory";
 import jsPDF from "jspdf";
 
 // ── Helpers ───────────────────────────────────────────────
 const resolveDate = (entry: any): string =>
   entry.date ?? entry.createdAt ?? new Date().toISOString();
-
-const isToday = (dateStr: string) =>
-  new Date(dateStr).toDateString() === new Date().toDateString();
-
 
 const BASE_SUGGESTIONS = [
   "What should I eat before a workout?",
@@ -399,13 +398,13 @@ export default function AIAssistant() {
     });
   };
 
-  // Filter today's dynamic logs
+  // Filter today's dynamic logs using timezone-safe calendar day comparison
   const todayFood = useMemo(
-    () => (allFoodLogs || []).filter((l) => isToday(resolveDate(l))),
+    () => (allFoodLogs || []).filter((l) => isSameCalendarDay(resolveDate(l))),
     [allFoodLogs]
   );
   const todayActivity = useMemo(
-    () => (allActivityLogs || []).filter((l) => isToday(resolveDate(l))),
+    () => (allActivityLogs || []).filter((l) => isSameCalendarDay(resolveDate(l))),
     [allActivityLogs]
   );
 
@@ -563,6 +562,14 @@ export default function AIAssistant() {
   }, [messages, saveSession]);
 
   const clearMemory = async () => {
+    if (
+      !window.confirm(
+        "Are you sure you want to clear all saved FitBot memory? This permanently deletes your saved coaching history and resets past context."
+      )
+    ) {
+      return;
+    }
+
     try {
       await api.delete("/api/chathistories/all", {
         headers: { Authorization: `Bearer ${token}` },
@@ -571,6 +578,36 @@ export default function AIAssistant() {
       toast.success("FitBot memory cleared");
     } catch {
       toast.error("Failed to clear memory");
+    }
+  };
+
+  const deleteSingleSession = async (session: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const targetId = session.sessionId || session._id;
+    if (!targetId) return;
+
+    try {
+      await api.delete(`/api/chathistories/session/${targetId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPastSessions((prev) =>
+        prev.filter((s) => (s.sessionId ? s.sessionId !== targetId : s._id !== targetId))
+      );
+      toast.success("Session removed from memory");
+
+      // If the deleted session was currently loaded into chat, reset current session identifier
+      if (sessionIdRef.current === targetId) {
+        const freshId =
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `session-${Date.now()}`;
+        setSessionId(freshId);
+        sessionIdRef.current = freshId;
+        saveRevisionRef.current = 0;
+        setSaveStatus("idle");
+      }
+    } catch {
+      toast.error("Failed to delete session");
     }
   };
 
@@ -604,40 +641,17 @@ export default function AIAssistant() {
     }
   };
 
-  // Build live user context string
-  const userContext = useMemo(() => {
-    const parts: string[] = [];
-    if (user?.username) parts.push(`User: ${user.username}`);
-    if (user?.goal) parts.push(`Goal: ${user.goal} weight`);
-    if (user?.weight) parts.push(`Weight: ${user.weight}kg`);
-    if (user?.height) parts.push(`Height: ${user.height}cm`);
-    if (user?.age) parts.push(`Age: ${user.age}`);
-    if (user?.dailycaloriesintake) parts.push(`Daily calorie target: ${user.dailycaloriesintake} kcal`);
-    if (todayFood.length) {
-      const totalCal = todayFood.reduce((s, l) => s + (l.calories ?? 0), 0);
-      parts.push(`Today's food: ${todayFood.map((l) => l.name).join(", ")} (${totalCal} kcal total)`);
-    }
-    if (todayActivity.length) {
-      parts.push(
-        `Today's activities: ${todayActivity
-          .map((l) => `${l.name ?? l.type} ${l.duration}min`)
-          .join(", ")}`
-      );
-    }
-    return parts.join(". ");
-  }, [user, todayFood, todayActivity]);
+  // Build verified, normalized user context string with provenance tags
+  const { contextString: userContext } = useMemo(
+    () => buildNormalizedContext({ user, foodLogs: todayFood, activityLogs: todayActivity }),
+    [user, todayFood, todayActivity]
+  );
 
-  const memoryContext = useMemo(() => {
-    if (!pastSessions.length) return "";
-    return (
-      "Previous coaching sessions summary:\n" +
-      pastSessions
-        .slice(0, 3)
-        .map((s: any) => s.summary ?? "")
-        .filter(Boolean)
-        .join("\n\n")
-    );
-  }, [pastSessions]);
+  // Build bounded, sanitized memory context string from past sessions
+  const memoryContext = useMemo(
+    () => formatMemoryContext(pastSessions, 3, 900),
+    [pastSessions]
+  );
 
   // Filtered memory sessions based on search
   const filteredSessions = useMemo(() => {
@@ -823,7 +837,6 @@ export default function AIAssistant() {
     saveSession(newMessages);
 
     const historyPayload = buildGeminiPayload(newMessages);
-    const combinedContext = [userContext, memoryContext].filter(Boolean).join("\n\n");
     abortControllerRef.current = new AbortController();
 
     try {
@@ -832,7 +845,8 @@ export default function AIAssistant() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           messages: historyPayload,
-          userContext: combinedContext,
+          userContext,
+          memoryContext,
           ...(sendOptions?.regenerate ? { regenerate: true } : {}),
         }),
         signal: abortControllerRef.current.signal,
@@ -1309,6 +1323,11 @@ export default function AIAssistant() {
                 </div>
               </div>
 
+              {/* Privacy Notice Banner */}
+              <div className="px-4 py-2 border-b border-slate-800/80 bg-slate-950/40 text-[11px] text-slate-400 leading-relaxed shrink-0">
+                FitBot uses recent session summaries to personalize advice. You can delete individual sessions or clear all memory at any time.
+              </div>
+
               {/* Search bar inside Flyout */}
               {pastSessions.length > 1 && (
                 <div className="p-3 border-b border-slate-800/80 shrink-0 bg-slate-950/20">
@@ -1369,7 +1388,18 @@ export default function AIAssistant() {
                             {previewText}
                           </p>
                         </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-300 shrink-0 self-center transition-colors" />
+                        <div className="flex items-center gap-1 shrink-0 self-center">
+                          <button
+                            type="button"
+                            onClick={(e) => deleteSingleSession(s, e)}
+                            className="p-1 rounded-md hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer"
+                            title="Delete this session from memory"
+                            aria-label="Delete session"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-300 transition-colors" />
+                        </div>
                       </div>
                     );
                   })

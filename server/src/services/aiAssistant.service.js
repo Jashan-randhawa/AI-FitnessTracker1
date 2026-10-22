@@ -3,8 +3,9 @@ const { chatCompletionDetailed } = require('./openrouter.service');
 const { buildFitBotPrompt, PROMPT_VERSION } = require('../prompts/fitbot.prompt');
 const logger = require('../utils/logger');
 
-// In-memory 5-minute TTL cache for identical prompt queries (FitBot Plan §4 #5)
+// In-memory 5-minute TTL cache with entry cap for identical prompt queries (FitBot Plan §4 #5)
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const MAX_CACHE_ENTRIES = 200;
 const responseCache = new Map();
 
 const cleanExpiredCache = () => {
@@ -29,11 +30,12 @@ const extractCleanJson = (text) => {
 
 /**
  * Communicates with FitBot AI via OpenRouter with caching, fallback,
- * cancellation propagation, and JSON parse validation retry for structured Activity Planner plans.
+ * cancellation propagation, distinct memoryContext, and JSON parse validation retry for structured plans.
  *
  * @param {Array<{ role: 'user'|'model'|'assistant', parts?: { text: string }[], content?: string }>} messages
- * @param {string} [userContext]
+ * @param {string|object} [userContext]
  * @param {Object} [options]
+ * @param {string} [options.memoryContext]
  * @param {boolean} [options.expectJson]
  * @param {boolean} [options.skipCache]
  * @param {boolean} [options.regenerate]
@@ -43,7 +45,8 @@ const extractCleanJson = (text) => {
 const chatWithAssistant = async (messages, userContext, options = {}) => {
   cleanExpiredCache();
 
-  const systemInstruction = buildFitBotPrompt(userContext);
+  const memoryContext = options.memoryContext;
+  const systemInstruction = buildFitBotPrompt(userContext, memoryContext);
 
   const openRouterMessages = [
     { role: 'system', content: systemInstruction },
@@ -134,6 +137,12 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
     cached: false,
   };
 
+  // Enforce memory cache size cap
+  if (responseCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = responseCache.keys().next().value;
+    responseCache.delete(oldestKey);
+  }
+
   // Cache successful responses
   responseCache.set(cacheKey, {
     data: responsePayload,
@@ -148,4 +157,5 @@ module.exports = {
   extractCleanJson,
   responseCache,
   CACHE_TTL_MS,
+  MAX_CACHE_ENTRIES,
 };
