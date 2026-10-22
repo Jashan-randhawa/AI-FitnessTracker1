@@ -26,6 +26,7 @@ import api from "../configs/api";
 import toast from "react-hot-toast";
 import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
+import { chatAiAssistant } from "../services/aiAssistantClient";
 import { FITBOT_CONFIG } from "../constants/fitbot";
 import {
   type FitBotMessage as Message,
@@ -840,25 +841,18 @@ export default function AIAssistant() {
     abortControllerRef.current = new AbortController();
 
     try {
-      const res = await fetch(`${API_URL}/api/ai-assistant/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          messages: historyPayload,
-          userContext,
-          memoryContext,
-          ...(sendOptions?.regenerate ? { regenerate: true } : {}),
-        }),
+      const data = await chatAiAssistant({
+        messages: historyPayload,
+        userContext,
+        memoryContext,
+        options: {
+          regenerate: Boolean(sendOptions?.regenerate),
+        },
         signal: abortControllerRef.current.signal,
       });
 
       // Ignore if superseded or cancelled
       if (activeRequestIdRef.current !== requestId) return;
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || `AI assistant request failed (${res.status})`);
-      }
 
       if (activeRequestIdRef.current !== requestId) return;
 

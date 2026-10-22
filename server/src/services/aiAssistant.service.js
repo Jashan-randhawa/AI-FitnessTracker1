@@ -1,6 +1,11 @@
 const crypto = require('crypto');
 const { chatCompletionDetailed, DEFAULT_MODEL } = require('./openrouter.service');
 const { buildFitBotPrompt, PROMPT_VERSION } = require('../prompts/fitbot.prompt');
+const {
+  safeParseMealPlan,
+  safeParseActivityPlan,
+  extractRawJson,
+} = require('../schemas/aiPlans.schema');
 const logger = require('../utils/logger');
 
 // In-memory configurable TTL and capacity bounded LRU cache (FitBot Phase 4)
@@ -78,14 +83,35 @@ const extractCleanJson = (text) => {
 };
 
 /**
+ * Validates candidate AI text against target structured plan schema or generic JSON syntax.
+ * @param {string} content
+ * @param {'mealPlan'|'activityPlan'|'workoutPlan'|string} [planType]
+ * @returns {{ success: boolean, data?: any, error?: string }}
+ */
+const validateStructuredOutput = (content, planType) => {
+  if (planType === 'mealPlan') {
+    return safeParseMealPlan(content);
+  }
+  if (planType === 'activityPlan' || planType === 'workoutPlan') {
+    return safeParseActivityPlan(content);
+  }
+  const parsed = extractCleanJson(content);
+  if (!parsed) {
+    return { success: false, error: 'Output could not be parsed as valid JSON.' };
+  }
+  return { success: true, data: parsed };
+};
+
+/**
  * Communicates with FitBot AI via OpenRouter with bounded LRU caching, fallback,
- * cancellation propagation, distinct memoryContext, and JSON parse validation retry for structured plans.
+ * cancellation propagation, distinct memoryContext, and JSON schema validation retry for structured plans.
  *
  * @param {Array<{ role: 'user'|'model'|'assistant', parts?: { text: string }[], content?: string, text?: string }>} messages
  * @param {string|object} [userContext]
  * @param {Object} [options]
  * @param {string} [options.memoryContext]
  * @param {boolean} [options.expectJson]
+ * @param {string} [options.planType]
  * @param {boolean} [options.skipCache]
  * @param {boolean} [options.regenerate]
  * @param {string} [options.model]
@@ -121,6 +147,16 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
   // Check if query requests structured JSON (e.g. Activity Planner / Meal Planner)
   const lastUserMsg = openRouterMessages[openRouterMessages.length - 1]?.content || '';
   const isJsonRequest = Boolean(options.expectJson || /return (only )?valid json/i.test(lastUserMsg));
+
+  // Auto-detect structured plan type if not explicitly supplied
+  let effectivePlanType = options.planType;
+  if (!effectivePlanType && isJsonRequest) {
+    if (/meal plan|breakfast|lunch|dinner|calorie target|preferred cuisine/i.test(lastUserMsg)) {
+      effectivePlanType = 'mealPlan';
+    } else if (/workout|activity plan|exercises|duration.*calorie|recovery focus/i.test(lastUserMsg)) {
+      effectivePlanType = 'activityPlan';
+    }
+  }
 
   // Determine token ceiling based on request type
   const maxTokens = isJsonRequest ? 4000 : (options.maxTokens || DEFAULT_MAX_OUTPUT_TOKENS);
@@ -160,6 +196,7 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
   logger.info('[AI Assistant] Dispatching request to OpenRouter', {
     messageCount: openRouterMessages.length,
     isJsonRequest,
+    planType: effectivePlanType || 'none',
     model: targetModel,
     maxTokens,
     promptVersion: PROMPT_VERSION,
@@ -175,35 +212,49 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
     fetchFn: options.fetchFn,
   });
 
-  // Structured JSON validation guard with 1 repair retry if unparseable
-  if (isJsonRequest && !extractCleanJson(result.content)) {
-    logger.warn('[AI Assistant] Model returned unparseable JSON for structured request; attempting repair retry...');
-    const repairMessages = [
-      ...openRouterMessages,
-      { role: 'assistant', content: result.content },
-      {
-        role: 'user',
-        content: 'Your previous response could not be parsed as valid JSON. Return ONLY valid, well-formed JSON matching the requested structure. Do not include markdown formatting or explanation.',
-      },
-    ];
+  // Structured JSON & Zod schema validation guard with 1 repair retry if invalid
+  if (isJsonRequest) {
+    const initialValidation = validateStructuredOutput(result.content, effectivePlanType);
+    if (!initialValidation.success) {
+      logger.warn(`[AI Assistant] Model returned invalid structured output (${effectivePlanType || 'json'}): ${initialValidation.error}; attempting repair retry...`);
 
-    try {
-      const repairedResult = await chatCompletionDetailed({
-        messages: repairMessages,
-        title: 'FitTrack AI Assistant (JSON Repair)',
-        model: targetModel,
-        maxTokens,
-        returnUsage: true,
-        signal: options.signal,
-        fetchFn: options.fetchFn,
-      });
+      const repairFeedback = effectivePlanType
+        ? `Your previous response did not match the required ${effectivePlanType} JSON schema: ${initialValidation.error}. Return ONLY valid, well-formed JSON matching the requested structure without markdown formatting or commentary.`
+        : 'Your previous response could not be parsed as valid JSON. Return ONLY valid, well-formed JSON matching the requested structure. Do not include markdown formatting or explanation.';
 
-      if (extractCleanJson(repairedResult.content)) {
-        logger.info('[AI Assistant] JSON repair succeeded.');
-        result = repairedResult;
+      const repairMessages = [
+        ...openRouterMessages,
+        { role: 'assistant', content: result.content },
+        {
+          role: 'user',
+          content: repairFeedback,
+        },
+      ];
+
+      try {
+        const repairedResult = await chatCompletionDetailed({
+          messages: repairMessages,
+          title: 'FitTrack AI Assistant (JSON Repair)',
+          model: targetModel,
+          maxTokens,
+          returnUsage: true,
+          signal: options.signal,
+          fetchFn: options.fetchFn,
+        });
+
+        const repairedValidation = validateStructuredOutput(repairedResult.content, effectivePlanType);
+        if (repairedValidation.success) {
+          logger.info('[AI Assistant] Structured plan repair succeeded against schema.');
+          result = repairedResult;
+        } else {
+          logger.warn(`[AI Assistant] Repaired output still violated schema: ${repairedValidation.error}`);
+          if (extractCleanJson(repairedResult.content)) {
+            result = repairedResult;
+          }
+        }
+      } catch (repairErr) {
+        logger.warn(`[AI Assistant] JSON repair attempt failed: ${repairErr.message}`);
       }
-    } catch (repairErr) {
-      logger.warn(`[AI Assistant] JSON repair attempt failed: ${repairErr.message}`);
     }
   }
 
@@ -237,6 +288,9 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
 module.exports = {
   chatWithAssistant,
   extractCleanJson,
+  validateStructuredOutput,
+  safeParseMealPlan,
+  safeParseActivityPlan,
   computeCacheKey,
   responseCache,
   getCacheStats,

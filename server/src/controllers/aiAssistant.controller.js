@@ -96,6 +96,8 @@ const chat = asyncHandler(async (req, res) => {
     options,
     skipCache,
     regenerate,
+    planType,
+    schema,
   } = req.body;
   const startTime = Date.now();
   const userId = req.user?.id || req.user?._id;
@@ -104,6 +106,7 @@ const chat = asyncHandler(async (req, res) => {
 
   // Check in-flight concurrency caps
   if (activeRequestsTotal >= MAX_CONCURRENT_AI_REQUESTS) {
+    if (typeof res.setHeader === 'function') res.setHeader('Retry-After', '2');
     return res.status(429).json({
       error: 'FitBot is currently processing many requests. Please wait a moment and try again.',
       retryAfter: 2,
@@ -112,6 +115,7 @@ const chat = asyncHandler(async (req, res) => {
 
   const userInFlight = activeRequestsPerUser.get(userKey) || 0;
   if (userInFlight >= MAX_USER_CONCURRENT_AI_REQUESTS) {
+    if (typeof res.setHeader === 'function') res.setHeader('Retry-After', '2');
     return res.status(429).json({
       error: 'You already have an AI request in progress. Please wait for it to finish.',
       retryAfter: 2,
@@ -164,6 +168,7 @@ const chat = asyncHandler(async (req, res) => {
 
   const chatOptions = {
     expectJson: Boolean(expectJson || options?.expectJson),
+    planType: options?.planType || planType || options?.schema || schema,
     skipCache: Boolean(skipCache || regenerate || options?.skipCache || options?.regenerate),
     signal: abortController.signal,
     memoryContext,

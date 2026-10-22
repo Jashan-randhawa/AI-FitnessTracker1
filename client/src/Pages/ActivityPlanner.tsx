@@ -3,26 +3,12 @@ import toast from "react-hot-toast";
 import api from "../configs/api";
 import { useappcontext } from "../Context/AppContext";
 import type { ActivityEntry } from "../assets/types";
-
-type PlannedActivity = {
-  name: string;
-  type: string;
-  duration: number;
-  caloriesBurned: number;
-  intensity: "low" | "medium" | "high";
-  targetMuscles: string[];
-  notes: string;
-  warmup?: string;
-  cooldown?: string;
-};
-
-type ActivityDayPlan = {
-  day: string;
-  activities: PlannedActivity[];
-  totalDuration: number;
-  totalCaloriesBurned: number;
-  recoveryFocus: string;
-};
+import { generateStructuredActivityPlan } from "../services/aiAssistantClient";
+import {
+  safeParseActivityPlan,
+  type PlannedActivity,
+  type ActivityDayPlan,
+} from "../schemas/aiPlans.schema";
 
 const DAYS_OPTIONS = [3, 5, 7];
 const FOCUS_OPTIONS = ["Balanced", "Fat Loss", "Strength", "Endurance", "Mobility"];
@@ -48,31 +34,6 @@ const normalizeActivityEntry = (raw: unknown): ActivityEntry | null => {
   return item as ActivityEntry;
 };
 
-const planFromReply = (reply: string) => {
-  // First attempt to extract fenced code block
-  const fenced = reply.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (fenced && fenced[1]) {
-    try {
-      return JSON.parse(fenced[1].trim()) as ActivityDayPlan[];
-    } catch {
-      // Fall through to broader extract
-    }
-  }
-
-  // Next attempt to extract outermost JSON array
-  const arrayMatch = reply.match(/\[\s*\{[\s\S]*\}\s*\]/);
-  if (arrayMatch) {
-    try {
-      return JSON.parse(arrayMatch[0]) as ActivityDayPlan[];
-    } catch {
-      // Fall through
-    }
-  }
-
-  const cleaned = reply.replace(/```json|```/g, "").trim();
-  return JSON.parse(cleaned) as ActivityDayPlan[];
-};
-
 export default function ActivityPlanner() {
   const { user, setAllActivityLogs } = useappcontext();
   const [days, setDays] = useState(7);
@@ -95,33 +56,20 @@ export default function ActivityPlanner() {
         if (!isSubscribed) return;
         const activePlan = res.data?.plan;
         if (activePlan && Array.isArray(activePlan.days) && activePlan.days.length > 0) {
-          const reconstructed: ActivityDayPlan[] = activePlan.days.map((d: any) => {
-            const rawActs: any[] = Array.isArray(d.exercises) ? d.exercises : [];
-            const activities: PlannedActivity[] = rawActs.map((a: any) => ({
-              name: a.name || "Workout",
-              type: a.type || "custom",
-              duration: typeof a.duration === "number" ? a.duration : parseInt(String(a.duration || 30), 10) || 30,
-              caloriesBurned: a.caloriesBurned || 150,
-              intensity: a.intensity || "medium",
-              targetMuscles: a.targetMuscles || ["full body"],
-              notes: a.notes || "",
-              warmup: a.warmup,
-              cooldown: a.cooldown,
-            }));
-            const dur = activities.reduce((acc, a) => acc + (a.duration || 0), 0);
-            const cals = activities.reduce((acc, a) => acc + (a.caloriesBurned || 0), 0);
-            return {
-              day: d.day || "Day",
-              activities,
-              totalDuration: dur,
-              totalCaloriesBurned: cals,
-              recoveryFocus: d.focus || "Recovery & hydration",
-            };
+          const parsed = safeParseActivityPlan({
+            days: activePlan.days.map((d: any) => ({
+              day: d.day,
+              activities: d.exercises,
+              recoveryFocus: d.focus,
+            })),
           });
-          setPlan(reconstructed);
-          if (activePlan.daysPerWeek) setDays(activePlan.daysPerWeek);
-          if (activePlan.split) setFocus(activePlan.split);
-          if (activePlan.level) setLevel(activePlan.level);
+
+          if (parsed.success && parsed.data.length > 0) {
+            setPlan(parsed.data);
+            if (activePlan.daysPerWeek) setDays(activePlan.daysPerWeek);
+            if (activePlan.split) setFocus(activePlan.split);
+            if (activePlan.level) setLevel(activePlan.level);
+          }
         }
       })
       .catch(() => {
@@ -139,8 +87,6 @@ export default function ActivityPlanner() {
     setActiveDay(0);
     setLoggedActivities(new Set());
     try {
-      const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "")?.replace(/\/$/, "");
-      const token = localStorage.getItem("token");
       const prompt = `Create a detailed ${days}-day workout and activity plan for this user:
 - Goal: ${user?.goal ?? "maintain"} weight
 - Daily calorie burn target: ${calorieBurnTarget} kcal
@@ -180,39 +126,28 @@ Requirements:
 - Match level and equipment constraints.
 - Keep daily totalCaloriesBurned close to ${calorieBurnTarget}.`;
 
-      const res = await fetch(`${API_URL}/api/ai-assistant/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          messages: [{ role: "user", parts: [{ text: prompt }] }],
-          options: { expectJson: true },
-        }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string };
-      if (!res.ok) {
-        throw new Error(data.error || `AI assistant request failed (${res.status})`);
-      }
-      if (!data.reply) throw new Error("Empty AI response received.");
-      const parsed = planFromReply(data.reply);
-      setPlan(parsed);
+      const parsedPlan = await generateStructuredActivityPlan(prompt);
+      setPlan(parsedPlan);
+      toast.success(`Generated ${parsedPlan.length}-day activity plan!`);
 
       // Persist plan to server for cross-device & reload durability
-      api.post("/api/workout-plans", {
-        plan: {
-          title: `${focus} ${days}-Day Plan`,
-          goal: user?.goal || "maintain",
-          level,
-          daysPerWeek: days,
-          split: focus,
-          days: parsed.map((d) => ({
-            day: d.day,
-            focus: d.recoveryFocus,
-            duration: `${d.totalDuration} min`,
-            exercises: d.activities,
-          })),
-        },
-      }).catch((e) => console.warn("Failed to auto-save workout plan:", e));
-
+      api
+        .post("/api/workout-plans", {
+          plan: {
+            title: `${focus} ${days}-Day Plan`,
+            goal: user?.goal || "maintain",
+            level,
+            daysPerWeek: days,
+            split: focus,
+            days: parsedPlan.map((d) => ({
+              day: d.day,
+              focus: d.recoveryFocus,
+              duration: `${d.totalDuration} min`,
+              exercises: d.activities,
+            })),
+          },
+        })
+        .catch((e) => console.warn("Failed to auto-save workout plan:", e));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to generate activity plan. Please try again.";
       toast.error(msg);
@@ -257,10 +192,11 @@ Requirements:
   const logAllActivitiesForDay = async (dayPlan: ActivityDayPlan, dayIndex: number) => {
     let count = 0;
     let failed = 0;
-    for (let i = 0; i < dayPlan.activities.length; i++) {
+    const activities = dayPlan.activities || [];
+    for (let i = 0; i < activities.length; i++) {
       const key = `${dayIndex}-${i}`;
       if (loggedActivities.has(key)) continue;
-      const activity = dayPlan.activities[i];
+      const activity = activities[i];
       setLoggedActivities((prev) => new Set([...prev, key]));
       try {
         const { data: raw } = await api.post(
@@ -431,7 +367,7 @@ Requirements:
                   </button>
                 </div>
 
-                {currentDay.activities.map((activity, activityIdx) => {
+                {(currentDay.activities || []).map((activity, activityIdx) => {
                   const key = `${activeDay}-${activityIdx}`;
                   const cfg = ACTIVITY_COLORS[activity.type?.toLowerCase()] ?? ACTIVITY_COLORS.custom;
                   const logged = loggedActivities.has(key);

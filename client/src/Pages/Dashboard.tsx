@@ -11,6 +11,7 @@ import AnimatedNumber from "../components/AnimatedNumber";
 import { StaggerContainer, StaggerItem } from "../components/animations/StaggerList";
 import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
+import { fetchDailyFitnessTip } from "../services/aiAssistantClient";
 
 // ── Helpers ────────────────────────────────────────────────
 const resolveDate = (entry: any): string =>
@@ -392,24 +393,17 @@ export default function Dashboard() {
     const fetchTip = async () => {
       setTipLoading(true);
       try {
-        const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "")?.replace(/\/$/, "");
-        const token = localStorage.getItem("token");
         const userCtx = [
           user?.goal ? `goal: ${user.goal} weight` : "",
           user?.weight ? `weight: ${user.weight}kg` : "",
           totalCaloriesToday ? `consumed today: ${totalCaloriesToday} kcal` : "",
           totalCaloriesBurnedToday ? `burned today: ${totalCaloriesBurnedToday} kcal` : "",
         ].filter(Boolean).join(", ");
-        const prompt = `Give me ONE short, actionable fitness tip for today (max 2 sentences). ${userCtx ? `User context: ${userCtx}.` : ""}`;
-        const res = await fetch(`${API_URL}/api/ai-assistant/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ messages: [{ role: "user", parts: [{ text: prompt }] }] }),
-        });
-        const data = await res.json();
-        const tip = data.reply || "";
-        setDailyTip(tip);
-        sessionStorage.setItem("fittrack_daily_tip", tip);
+        const tip = await fetchDailyFitnessTip(userCtx);
+        if (tip) {
+          setDailyTip(tip);
+          sessionStorage.setItem("fittrack_daily_tip", tip);
+        }
       } catch { /* silent */ }
       finally { setTipLoading(false); }
     };

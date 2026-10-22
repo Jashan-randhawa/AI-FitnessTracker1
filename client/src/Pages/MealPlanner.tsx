@@ -2,9 +2,8 @@ import { useState } from "react";
 import { useappcontext } from "../Context/AppContext";
 import api from "../configs/api";
 import toast from "react-hot-toast";
-
-type Meal = { name: string; calories: number; protein: number; carbs: number; fat: number; mealType: string; description: string };
-type DayPlan = { day: string; meals: Meal[]; totalCalories: number };
+import { generateStructuredMealPlan } from "../services/aiAssistantClient";
+import type { Meal, DayPlan } from "../schemas/aiPlans.schema";
 
 const CUISINES = ["Any", "Mediterranean", "Asian", "American", "Indian", "Mexican", "Italian"];
 const DAYS_OPTIONS = [3, 5, 7];
@@ -32,9 +31,6 @@ export default function MealPlanner() {
     setPlan([]);
     setLoggedMeals(new Set());
     try {
-      const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "")?.replace(/\/$/, "");
-      const token = localStorage.getItem("token");
-
       const prompt = `Generate a ${days}-day meal plan for someone with the following profile:
 - Goal: ${user?.goal ?? "maintain"} weight
 - Daily calorie target: ${calorieTarget} kcal
@@ -62,43 +58,10 @@ Requirements:
 - Vary the meals across days (no exact repeats)
 - Match the ${cuisine} cuisine preference where possible`;
 
-      const res = await fetch(`${API_URL}/api/ai-assistant/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          messages: [{ role: "user", parts: [{ text: prompt }] }],
-          options: { expectJson: true },
-        }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string };
-      if (!res.ok) {
-        throw new Error(data.error || `AI assistant request failed (${res.status})`);
-      }
-      if (!data.reply) throw new Error("Empty meal plan received from AI.");
-
-      // Robust extraction from code fences or raw JSON
-      let parsed: DayPlan[] | null = null;
-      const fenced = data.reply.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (fenced && fenced[1]) {
-        try {
-          parsed = JSON.parse(fenced[1].trim()) as DayPlan[];
-        } catch { /* fallback */ }
-      }
-      if (!parsed) {
-        const arrayMatch = data.reply.match(/\[\s*\{[\s\S]*\}\s*\]/);
-        if (arrayMatch) {
-          try {
-            parsed = JSON.parse(arrayMatch[0]) as DayPlan[];
-          } catch { /* fallback */ }
-        }
-      }
-      if (!parsed) {
-        const cleaned = data.reply.replace(/```json|```/g, "").trim();
-        parsed = JSON.parse(cleaned) as DayPlan[];
-      }
-
-      setPlan(parsed);
+      const parsedPlan = await generateStructuredMealPlan(prompt);
+      setPlan(parsedPlan);
       setActiveDay(0);
+      toast.success(`Generated ${parsedPlan.length}-day meal plan!`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to generate meal plan. Please try again.";
       toast.error(msg);
@@ -115,197 +78,223 @@ Requirements:
     setLoggedMeals((prev) => new Set([...prev, key]));
 
     try {
-      const { data: raw } = await api.post("/api/foodlogs", {
-        data: {
-          name: meal.name,
-          calories: meal.calories,
-          protein: meal.protein,
-          carbs: meal.carbs,
-          fat: meal.fat,
-          mealtype: meal.mealType,
-          mealType: meal.mealType,
-          date: new Date().toISOString(),
+      const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "")?.replace(/\/$/, "");
+      const res = await fetch(`${API_URL}/api/foodlogs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-      }, { headers: { Authorization: `Bearer ${token}` } });
+        body: JSON.stringify({
+          data: {
+            name: meal.name,
+            calories: meal.calories,
+            protein: meal.protein,
+            carbs: meal.carbs,
+            fat: meal.fat,
+            mealType: meal.mealType,
+            date: new Date().toISOString(),
+          },
+        }),
+      });
 
-      // Add to global state
-      setAllFoodLogs((prev: any[]) => [raw, ...prev]);
-      toast.success(`${meal.name} logged!`);
-    } catch {
-      setLoggedMeals((prev) => { const n = new Set(prev); n.delete(key); return n; });
-      toast.error("Failed to log meal");
-    }
-  };
+      if (!res.ok) throw new Error("Failed to log");
 
-  const logAllMealsForDay = async (dayPlan: DayPlan, dayIndex: number) => {
-    const token = localStorage.getItem("token");
-    let count = 0;
-    for (let i = 0; i < dayPlan.meals.length; i++) {
-      const key = `${dayIndex}-${i}`;
-      if (loggedMeals.has(key)) continue;
-      const meal = dayPlan.meals[i];
-      setLoggedMeals((prev) => new Set([...prev, key]));
+      // Refresh food logs in context
       try {
-        const { data: raw } = await api.post("/api/foodlogs", {
-          data: { name: meal.name, calories: meal.calories, protein: meal.protein, carbs: meal.carbs, fat: meal.fat, mealtype: meal.mealType, mealType: meal.mealType, date: new Date().toISOString() },
-        }, { headers: { Authorization: `Bearer ${token}` } });
-        setAllFoodLogs((prev: any[]) => [raw, ...prev]);
-        count++;
-      } catch { /* skip */ }
+        const refreshRes = await api.get("/api/foodlogs");
+        const list = Array.isArray(refreshRes.data) ? refreshRes.data : refreshRes.data?.data || [];
+        setAllFoodLogs(list);
+      } catch { /* context update optional */ }
+
+      toast.success(`Logged "${meal.name}" (${meal.calories} kcal)`);
+    } catch {
+      // Revert optimistic update
+      setLoggedMeals((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+      toast.error(`Failed to log "${meal.name}"`);
     }
-    toast.success(`${count} meals logged for ${dayPlan.day}!`);
   };
 
   const currentDay = plan[activeDay];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200 pb-10">
-
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 pt-6 px-4 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="page-header-planner">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-2xl font-bold tracking-tight text-white">Meal Planner</h1>
-          <p className="text-sm text-teal-100 mt-0.5">AI-generated plans tailored to your goals</p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+          <span>🥗</span> AI Meal Planner
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Personalized meal plans aligned with your {calorieTarget} kcal/day target
+        </p>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-
-        {/* Config card */}
-        <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5">
-          <p className="text-sm font-bold mb-4">Plan Settings</p>
-
-          <div className="mb-4">
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Duration</p>
+      {/* Controls */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-6 shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+              Plan Duration
+            </label>
             <div className="flex gap-2">
               {DAYS_OPTIONS.map((d) => (
-                <button key={d} onClick={() => setDays(d)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer ${days === d ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600"}`}>
-                  {d} days
+                <button
+                  key={d}
+                  onClick={() => setDays(d)}
+                  className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    days === d
+                      ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/20"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  {d} Days
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="mb-5">
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Cuisine preference</p>
-            <div className="flex flex-wrap gap-2">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+              Cuisine Preference
+            </label>
+            <select
+              value={cuisine}
+              onChange={(e) => setCuisine(e.target.value)}
+              className="w-full py-2 px-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+            >
               {CUISINES.map((c) => (
-                <button key={c} onClick={() => setCuisine(c)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${cuisine === c ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600"}`}>
+                <option key={c} value={c}>
                   {c}
-                </button>
+                </option>
               ))}
-            </div>
+            </select>
           </div>
-
-          <div className="flex items-center justify-between mb-4 text-xs text-slate-500 dark:text-slate-400">
-            <span>Calorie target: <span className="font-bold text-gray-900 dark:text-white">{calorieTarget} kcal/day</span></span>
-            <span>Goal: <span className="font-bold text-gray-900 dark:text-white capitalize">{user?.goal ?? "maintain"}</span></span>
-          </div>
-
-          <button
-            onClick={generatePlan}
-            disabled={loading}
-            className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <span className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <span className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <span className="w-2 h-2 bg-white rounded-full animate-bounce" />
-                <span className="ml-2">Generating your plan…</span>
-              </>
-            ) : (
-              <>📅 Generate {days}-Day Plan</>
-            )}
-          </button>
         </div>
 
-        {/* Plan results */}
-        {plan.length > 0 && (
-          <>
-            {/* Day tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {plan.map((d, i) => (
-                <button key={i} onClick={() => setActiveDay(i)}
-                  className={`shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${activeDay === i ? "bg-emerald-500 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"}`}>
-                  {d.day}
-                </button>
-              ))}
-            </div>
+        <button
+          onClick={generatePlan}
+          disabled={loading}
+          className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm shadow-emerald-500/20"
+        >
+          {loading ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Generating your plan...
+            </>
+          ) : (
+            <>✨ Generate {days}-Day Meal Plan</>
+          )}
+        </button>
+      </div>
 
-            {/* Day plan */}
-            {currentDay && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-bold text-base">{currentDay.day}</h2>
-                    <p className="text-xs text-slate-400">~{currentDay.totalCalories} kcal total</p>
-                  </div>
-                  <button
-                    onClick={() => logAllMealsForDay(currentDay, activeDay)}
-                    className="text-xs px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium transition-colors cursor-pointer"
-                  >
-                    Log all meals
-                  </button>
+      {/* Plan Results */}
+      {plan.length > 0 && (
+        <div className="space-y-4">
+          {/* Day Selector Tabs */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {plan.map((d, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveDay(i)}
+                className={`px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                  activeDay === i
+                    ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm"
+                    : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                }`}
+              >
+                {d.day}
+                <span className="ml-1.5 opacity-60 text-[10px]">
+                  {d.totalCalories ? `${d.totalCalories} kcal` : ""}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Active Day Plan */}
+          {currentDay && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                  {currentDay.day}
+                </h2>
+                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  Total:{" "}
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    {currentDay.totalCalories ||
+                      (currentDay.meals || []).reduce((acc, m) => acc + (m.calories || 0), 0)}{" "}
+                    kcal
+                  </span>
                 </div>
+              </div>
 
-                {currentDay.meals.map((meal, mealIdx) => {
-                  const key = `${activeDay}-${mealIdx}`;
-                  const cfg = MEAL_COLORS[meal.mealType] ?? MEAL_COLORS.snack;
-                  const logged = loggedMeals.has(key);
+              {/* Meals Grid */}
+              <div className="space-y-3">
+                {(currentDay.meals || []).map((meal, mIdx) => {
+                  const key = `${activeDay}-${mIdx}`;
+                  const isLogged = loggedMeals.has(key);
+                  const colors = MEAL_COLORS[meal.mealType] || MEAL_COLORS.snack;
+
                   return (
-                    <div key={mealIdx} className={`${cfg.bg} border rounded-2xl p-4`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <span className="text-xl mt-0.5">{cfg.icon}</span>
-                          <div>
-                            <p className={`text-xs font-semibold uppercase tracking-wide ${cfg.text} mb-0.5`}>{meal.mealType}</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">{meal.name}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{meal.description}</p>
-                            <div className="flex gap-3 mt-2 text-xs text-slate-500 dark:text-slate-400">
-                              <span className="font-semibold text-gray-700 dark:text-slate-200">{meal.calories} kcal</span>
-                              <span>P: {meal.protein}g</span>
-                              <span>C: {meal.carbs}g</span>
-                              <span>F: {meal.fat}g</span>
-                            </div>
+                    <div
+                      key={mIdx}
+                      className="border border-slate-100 dark:border-slate-800 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-200 dark:hover:border-slate-700 transition-all"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center text-base border shrink-0 ${colors.bg}`}
+                        >
+                          {colors.icon}
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {meal.name}
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md ${colors.bg} ${colors.text}`}
+                            >
+                              {meal.mealType}
+                            </span>
+                          </div>
+                          {meal.description && (
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                              {meal.description}
+                            </p>
+                          )}
+                          <div className="flex gap-3 text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                              {meal.calories} kcal
+                            </span>
+                            <span>P: {meal.protein}g</span>
+                            <span>C: {meal.carbs}g</span>
+                            <span>F: {meal.fat}g</span>
                           </div>
                         </div>
-                        <button
-                          onClick={() => !logged && logMeal(meal, activeDay, mealIdx)}
-                          disabled={logged}
-                          className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                            logged
-                              ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700"
-                              : "bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:border-emerald-400 hover:text-emerald-600"
-                          }`}
-                        >
-                          {logged ? "✓ Logged" : "+ Log"}
-                        </button>
                       </div>
+
+                      <button
+                        onClick={() => logMeal(meal, activeDay, mIdx)}
+                        disabled={isLogged}
+                        className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all shrink-0 cursor-pointer ${
+                          isLogged
+                            ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 cursor-default"
+                            : "bg-slate-100 dark:bg-slate-800 hover:bg-emerald-500 hover:text-white text-slate-600 dark:text-slate-300"
+                        }`}
+                      >
+                        {isLogged ? "✓ Logged" : "+ Log to Tracker"}
+                      </button>
                     </div>
                   );
                 })}
               </div>
-            )}
-
-            {/* Regenerate */}
-            <button onClick={generatePlan} className="w-full py-3 border border-slate-200 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
-              ↻ Regenerate plan
-            </button>
-          </>
-        )}
-
-        {/* Empty state */}
-        {plan.length === 0 && !loading && (
-          <div className="text-center py-16 text-slate-400 dark:text-slate-500">
-            <div className="text-5xl mb-4">📅</div>
-            <p className="text-base font-medium text-gray-900 dark:text-white mb-1">No plan yet</p>
-            <p className="text-sm">Configure your preferences above and hit Generate</p>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
