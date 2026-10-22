@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const WorkoutPlan = require('../models/WorkoutPlan');
+const { WorkoutPlanActionSchema } = require('../schemas/aiPlans.schema');
 const sendError = require('../utils/sendError');
 
 // GET /api/workout-plans/active
@@ -24,11 +25,21 @@ const getPlans = asyncHandler(async (req, res) => {
 // POST /api/workout-plans
 const savePlan = asyncHandler(async (req, res) => {
   const data = req.body.plan || req.body.data || req.body || {};
-  const { title, goal, level, daysPerWeek, split, days, isActive = true } = data;
 
-  if (!days || !Array.isArray(days)) {
+  if (!data.days || !Array.isArray(data.days)) {
     return sendError(res, 400, 'Workout plan must include days array');
   }
+
+  // Server-side Zod validation & authorization enforcement (FitBot Plan §4)
+  const validation = WorkoutPlanActionSchema.safeParse(data);
+  if (!validation.success) {
+    const errorMsg = validation.error.issues
+      .map((i) => `${i.path.join('.')}: ${i.message}`)
+      .join('; ');
+    return sendError(res, 400, `Workout plan validation failed: ${errorMsg}`);
+  }
+
+  const { title, goal, level, daysPerWeek, split, days, isActive } = validation.data;
 
   // If new plan is active, mark any existing active plans as inactive
   if (isActive) {
@@ -40,11 +51,11 @@ const savePlan = asyncHandler(async (req, res) => {
 
   const newPlan = await WorkoutPlan.create({
     user: req.user._id,
-    title: title || 'My Workout Plan',
-    goal: goal || '',
-    level: level || 'all levels',
+    title,
+    goal,
+    level,
     daysPerWeek: daysPerWeek || days.length,
-    split: split || '',
+    split,
     days,
     isActive,
   });

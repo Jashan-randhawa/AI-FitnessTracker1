@@ -100,7 +100,30 @@ export type ActivityDayPlan = {
 };
 
 // ==========================================
-// 3. EXTRACTION & PARSING HELPERS
+// 3. WORKOUT PLAN MUTATION / ACTION SCHEMA
+// ==========================================
+
+export const WorkoutPlanDaySchema = z.object({
+  day: z.string().min(1, "Day title cannot be empty").max(80),
+  focus: z.string().max(200).default(""),
+  duration: z.string().or(z.number().transform((n) => `${n} min`)).default("30 min"),
+  exercises: z.array(z.any()).default([]),
+});
+
+export const WorkoutPlanActionSchema = z.object({
+  title: z.string().min(1, "Plan title cannot be empty").max(120).default("My Workout Plan"),
+  goal: z.string().max(100).default(""),
+  level: z.string().max(50).default("all levels"),
+  daysPerWeek: z.coerce.number().int().min(1).max(7).default(4),
+  split: z.string().max(100).default(""),
+  days: z.array(WorkoutPlanDaySchema).min(1, "Workout plan must include days array"),
+  isActive: z.boolean().default(true),
+});
+
+export type WorkoutPlanAction = z.infer<typeof WorkoutPlanActionSchema>;
+
+// ==========================================
+// 4. EXTRACTION & PARSING HELPERS
 // ==========================================
 
 export const extractRawJson = (input: unknown): unknown => {
@@ -224,4 +247,38 @@ export const safeParseActivityPlan = (
   });
 
   return { success: true, data: normalized };
+};
+
+/**
+ * Converts a structured or markdown-derived plan into a validated WorkoutPlanAction payload.
+ */
+export const buildWorkoutPlanActionPayload = (
+  title: string,
+  days: Array<{ day: string; focus?: string; duration?: string; exercises?: unknown[] }>,
+  options?: { goal?: string; level?: string; split?: string }
+): { success: true; data: WorkoutPlanAction } | { success: false; error: string } => {
+  const rawPayload = {
+    title: title || "AI Workout Routine",
+    goal: options?.goal || "fitness",
+    level: options?.level || "all levels",
+    daysPerWeek: days.length || 4,
+    split: options?.split || "full body",
+    days: days.map((d, i) => ({
+      day: d.day || `Day ${i + 1}`,
+      focus: d.focus || "General Conditioning",
+      duration: d.duration || "45 min",
+      exercises: Array.isArray(d.exercises) ? d.exercises : [],
+    })),
+    isActive: true,
+  };
+
+  const validated = WorkoutPlanActionSchema.safeParse(rawPayload);
+  if (!validated.success) {
+    return {
+      success: false,
+      error: validated.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
+    };
+  }
+
+  return { success: true, data: validated.data };
 };

@@ -5,7 +5,9 @@ const {
   safeParseActivityPlan,
   extractRawJson,
   unwrapPlanArray,
+  WorkoutPlanActionSchema,
 } = require('../src/schemas/aiPlans.schema');
+const { savePlan } = require('../src/controllers/workoutPlan.controller');
 const {
   chatWithAssistant,
   validateStructuredOutput,
@@ -283,5 +285,120 @@ describe('Phase 5: Fitness & Clinical Safety Boundaries System Prompt Contract',
     const rendered = buildFitBotPrompt('weight: 75kg', 'user likes running');
     assert.match(rendered, /Fitness & Clinical Safety Boundaries:/);
     assert.match(rendered, /<user_context>\nweight: 75kg\n<\/user_context>/);
+  });
+});
+
+describe('Phase 5: Workout Plan Action Schema & Authorization Enforcement', () => {
+  test('validates valid workout plan action payload', () => {
+    const payload = {
+      title: 'Strength Hypertrophy 4-Day',
+      goal: 'muscle gain',
+      level: 'intermediate',
+      daysPerWeek: 4,
+      split: 'upper/lower',
+      days: [
+        { day: 'Day 1', focus: 'Upper Body Power', duration: '45 min', exercises: [{ name: 'Bench Press' }] },
+        { day: 'Day 2', focus: 'Lower Body Strength', duration: '50 min', exercises: [{ name: 'Squats' }] },
+      ],
+      isActive: true,
+    };
+
+    const res = WorkoutPlanActionSchema.safeParse(payload);
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.data.title, 'Strength Hypertrophy 4-Day');
+    assert.strictEqual(res.data.days.length, 2);
+  });
+
+  test('rejects workout plan action missing days array', () => {
+    const invalid = { title: 'No Days Plan', days: [] };
+    const res = WorkoutPlanActionSchema.safeParse(invalid);
+    assert.strictEqual(res.success, false);
+    assert.match(res.error.issues[0].message, /Workout plan must include days array/);
+  });
+
+  test('rejects daysPerWeek exceeding 7 or below 1', () => {
+    const invalidHigh = {
+      title: 'Over 7 Days',
+      daysPerWeek: 9,
+      days: [{ day: 'Day 1', focus: 'Cardio' }],
+    };
+    const resHigh = WorkoutPlanActionSchema.safeParse(invalidHigh);
+    assert.strictEqual(resHigh.success, false);
+
+    const invalidLow = {
+      title: 'Zero Days',
+      daysPerWeek: 0,
+      days: [{ day: 'Day 1', focus: 'Cardio' }],
+    };
+    const resLow = WorkoutPlanActionSchema.safeParse(invalidLow);
+    assert.strictEqual(resLow.success, false);
+  });
+
+  test('savePlan controller rejects request without days array with 400', async () => {
+    const req = {
+      user: { _id: '507f1f77bcf86cd799439011' },
+      body: { title: 'Empty Plan' },
+    };
+    let statusCode = 200;
+    let responseBody = null;
+    const res = {
+      status(code) {
+        statusCode = code;
+        return this;
+      },
+      json(data) {
+        responseBody = data;
+        return this;
+      },
+    };
+
+    await savePlan(req, res);
+    assert.strictEqual(statusCode, 400);
+    assert.match(responseBody.message, /Workout plan must include days array/);
+  });
+
+  test('savePlan controller rejects request with invalid Zod schema daysPerWeek with 400', async () => {
+    const req = {
+      user: { _id: '507f1f77bcf86cd799439011' },
+      body: {
+        title: 'Invalid Plan',
+        daysPerWeek: 12,
+        days: [{ day: 'Day 1', focus: 'Rest' }],
+      },
+    };
+    let statusCode = 200;
+    let responseBody = null;
+    const res = {
+      status(code) {
+        statusCode = code;
+        return this;
+      },
+      json(data) {
+        responseBody = data;
+        return this;
+      },
+    };
+
+    await savePlan(req, res);
+    assert.strictEqual(statusCode, 400);
+    assert.match(responseBody.message, /Workout plan validation failed/);
+  });
+});
+
+describe('Phase 5: Expanded Clinical & Safe Harbor Guardrails', () => {
+  test('system prompt mandates disclaimers for pregnancy, chronic conditions, and minors', () => {
+    assert.match(FITBOT_SYSTEM_PROMPT, /Pregnancy, Chronic Illness & Minors/);
+    assert.match(FITBOT_SYSTEM_PROMPT, /pregnancy/);
+    assert.match(FITBOT_SYSTEM_PROMPT, /under 18/);
+  });
+
+  test('system prompt requires estimation uncertainty labeling for BMR and TDEE', () => {
+    assert.match(FITBOT_SYSTEM_PROMPT, /Uncertainty & Estimates/);
+    assert.match(FITBOT_SYSTEM_PROMPT, /metabolic estimates \(BMR\/TDEE\) are approximations/);
+  });
+
+  test('system prompt strictly proscribes medical diagnosis', () => {
+    assert.match(FITBOT_SYSTEM_PROMPT, /Medical Diagnosis & Treatment/);
+    assert.match(FITBOT_SYSTEM_PROMPT, /AI fitness coach, not a doctor/);
   });
 });

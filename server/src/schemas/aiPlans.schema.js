@@ -81,7 +81,28 @@ const ActivityPlanArraySchema = z
   .min(1, 'Activity plan must contain at least one day');
 
 // ==========================================
-// 3. EXTRACTION & PARSING HELPERS
+// 3. WORKOUT PLAN MUTATION / ACTION SCHEMA
+// ==========================================
+
+const WorkoutPlanDaySchema = z.object({
+  day: z.string().min(1, 'Day title cannot be empty').max(80),
+  focus: z.string().max(200).default(''),
+  duration: z.string().or(z.number().transform((n) => `${n} min`)).default('30 min'),
+  exercises: z.array(z.any()).default([]),
+});
+
+const WorkoutPlanActionSchema = z.object({
+  title: z.string().min(1, 'Plan title cannot be empty').max(120).default('My Workout Plan'),
+  goal: z.string().max(100).default(''),
+  level: z.string().max(50).default('all levels'),
+  daysPerWeek: z.coerce.number().int().min(1).max(7).default(4),
+  split: z.string().max(100).default(''),
+  days: z.array(WorkoutPlanDaySchema).min(1, 'Workout plan must include days array'),
+  isActive: z.boolean().default(true),
+});
+
+// ==========================================
+// 4. EXTRACTION & PARSING HELPERS
 // ==========================================
 
 /**
@@ -222,6 +243,8 @@ module.exports = {
   PlannedActivitySchema,
   ActivityDayPlanSchema,
   ActivityPlanArraySchema,
+  WorkoutPlanDaySchema,
+  WorkoutPlanActionSchema,
   extractRawJson,
   unwrapPlanArray,
   safeParseMealPlan,

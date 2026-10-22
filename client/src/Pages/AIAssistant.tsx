@@ -26,6 +26,7 @@ import api from "../configs/api";
 import toast from "react-hot-toast";
 import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
+import { buildWorkoutPlanActionPayload } from "../schemas/aiPlans.schema";
 import { chatAiAssistant } from "../services/aiAssistantClient";
 import { FITBOT_CONFIG } from "../constants/fitbot";
 import {
@@ -42,6 +43,53 @@ import {
 import jsPDF from "jspdf";
 
 // ── Helpers ───────────────────────────────────────────────
+// ── Helper to parse workout routine markdown into structured days ─────────
+const parseMarkdownIntoWorkoutDays = (markdown: string) => {
+  const lines = markdown.split("\n");
+  const days: Array<{ day: string; focus: string; duration: string; exercises: any[] }> = [];
+  let currentDay: { day: string; focus: string; duration: string; exercises: any[] } | null = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const dayMatch = trimmed.match(
+      /^(?:#+\s*|\*\*)?(Day\s*\d+[^:*]*|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)(?:[:*#\s-]*)(.*)/i
+    );
+    if (dayMatch) {
+      if (currentDay) {
+        days.push(currentDay);
+      }
+      currentDay = {
+        day: dayMatch[1].replace(/[*#]/g, "").trim(),
+        focus: dayMatch[2] ? dayMatch[2].replace(/[*#]/g, "").trim() : "Workout & Conditioning",
+        duration: "45 min",
+        exercises: [],
+      };
+    } else if (
+      currentDay &&
+      (trimmed.startsWith("-") || trimmed.startsWith("*") || /^\d+\./.test(trimmed))
+    ) {
+      const exerciseText = trimmed.replace(/^[-*]|\d+\.\s*/, "").replace(/[*_]/g, "").trim();
+      if (exerciseText) {
+        currentDay.exercises.push({ name: exerciseText, sets: "3", reps: "10-12" });
+      }
+    }
+  }
+  if (currentDay) {
+    days.push(currentDay);
+  }
+
+  if (days.length === 0) {
+    days.push({
+      day: "Day 1",
+      focus: "Full Body Workout",
+      duration: "45 min",
+      exercises: [{ name: "Routine as specified in chat", sets: "3", reps: "10" }],
+    });
+  }
+
+  return days;
+};
+
 const resolveDate = (entry: any): string =>
   entry.date ?? entry.createdAt ?? new Date().toISOString();
 
@@ -118,6 +166,7 @@ interface ChatMessageItemProps {
   onRegenerate: () => void;
   onSpeakToggle: (id: string, text: string) => void;
   onRetry: () => void;
+  onSavePlan?: (title: string, markdown: string) => void;
 }
 
 const ChatMessageItem = React.memo(({
@@ -130,6 +179,7 @@ const ChatMessageItem = React.memo(({
   onRegenerate,
   onSpeakToggle,
   onRetry,
+  onSavePlan,
 }: ChatMessageItemProps) => {
   const isAssistant = msg.role === "assistant";
 
@@ -184,7 +234,7 @@ const ChatMessageItem = React.memo(({
             </div>
           ) : (
             <div className="w-full text-slate-800 dark:text-slate-200">
-              <MarkdownMessage content={msg.text} />
+              <MarkdownMessage content={msg.text} onSavePlan={onSavePlan} />
             </div>
           )}
 
@@ -279,6 +329,60 @@ ChatMessageItem.displayName = "ChatMessageItem";
 // ── Main AIAssistant Component ─────────────────────────────
 export default function AIAssistant() {
   const { user, allFoodLogs, allActivityLogs } = useappcontext();
+
+  const [planConfirmModal, setPlanConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    payload: any | null;
+    status: "idle" | "saving" | "saved" | "error";
+    error?: string;
+  }>({
+    isOpen: false,
+    title: "",
+    payload: null,
+    status: "idle",
+  });
+
+  const handleOpenPlanConfirm = useCallback((title: string, markdown: string) => {
+    const days = parseMarkdownIntoWorkoutDays(markdown);
+    const result = buildWorkoutPlanActionPayload(title, days, {
+      goal: "AI Coach Recommendation",
+      level: "all levels",
+      split: "weekly",
+    });
+    if (result.success) {
+      setPlanConfirmModal({
+        isOpen: true,
+        title: result.data.title,
+        payload: result.data,
+        status: "idle",
+      });
+    } else {
+      toast.error(`Could not format plan: ${result.error}`);
+    }
+  }, []);
+
+  const handleConfirmSavePlan = async () => {
+    if (!planConfirmModal.payload) return;
+    setPlanConfirmModal((prev) => ({ ...prev, status: "saving" }));
+    try {
+      const res = await api.post("/api/workout-plans", planConfirmModal.payload);
+      if (res.data?.success) {
+        setPlanConfirmModal((prev) => ({ ...prev, status: "saved" }));
+        toast.success("Workout plan saved to your profile!");
+        setTimeout(() => {
+          setPlanConfirmModal({ isOpen: false, title: "", payload: null, status: "idle" });
+        }, 1500);
+      } else {
+        setPlanConfirmModal((prev) => ({ ...prev, status: "error", error: "Failed to save plan." }));
+        toast.error("Failed to save workout plan.");
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || "Failed to save plan.";
+      setPlanConfirmModal((prev) => ({ ...prev, status: "error", error: msg }));
+      toast.error(msg);
+    }
+  };
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -1466,6 +1570,7 @@ export default function AIAssistant() {
                   onRegenerate={regenerateLastMessage}
                   onSpeakToggle={toggleSpeakMessage}
                   onRetry={retryLastMessage}
+                  onSavePlan={handleOpenPlanConfirm}
                 />
               );
             })}
@@ -1611,6 +1716,118 @@ export default function AIAssistant() {
           </div>
         </div>
       </div>
+
+      {/* Plan Preview & Confirmation Modal */}
+      <AnimatePresence>
+        {planConfirmModal.isOpen && planConfirmModal.payload && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+            >
+              <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <span>📋</span> Confirm Workout Plan
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Preview the plan structure before saving to your profile.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPlanConfirmModal({ isOpen: false, title: "", payload: null, status: "idle" })
+                  }
+                  className="p-1 rounded-lg text-slate-400 hover:text-gray-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 max-h-[60vh] overflow-y-auto space-y-4">
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3.5">
+                  <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                    Plan Title: {planConfirmModal.payload.title}
+                  </div>
+                  <div className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1 flex gap-3">
+                    <span>Days: {planConfirmModal.payload.days?.length || 0}</span>
+                    <span>Level: {planConfirmModal.payload.level}</span>
+                    <span>Split: {planConfirmModal.payload.split}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Routine Breakdown:
+                  </div>
+                  {planConfirmModal.payload.days?.map((d: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 bg-slate-50/50 dark:bg-slate-800/40 text-xs"
+                    >
+                      <div className="font-semibold text-gray-800 dark:text-slate-200 flex justify-between">
+                        <span>{d.day} — {d.focus}</span>
+                        <span className="text-slate-400 text-[11px]">{d.duration}</span>
+                      </div>
+                      {d.exercises?.length > 0 && (
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                          {d.exercises.length} exercise{d.exercises.length > 1 ? "s" : ""} included
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {planConfirmModal.status === "error" && (
+                  <div className="text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 p-2.5 rounded-lg border border-rose-200 dark:border-rose-900">
+                    {planConfirmModal.error || "An error occurred while saving."}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  disabled={planConfirmModal.status === "saving"}
+                  onClick={() =>
+                    setPlanConfirmModal({ isOpen: false, title: "", payload: null, status: "idle" })
+                  }
+                  className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={planConfirmModal.status === "saving" || planConfirmModal.status === "saved"}
+                  onClick={handleConfirmSavePlan}
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-2 shadow-sm shadow-emerald-500/20"
+                >
+                  {planConfirmModal.status === "saving" ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Saving Plan…</span>
+                    </>
+                  ) : planConfirmModal.status === "saved" ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Saved!</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>💾</span>
+                      <span>Confirm & Save to My Plans</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

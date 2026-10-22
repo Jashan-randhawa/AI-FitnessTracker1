@@ -44,6 +44,7 @@ export default function ActivityPlanner() {
   const [loading, setLoading] = useState(false);
   const [activeDay, setActiveDay] = useState(0);
   const [loggedActivities, setLoggedActivities] = useState<Set<string>>(new Set());
+  const [planSaveStatus, setPlanSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   const calorieBurnTarget = user?.dailycaloriesburned ?? 400;
 
@@ -66,6 +67,7 @@ export default function ActivityPlanner() {
 
           if (parsed.success && parsed.data.length > 0) {
             setPlan(parsed.data);
+            setPlanSaveStatus("saved");
             if (activePlan.daysPerWeek) setDays(activePlan.daysPerWeek);
             if (activePlan.split) setFocus(activePlan.split);
             if (activePlan.level) setLevel(activePlan.level);
@@ -86,6 +88,7 @@ export default function ActivityPlanner() {
     setPlan([]);
     setActiveDay(0);
     setLoggedActivities(new Set());
+    setPlanSaveStatus("idle");
     try {
       const prompt = `Create a detailed ${days}-day workout and activity plan for this user:
 - Goal: ${user?.goal ?? "maintain"} weight
@@ -129,30 +132,39 @@ Requirements:
       const parsedPlan = await generateStructuredActivityPlan(prompt);
       setPlan(parsedPlan);
       toast.success(`Generated ${parsedPlan.length}-day activity plan!`);
-
-      // Persist plan to server for cross-device & reload durability
-      api
-        .post("/api/workout-plans", {
-          plan: {
-            title: `${focus} ${days}-Day Plan`,
-            goal: user?.goal || "maintain",
-            level,
-            daysPerWeek: days,
-            split: focus,
-            days: parsedPlan.map((d) => ({
-              day: d.day,
-              focus: d.recoveryFocus,
-              duration: `${d.totalDuration} min`,
-              exercises: d.activities,
-            })),
-          },
-        })
-        .catch((e) => console.warn("Failed to auto-save workout plan:", e));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to generate activity plan. Please try again.";
       toast.error(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const confirmAndSavePlan = async () => {
+    if (plan.length === 0) return;
+    setPlanSaveStatus("saving");
+    try {
+      await api.post("/api/workout-plans", {
+        plan: {
+          title: `${focus} ${days}-Day Plan`,
+          goal: user?.goal || "maintain",
+          level,
+          daysPerWeek: days,
+          split: focus,
+          days: plan.map((d) => ({
+            day: d.day,
+            focus: d.recoveryFocus,
+            duration: `${d.totalDuration} min`,
+            exercises: d.activities,
+          })),
+        },
+      });
+      setPlanSaveStatus("saved");
+      toast.success("Workout plan saved and activated on your profile!");
+    } catch (err: unknown) {
+      setPlanSaveStatus("idle");
+      const msg = err instanceof Error ? err.message : "Failed to save workout plan. Please try again.";
+      toast.error(msg);
     }
   };
 
@@ -323,7 +335,7 @@ Requirements:
           <button
             onClick={generatePlan}
             disabled={loading}
-            className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-sm shadow-emerald-500/20"
           >
             {loading ? (
               <>
@@ -340,6 +352,57 @@ Requirements:
 
         {plan.length > 0 && (
           <>
+            {/* Preview & Confirmation Action Banner (FitBot Plan §4 Step 4) */}
+            <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100 uppercase tracking-wider">
+                    Plan Preview
+                  </span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-200/60 dark:bg-emerald-800/40 text-emerald-800 dark:text-emerald-300">
+                    {focus} • {days} Days
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-700 dark:text-emerald-300/90 mt-1">
+                  Save this routine to make it your active workout plan across your dashboard and logs.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={confirmAndSavePlan}
+                  disabled={planSaveStatus === "saving" || planSaveStatus === "saved"}
+                  className={`flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    planSaveStatus === "saved"
+                      ? "bg-emerald-600 text-white cursor-default"
+                      : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm shadow-emerald-500/20"
+                  }`}
+                >
+                  {planSaveStatus === "saving" ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Saving...
+                    </>
+                  ) : planSaveStatus === "saved" ? (
+                    <>✓ Active Plan Saved</>
+                  ) : (
+                    <>💾 Save to My Plans</>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlan([]);
+                    setPlanSaveStatus("idle");
+                  }}
+                  className="px-3 py-2 text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+
             <div className="flex gap-2 overflow-x-auto pb-1">
               {plan.map((d, i) => (
                 <button

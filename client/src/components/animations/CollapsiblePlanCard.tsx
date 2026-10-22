@@ -7,6 +7,7 @@ interface CollapsiblePlanCardProps {
   badge?: string;
   defaultOpen?: boolean;
   icon?: React.ReactNode;
+  onSavePlan?: () => void;
   children: React.ReactNode;
 }
 
@@ -16,6 +17,7 @@ export const CollapsiblePlanCard = ({
   badge,
   defaultOpen = true,
   icon,
+  onSavePlan,
   children,
 }: CollapsiblePlanCardProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -89,6 +91,23 @@ export const CollapsiblePlanCard = ({
             className="overflow-hidden border-t border-slate-100 dark:border-slate-700/50 p-3 sm:p-4 bg-slate-50/50 dark:bg-slate-900/30 text-gray-900 dark:text-slate-100"
           >
             {children}
+            {onSavePlan && (
+              <div className="mt-4 pt-3 border-t border-slate-200/80 dark:border-slate-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Preview and save this routine to your active profile workouts.
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSavePlan();
+                  }}
+                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm shadow-emerald-500/20"
+                >
+                  <span>💾</span> Save Workout Plan
+                </button>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

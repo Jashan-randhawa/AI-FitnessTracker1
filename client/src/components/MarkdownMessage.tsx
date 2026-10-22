@@ -9,6 +9,7 @@ export interface MarkdownMessageProps {
   className?: string;
   /** Optional rollback switch to legacy line-based renderer if desired */
   useLegacy?: boolean;
+  onSavePlan?: (title: string, markdown: string) => void;
 }
 
 // Helper to identify if a heading represents a structured multi-day/week plan or workout routine
@@ -98,40 +99,66 @@ const markdownComponents = {
   },
   p({ children }: any) {
     return (
-      <p className="my-1.5 text-[15px] sm:text-[16px] leading-[1.65] text-slate-800 dark:text-slate-200">
+      <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 my-1.5 leading-relaxed font-normal">
         {children}
       </p>
     );
   },
   ul({ children }: any) {
     return (
-      <ul className="list-disc pl-5 my-2 space-y-1.5 text-[15px] sm:text-[16px] leading-[1.65] marker:text-emerald-500 text-slate-800 dark:text-slate-200">
+      <ul className="my-2 space-y-1 pl-4 list-disc marker:text-emerald-500 text-xs sm:text-sm text-slate-700 dark:text-slate-200">
         {children}
       </ul>
     );
   },
-  ol({ children, start }: any) {
+  ol({ children }: any) {
     return (
-      <ol
-        start={start}
-        className="list-decimal pl-5 my-2 space-y-1.5 text-[15px] sm:text-[16px] leading-[1.65] marker:text-emerald-500 text-slate-800 dark:text-slate-200"
-      >
+      <ol className="my-2 space-y-1 pl-4 list-decimal marker:text-emerald-500 text-xs sm:text-sm text-slate-700 dark:text-slate-200">
         {children}
       </ol>
     );
   },
   li({ children }: any) {
-    return <li className="pl-0.5">{children}</li>;
+    return <li className="leading-relaxed pl-1">{children}</li>;
+  },
+  table({ children }: any) {
+    return (
+      <div className="my-3 w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-xs touch-pan-x [webkit-overflow-scrolling:touch]">
+        <table className="w-full text-left text-xs border-collapse divide-y divide-slate-200 dark:divide-slate-700/80">
+          {children}
+        </table>
+      </div>
+    );
+  },
+  thead({ children }: any) {
+    return <thead className="bg-slate-100/80 dark:bg-slate-800/80 font-bold">{children}</thead>;
+  },
+  tbody({ children }: any) {
+    return <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white/50 dark:bg-slate-900/40">{children}</tbody>;
+  },
+  tr({ children }: any) {
+    return <tr className="hover:bg-emerald-500/5 transition-colors">{children}</tr>;
+  },
+  th({ children }: any) {
+    return (
+      <th className="px-3 py-2 text-gray-900 dark:text-white font-semibold text-[11px] sm:text-xs tracking-wider uppercase">
+        {children}
+      </th>
+    );
+  },
+  td({ children }: any) {
+    return (
+      <td className="px-3 py-2 text-slate-600 dark:text-slate-300 text-xs">
+        {children}
+      </td>
+    );
   },
   blockquote({ children }: any) {
     return (
-      <blockquote className="my-2.5 pl-3.5 border-l-3 border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 py-1.5 text-[14px] sm:text-[15px] text-emerald-950 dark:text-emerald-200 rounded-r-lg">
+      <blockquote className="my-2 border-l-4 border-emerald-500/80 pl-3.5 py-1 text-slate-600 dark:text-slate-300 italic text-xs sm:text-sm bg-emerald-50/40 dark:bg-emerald-950/20 rounded-r-lg">
         {children}
       </blockquote>
     );
-  },
-  hr() {
-    return <hr className="my-4 border-t border-slate-200 dark:border-slate-800" />;
   },
   a({ href, children }: any) {
     return (
@@ -145,58 +172,20 @@ const markdownComponents = {
       </a>
     );
   },
-  table({ children }: any) {
-    return (
-      <div className="my-3 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xs max-w-full touch-pan-x [webkit-overflow-scrolling:touch]">
-        <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[280px] sm:min-w-[340px]">
-          {children}
-        </table>
-      </div>
-    );
+  strong({ children }: any) {
+    return <strong className="font-bold text-gray-900 dark:text-white">{children}</strong>;
   },
-  thead({ children }: any) {
-    return (
-      <thead className="bg-slate-100/90 dark:bg-slate-800/90 text-slate-800 dark:text-slate-100 font-semibold sticky top-0 border-b border-slate-200 dark:border-slate-700">
-        {children}
-      </thead>
-    );
+  em({ children }: any) {
+    return <em className="italic text-slate-700 dark:text-slate-300">{children}</em>;
   },
-  tbody({ children }: any) {
-    return <tbody className="divide-y divide-slate-100 dark:divide-slate-800">{children}</tbody>;
+  hr() {
+    return <hr className="my-4 border-t border-slate-200 dark:border-slate-800" />;
   },
-  tr({ children }: any) {
-    return (
-      <tr className="odd:bg-white even:bg-slate-50/70 dark:odd:bg-slate-900/40 dark:even:bg-slate-800/40 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 transition-colors">
-        {children}
-      </tr>
-    );
-  },
-  th({ children, align }: any) {
-    const alignClass =
-      align === "center" ? "text-center" : align === "right" ? "text-right" : "text-left";
-    return (
-      <th
-        className={`px-3 sm:px-4 py-2 sm:py-2.5 text-[13px] sm:text-[14px] font-semibold text-slate-900 dark:text-white ${alignClass}`}
-      >
-        {children}
-      </th>
-    );
-  },
-  td({ children, align }: any) {
-    const alignClass =
-      align === "center" ? "text-center" : align === "right" ? "text-right" : "text-left";
-    return (
-      <td
-        className={`px-3 sm:px-4 py-2 sm:py-2.5 text-[13px] sm:text-[14px] text-slate-700 dark:text-slate-300 ${alignClass}`}
-      >
-        {children}
-      </td>
-    );
-  },
-  code({ node, inline, className, children, ...props }: any) {
+  code({ className, children, ...props }: any) {
     const match = /language-(\w+)/.exec(className || "");
     const codeContent = String(children).replace(/\n$/, "");
-    if (!inline && (match || codeContent.includes("\n"))) {
+
+    if (match || codeContent.includes("\n")) {
       return <CodeBlock language={match?.[1] || "text"} code={codeContent} />;
     }
     return (
@@ -303,19 +292,25 @@ const parsePlanSegments = (markdown: string): TextSegment[] => {
  * Renders standard GFM with tables, lists, code fences, and collapsible plan cards.
  */
 export const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
-  ({ content, className = "" }) => {
+  ({ content, className = "", onSavePlan }) => {
     const segments = useMemo(() => parsePlanSegments(content), [content]);
 
     return (
       <div className={`markdown-message max-w-prose space-y-2 text-ink dark:text-slate-100 ${className}`}>
         {segments.map((seg, idx) => {
           if (seg.type === "plan") {
+            const isWorkout = /workout|exercise|training|routine/i.test(seg.planTitle || "");
             return (
               <CollapsiblePlanCard
                 key={`plan-${idx}`}
                 title={seg.planTitle || "Workout & Nutrition Plan"}
                 badge="FitBot Plan"
                 defaultOpen={true}
+                onSavePlan={
+                  isWorkout && onSavePlan
+                    ? () => onSavePlan(seg.planTitle || "Workout Routine", seg.markdown)
+                    : undefined
+                }
               >
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                   {seg.markdown}
