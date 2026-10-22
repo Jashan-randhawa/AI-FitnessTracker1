@@ -92,11 +92,29 @@ const youtubeLimiter = rateLimit({
   },
 });
 
+/**
+ * Rate limiter for Chat History persistence and retrieval (FitBot Phase 2).
+ * 60 requests per minute per user/IP to permit reliable autosaving while preventing DoS flooding.
+ */
+const chatHistoryLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60,
+  keyGenerator: (req) => String(req.user?.id || req.user?._id || req.ip || 'anonymous'),
+  validate: { keyGeneratorIpFallback: false, xForwardedForHeader: false },
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: {
+      message: 'Chat history rate limit reached. Please wait a moment before saving again.',
+    },
+  },
+});
+
 module.exports = {
   authLimiter,
   passwordResetLimiter,
   aiLimiter,
   aiUserLimiter,
   youtubeLimiter,
+  chatHistoryLimiter,
 };
-

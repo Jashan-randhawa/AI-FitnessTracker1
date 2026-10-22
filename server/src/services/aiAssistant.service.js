@@ -29,12 +29,15 @@ const extractCleanJson = (text) => {
 
 /**
  * Communicates with FitBot AI via OpenRouter with caching, fallback,
- * and JSON parse validation retry for structured Activity Planner plans.
+ * cancellation propagation, and JSON parse validation retry for structured Activity Planner plans.
  *
  * @param {Array<{ role: 'user'|'model'|'assistant', parts?: { text: string }[], content?: string }>} messages
  * @param {string} [userContext]
  * @param {Object} [options]
  * @param {boolean} [options.expectJson]
+ * @param {boolean} [options.skipCache]
+ * @param {boolean} [options.regenerate]
+ * @param {AbortSignal} [options.signal]
  * @returns {Promise<{ reply: string, usage: object, model: string, cached: boolean }>}
  */
 const chatWithAssistant = async (messages, userContext, options = {}) => {
@@ -91,6 +94,7 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
     title: 'FitTrack AI Assistant',
     maxTokens: 4000,
     returnUsage: true,
+    signal: options.signal,
   });
 
   // Gap 6: Structured JSON validation guard with 1 repair retry
@@ -111,6 +115,7 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
         title: 'FitTrack AI Assistant (JSON Repair)',
         maxTokens: 4000,
         returnUsage: true,
+        signal: options.signal,
       });
 
       if (extractCleanJson(repairedResult.content)) {

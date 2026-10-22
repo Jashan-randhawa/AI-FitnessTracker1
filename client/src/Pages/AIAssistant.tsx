@@ -27,6 +27,14 @@ import toast from "react-hot-toast";
 import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { FITBOT_CONFIG } from "../constants/fitbot";
+import {
+  type FitBotMessage as Message,
+  buildGeminiPayload,
+  getRetryContext,
+  getRegenerateContext,
+  buildSessionSummary,
+  getValidMessages,
+} from "../utils/fitbotHistory";
 import jsPDF from "jspdf";
 
 // ── Helpers ───────────────────────────────────────────────
@@ -36,16 +44,6 @@ const resolveDate = (entry: any): string =>
 const isToday = (dateStr: string) =>
   new Date(dateStr).toDateString() === new Date().toDateString();
 
-// ── Types ─────────────────────────────────────────────────
-type Message = {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-  timestamp: Date;
-  isError?: boolean;
-};
-
-type GeminiMessage = { role: "user" | "model"; parts: { text: string }[] };
 
 const BASE_SUGGESTIONS = [
   "What should I eat before a workout?",
@@ -347,7 +345,26 @@ export default function AIAssistant() {
       };
     }
   }, [showMemory, updateFlyoutPosition]);
-  const [sessionSaved, setSessionSaved] = useState(false);
+  // Stable session identifier & revision tracking (FitBot Phase 2)
+  const [sessionId, setSessionId] = useState<string>(() => {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    return `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  });
+  const sessionIdRef = useRef<string>(sessionId);
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveRevisionRef = useRef(0);
+  const isSavingRef = useRef(false);
+  const pendingSaveRef = useRef<{ msgs: Message[]; revision: number } | null>(null);
+
+  // Concurrency synchronous lock & active request identity
+  const isSendingRef = useRef(false);
+  const activeRequestIdRef = useRef<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
@@ -431,34 +448,117 @@ export default function AIAssistant() {
     if (token) load();
   }, [token]);
 
-  // Save session when leaving or upon conversation milestone
+  // Save session idempotently using stable sessionId
   const saveSession = useCallback(
     async (msgs: Message[]) => {
-      const validMsgs = msgs.filter((m) => !m.isError);
-      if (sessionSaved || validMsgs.length < 2) return;
-      const summary = validMsgs
-        .slice(-6)
-        .map((m) => `${m.role === "user" ? "User" : "FitBot"}: ${m.text.slice(0, 120)}`)
-        .join("\n");
+      const validMsgs = getValidMessages(msgs);
+      if (validMsgs.length < 1) return;
+
+      saveRevisionRef.current += 1;
+      const currentRevision = saveRevisionRef.current;
+      const currentSessionId = sessionIdRef.current;
+
+      // Queue latest snapshot if another save is already in-flight
+      if (isSavingRef.current) {
+        pendingSaveRef.current = { msgs, revision: currentRevision };
+        return;
+      }
+
+      isSavingRef.current = true;
+      setSaveStatus("saving");
+
+      const summary = buildSessionSummary(validMsgs, 6);
+      const messagesPayload = validMsgs.map((m) => ({ role: m.role, text: m.text }));
+
       try {
-        await api.post(
+        const { data: savedDoc } = await api.post(
           "/api/chathistories",
           {
-            data: { summary, messages: validMsgs.map((m) => ({ role: m.role, text: m.text })) },
+            data: {
+              sessionId: currentSessionId,
+              revision: currentRevision,
+              summary,
+              messages: messagesPayload,
+            },
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        setSessionSaved(true);
-      } catch {
-        // silent
+
+        setSaveStatus("saved");
+
+        if (savedDoc) {
+          setPastSessions((prev) => {
+            const existingIdx = prev.findIndex(
+              (s) => (s.sessionId && s.sessionId === currentSessionId) || s._id === savedDoc._id
+            );
+            if (existingIdx >= 0) {
+              const updated = [...prev];
+              updated[existingIdx] = { ...updated[existingIdx], ...savedDoc };
+              return updated;
+            }
+            return [savedDoc, ...prev];
+          });
+        }
+      } catch (err) {
+        console.warn("[FitBot] Session snapshot save failed:", err);
+        setSaveStatus("error");
+      } finally {
+        isSavingRef.current = false;
+        if (pendingSaveRef.current) {
+          const next = pendingSaveRef.current;
+          pendingSaveRef.current = null;
+          saveSession(next.msgs);
+        }
       }
     },
-    [sessionSaved, token]
+    [token]
   );
 
+  // Guaranteed persistence on navigation/refresh via pagehide
+  useEffect(() => {
+    const handlePageHide = () => {
+      const valid = getValidMessages(messages);
+      if (valid.length >= 1 && token) {
+        const currentSessionId = sessionIdRef.current;
+        const summary = buildSessionSummary(valid, 6);
+        const messagesPayload = valid.map((m) => ({ role: m.role, text: m.text }));
+        const body = JSON.stringify({
+          data: {
+            sessionId: currentSessionId,
+            revision: saveRevisionRef.current + 1,
+            summary,
+            messages: messagesPayload,
+          },
+        });
+        try {
+          fetch(`${API_URL}/api/chathistories`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body,
+            keepalive: true,
+          }).catch(() => {});
+        } catch {
+          // ignore pagehide network error
+        }
+      }
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [messages, token, API_URL]);
+
+  // Save when unmounting inside SPA navigation
   useEffect(() => {
     return () => {
-      if (messages.length >= 2) saveSession(messages);
+      const valid = getValidMessages(messages);
+      if (valid.length >= 1) {
+        saveSession(messages);
+      }
     };
   }, [messages, saveSession]);
 
@@ -475,14 +575,28 @@ export default function AIAssistant() {
   };
 
   const loadPastSessionIntoChat = (session: any) => {
+    // Invalidate any active generation
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    activeRequestIdRef.current = null;
+    isSendingRef.current = false;
+    setIsLoading(false);
+
     if (Array.isArray(session.messages) && session.messages.length > 0) {
       const formatted: Message[] = session.messages.map((m: any, i: number) => ({
-        id: `${session._id || session.id || Date.now()}-${i}`,
+        id: `${session.sessionId || session._id || Date.now()}-${i}`,
         role: m.role === "user" ? "user" : "assistant",
         text: m.text || "",
-        timestamp: new Date(session.createdAt || Date.now()),
+        timestamp: new Date(session.updatedAt || session.createdAt || Date.now()),
       }));
       setMessages(formatted);
+      const sId = session.sessionId || session._id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `session-${Date.now()}`);
+      setSessionId(sId);
+      sessionIdRef.current = sId;
+      saveRevisionRef.current = session.revision || 1;
+      setSaveStatus("saved");
       setShowMemory(false);
       toast.success("Loaded previous conversation!");
     } else {
@@ -676,16 +790,24 @@ export default function AIAssistant() {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    activeRequestIdRef.current = null;
+    isSendingRef.current = false;
     setIsLoading(false);
     toast("Stopped generating response", { icon: "⏹️" });
   };
 
   // Send message to AI
   const sendMessage = async (text: string, customHistory?: Message[], sendOptions?: { regenerate?: boolean }) => {
-    if (!text.trim() || isLoading) return;
-    const currentMessages = (customHistory || messages).filter((m) => !m.isError);
+    if (!text.trim() || isSendingRef.current) return;
+    isSendingRef.current = true;
+
+    // Unique request ID to ignore stale completions
+    const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    activeRequestIdRef.current = requestId;
+
+    const currentMessages = getValidMessages(customHistory || messages);
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: `user-${Date.now()}`,
       role: "user",
       text: text.trim(),
       timestamp: new Date(),
@@ -697,11 +819,10 @@ export default function AIAssistant() {
     isNearBottomRef.current = true;
     scrollToBottom(true);
 
-    const historyPayload: GeminiMessage[] = newMessages.map((m) => ({
-      role: m.role === "user" ? "user" : "model",
-      parts: [{ text: m.text }],
-    }));
+    // Persist snapshot of user turn
+    saveSession(newMessages);
 
+    const historyPayload = buildGeminiPayload(newMessages);
     const combinedContext = [userContext, memoryContext].filter(Boolean).join("\n\n");
     abortControllerRef.current = new AbortController();
 
@@ -717,14 +838,19 @@ export default function AIAssistant() {
         signal: abortControllerRef.current.signal,
       });
 
+      // Ignore if superseded or cancelled
+      if (activeRequestIdRef.current !== requestId) return;
+
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || `AI assistant request failed (${res.status})`);
       }
 
+      if (activeRequestIdRef.current !== requestId) return;
+
       const reply = data.reply || "I couldn't generate a response. Please try again.";
       const assistantMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `assistant-${Date.now()}`,
         role: "assistant",
         text: reply,
         timestamp: new Date(),
@@ -733,14 +859,18 @@ export default function AIAssistant() {
       setMessages(finalMessages);
 
       if (soundEnabled) playCompletionChime();
-      if (finalMessages.length % 6 === 0) saveSession(finalMessages);
+
+      // Persist snapshot of completed turn
+      saveSession(finalMessages);
     } catch (err: unknown) {
+      if (activeRequestIdRef.current !== requestId) return;
+
       if (err instanceof DOMException && err.name === "AbortError") {
         return;
       }
       const msg = err instanceof Error ? err.message : "Failed to get response. Check your connection.";
       const errorMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `err-${Date.now()}`,
         role: "assistant",
         text: `⚠️ I had trouble connecting (${msg}).`,
         timestamp: new Date(),
@@ -749,29 +879,28 @@ export default function AIAssistant() {
       setMessages([...newMessages, errorMsg]);
       toast.error(msg);
     } finally {
-      abortControllerRef.current = null;
-      setIsLoading(false);
+      if (activeRequestIdRef.current === requestId) {
+        abortControllerRef.current = null;
+        setIsLoading(false);
+        isSendingRef.current = false;
+        activeRequestIdRef.current = null;
+      }
     }
   };
 
   const retryLastMessage = useCallback(() => {
-    const valid = messages.filter((m) => !m.isError);
-    const lastUser = [...valid].reverse().find((m) => m.role === "user");
-    if (!lastUser) return;
-    const history = valid.slice(0, valid.length - 1);
-    sendMessage(lastUser.text, history);
-  }, [messages]);
+    if (isSendingRef.current || isLoading) return;
+    const retryCtx = getRetryContext(messages);
+    if (!retryCtx) return;
+    sendMessage(retryCtx.prompt, retryCtx.precedingHistory);
+  }, [messages, isLoading]);
 
   const regenerateLastMessage = useCallback(() => {
-    if (isLoading || messages.length < 2) return;
-    const valid = messages.filter((m) => !m.isError);
-    const lastUserMsg = [...valid].reverse().find((m) => m.role === "user");
-    if (!lastUserMsg) return;
-
-    // Remove the last assistant message and re-send with cache bypass
-    const trimmed = valid.slice(0, valid.length - 1);
-    setMessages(trimmed);
-    sendMessage(lastUserMsg.text, trimmed.slice(0, trimmed.length - 1), { regenerate: true });
+    if (isSendingRef.current || isLoading) return;
+    const regenCtx = getRegenerateContext(messages);
+    if (!regenCtx) return;
+    setMessages(regenCtx.trimmedMessages);
+    sendMessage(regenCtx.prompt, regenCtx.precedingHistory, { regenerate: true });
   }, [isLoading, messages]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -788,13 +917,31 @@ export default function AIAssistant() {
   };
 
   const startNewChat = () => {
-    if (messages.length >= 2) saveSession(messages);
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    activeRequestIdRef.current = null;
+    isSendingRef.current = false;
+    setIsLoading(false);
+
     if (speakingId) {
       window.speechSynthesis?.cancel();
       setSpeakingId(null);
     }
+
+    if (messages.length >= 1) {
+      saveSession(messages);
+    }
+
+    const newId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+      ? crypto.randomUUID()
+      : `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    setSessionId(newId);
+    sessionIdRef.current = newId;
+    saveRevisionRef.current = 0;
+    setSaveStatus("idle");
     setMessages([]);
-    setSessionSaved(false);
     setInput("");
     toast.success("Started new chat session");
   };
@@ -983,6 +1130,25 @@ export default function AIAssistant() {
                       ? `${pastSessions.length} session${pastSessions.length > 1 ? "s" : ""} remembered`
                       : "Online & context-aware"}
                   </span>
+                  {saveStatus === "saving" && (
+                    <span className="text-[10px] text-emerald-200/90 font-medium animate-pulse shrink-0">
+                      · Saving…
+                    </span>
+                  )}
+                  {saveStatus === "saved" && (
+                    <span className="text-[10px] text-emerald-300 font-medium shrink-0">
+                      · Saved
+                    </span>
+                  )}
+                  {saveStatus === "error" && (
+                    <button
+                      onClick={() => saveSession(messages)}
+                      className="text-[10px] text-rose-300 hover:text-white underline font-medium cursor-pointer shrink-0"
+                      title="Click to retry saving conversation"
+                    >
+                      · Save failed (Retry)
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

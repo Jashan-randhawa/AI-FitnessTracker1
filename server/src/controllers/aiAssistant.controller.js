@@ -92,13 +92,37 @@ const chat = asyncHandler(async (req, res) => {
   }
 
   const { messages, totalChars } = prepared;
+
+  // Propagate client cancellation through to OpenRouter via AbortController
+  const abortController = new AbortController();
+  const onClientClose = () => {
+    if (!res.writableEnded) {
+      const abortErr = new Error('Client connection closed');
+      abortErr.name = 'AbortError';
+      abortErr.isClientAbort = true;
+      abortController.abort(abortErr);
+    }
+  };
+  if (typeof req.on === 'function') {
+    req.on('close', onClientClose);
+  }
+
   const chatOptions = {
     expectJson: Boolean(expectJson || options?.expectJson),
     skipCache: Boolean(skipCache || regenerate || options?.skipCache || options?.regenerate),
+    signal: abortController.signal,
   };
 
   try {
     const result = await chatWithAssistant(messages, userContext, chatOptions);
+    if (typeof req.removeListener === 'function') {
+      req.removeListener('close', onClientClose);
+    }
+
+    if (res.writableEnded || res.headersSent) {
+      return;
+    }
+
     const latencyMs = Date.now() - startTime;
 
     // AI-Specific Structured Metric Logging (FitBot Plan §5.3)
@@ -122,6 +146,20 @@ const chat = asyncHandler(async (req, res) => {
       cached: result.cached || false,
     });
   } catch (error) {
+    if (typeof req.removeListener === 'function') {
+      req.removeListener('close', onClientClose);
+    }
+
+    if (res.writableEnded || res.headersSent) {
+      return;
+    }
+
+    // Do not attempt to respond if the client explicitly aborted connection
+    if (error.isClientAbort || error.name === 'AbortError') {
+      logger.debug(`[AI Assistant] Request ${requestId} aborted by client`);
+      return;
+    }
+
     const latencyMs = Date.now() - startTime;
     const status = error.status || (error.isOperational ? 503 : 500);
     const friendlyMessage = error.status === 503 || error.isOperational

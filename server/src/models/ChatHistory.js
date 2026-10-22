@@ -3,10 +3,21 @@ const toJSONPlugin = require('../utils/toJSONPlugin');
 
 const chatHistorySchema = new mongoose.Schema(
   {
-    summary: String,
-    // Mixed to match Strapi's generic `json` field — the client stores an
-    // array of { role, text } objects here, but nothing on the server
-    // needs to validate that shape.
+    sessionId: {
+      type: String,
+      trim: true,
+    },
+    revision: {
+      type: Number,
+      default: 1,
+    },
+    summary: {
+      type: String,
+      default: '',
+      maxlength: 2000,
+    },
+    // Mixed to maintain backward compatibility with legacy entries,
+    // validated at the controller level with Zod.
     messages: {
       type: mongoose.Schema.Types.Mixed,
       default: [],
@@ -20,6 +31,20 @@ const chatHistorySchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Compound unique index on user and sessionId, with partialFilterExpression so that
+// legacy documents without a string sessionId never trigger unique constraint collisions.
+chatHistorySchema.index(
+  { user: 1, sessionId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { sessionId: { $type: 'string' } },
+  }
+);
+
+// Compound index to optimize sorted pagination by latest update and creation time
+chatHistorySchema.index({ user: 1, updatedAt: -1 });
+chatHistorySchema.index({ user: 1, createdAt: -1 });
 
 toJSONPlugin(chatHistorySchema);
 
