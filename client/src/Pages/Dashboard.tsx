@@ -17,8 +17,6 @@ import { fetchDailyFitnessTip } from "../services/aiAssistantClient";
 const resolveDate = (entry: any): string =>
   entry.date ?? entry.createdAt ?? new Date().toISOString();
 
-const today = new Date().toDateString();
-
 const getLastSevenDays = () =>
   Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
@@ -53,6 +51,51 @@ const calcStreak = (foodLogs: any[], activityLogs: any[]): number => {
     else break;
   }
   return streak;
+};
+
+// ── useToday Hook ──────────────────────────────────────────
+const useToday = (): string => {
+  const [today, setToday] = useState(() => new Date().toDateString());
+
+  useEffect(() => {
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleMidnightTimer = () => {
+      const now = new Date();
+      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+      const msUntilMidnight = Math.max(tomorrow.getTime() - now.getTime(), 1000);
+
+      timerId = setTimeout(() => {
+        setToday(new Date().toDateString());
+        scheduleMidnightTimer();
+      }, msUntilMidnight);
+    };
+
+    scheduleMidnightTimer();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        const current = new Date().toDateString();
+        setToday((prev) => {
+          if (prev !== current) {
+            if (timerId) clearTimeout(timerId);
+            scheduleMidnightTimer();
+            return current;
+          }
+          return prev;
+        });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  return today;
 };
 
 // ── Badge definitions ──────────────────────────────────────
@@ -162,8 +205,8 @@ const RingProgress = ({
 const WATER_BTNS = [150, 250, 350, 500];
 const DAILY_WATER_GOAL = 2500; // ml
 
-const WaterTracker = ({ logs, onAdd }: {
-  logs: any[]; onAdd: (ml: number) => void;
+const WaterTracker = ({ logs, onAdd, today }: {
+  logs: any[]; onAdd: (ml: number) => void; today: string;
 }) => {
   const [customAmount, setCustomAmount] = useState("");
   const [showCustom, setShowCustom] = useState(false);
@@ -171,7 +214,7 @@ const WaterTracker = ({ logs, onAdd }: {
   const todayTotal = useMemo(
     () => logs.filter((l) => new Date(resolveDate(l)).toDateString() === today)
               .reduce((s, l) => s + (l.amount ?? 0), 0),
-    [logs]
+    [logs, today]
   );
   const pct = Math.min((todayTotal / DAILY_WATER_GOAL) * 100, 100);
   const glasses = Math.round(todayTotal / 250);
@@ -288,6 +331,7 @@ const useIsMobile = () => {
 
 // ── Dashboard ──────────────────────────────────────────────
 export default function Dashboard() {
+  const today = useToday();
   const isMobile = useIsMobile();
   const { user, allFoodLogs, allActivityLogs, allWaterLogs, setAllWaterLogs, isUserFetched } = useappcontext();
   const { theme } = useTheme();
@@ -301,11 +345,11 @@ export default function Dashboard() {
 
   const todayFoodLogs = useMemo(
     () => allFoodLogs.filter((l) => new Date(resolveDate(l)).toDateString() === today),
-    [allFoodLogs]
+    [allFoodLogs, today]
   );
   const todayActivityLogs = useMemo(
     () => allActivityLogs.filter((l) => new Date(resolveDate(l)).toDateString() === today),
-    [allActivityLogs]
+    [allActivityLogs, today]
   );
 
   const totalCaloriesToday = useMemo(() => todayFoodLogs.reduce((s, l) => s + (l.calories ?? 0), 0), [todayFoodLogs]);
@@ -316,9 +360,14 @@ export default function Dashboard() {
   const calorieBurnGoal = user?.dailycaloriesburned ?? 400;
   const bmi = user?.weight && user?.height ? calcBMI(user.weight, user.height) : null;
 
-  const streak = useMemo(() => calcStreak(allFoodLogs, allActivityLogs), [allFoodLogs, allActivityLogs]);
+  const streak = useMemo(() => calcStreak(allFoodLogs, allActivityLogs), [allFoodLogs, allActivityLogs, today]);
   const netCalories = totalCaloriesToday - totalCaloriesBurnedToday;
   const netColor = netCalories > calorieLimit * 0.1 ? "text-rose-500" : netCalories < 0 ? "text-sky-500" : "text-emerald-500";
+
+  const waterTodayTotal = useMemo(
+    () => allWaterLogs.filter((l) => new Date(resolveDate(l)).toDateString() === today).reduce((s, l) => s + (l.amount ?? 0), 0),
+    [allWaterLogs, today]
+  );
 
   // ── Badges ──────────────────────────────────────────────
   const earnedBadges = useMemo(
@@ -348,7 +397,7 @@ export default function Dashboard() {
           .reduce((s, l) => s + (l.calories ?? l.caloriesBurned ?? 0), 0),
       };
     });
-  }, [allFoodLogs, allActivityLogs]);
+  }, [allFoodLogs, allActivityLogs, today]);
 
   // ── Chart config by tab ──────────────────────────────────
   const CHART_CFG = {
@@ -387,9 +436,20 @@ export default function Dashboard() {
 
   // ── Daily AI tip ─────────────────────────────────────────
   useEffect(() => {
-    if (!isUserFetched || dailyTip || tipLoading) return;
-    const stored = sessionStorage.getItem("fittrack_daily_tip");
-    if (stored) { setDailyTip(stored); return; }
+    try {
+      sessionStorage.removeItem("fittrack_daily_tip");
+    } catch { /* silent */ }
+
+    if (!isUserFetched) return;
+    const cacheKey = `fittrack_daily_tip_${today}`;
+    const stored = sessionStorage.getItem(cacheKey);
+    if (stored) {
+      setDailyTip(stored);
+      return;
+    }
+    setDailyTip("");
+    if (tipLoading) return;
+
     const fetchTip = async () => {
       setTipLoading(true);
       try {
@@ -402,13 +462,13 @@ export default function Dashboard() {
         const tip = await fetchDailyFitnessTip(userCtx);
         if (tip) {
           setDailyTip(tip);
-          sessionStorage.setItem("fittrack_daily_tip", tip);
+          sessionStorage.setItem(cacheKey, tip);
         }
       } catch { /* silent */ }
       finally { setTipLoading(false); }
     };
     fetchTip();
-  }, [isUserFetched]);
+  }, [isUserFetched, today]);
 
   const cardCls = `bg-white dark:bg-slate-800/90 dark:backdrop-blur border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5`;
   const softCardCls = `bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5`;
@@ -422,7 +482,9 @@ export default function Dashboard() {
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-10">
         <div className="bg-emerald-500 px-5 pt-10 pb-20" />
         <div className="relative z-10 px-4 -mt-12 space-y-4 max-w-2xl mx-auto">
-          {[32, 28, 24, 24, 40, 52].map((h, i) => <SkeletonCard key={i} height={`h-${h}`} />)}
+          {["h-32", "h-28", "h-24", "h-24", "h-40", "h-52"].map((h, i) => (
+            <SkeletonCard key={i} height={h} />
+          ))}
         </div>
       </div>
     );
@@ -479,7 +541,7 @@ export default function Dashboard() {
 
         {/* ── Water tracker ── */}
         <motion.div variants={StaggerItem}>
-          <WaterTracker logs={allWaterLogs} onAdd={handleAddWater} />
+          <WaterTracker logs={allWaterLogs} onAdd={handleAddWater} today={today} />
         </motion.div>
 
         {/* ── Macro breakdown ── */}
@@ -547,7 +609,7 @@ export default function Dashboard() {
               { label: "Calories Consumed",  value: totalCaloriesToday,                  unit: " kcal", icon: "🔥" },
               { label: "Calories Burned",    value: totalCaloriesBurnedToday,            unit: " kcal", icon: "⚡" },
               { label: "Active Time",        value: totalActivityMinutes,                unit: " min",  icon: "⏱️" },
-              { label: "Water Intake",       value: allWaterLogs.filter((l) => new Date(resolveDate(l)).toDateString() === today).reduce((s, l) => s + (l.amount ?? 0), 0), unit: " ml", icon: "💧" },
+              { label: "Water Intake",       value: waterTodayTotal,                    unit: " ml",  icon: "💧" },
             ].map((row) => (
               <div key={row.label} className="flex items-center justify-between py-2.5 border-b border-slate-200 dark:border-slate-700/40 last:border-0">
                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-slate-300">
