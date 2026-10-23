@@ -25,7 +25,7 @@ import {
 } from "../schemas/aiPlans.schema";
 
 // ── Options & Presets ──────────────────────────────────────────
-const DAYS_OPTIONS = [3, 5, 7];
+const DAYS_OPTIONS = [1, 3, 5, 7];
 
 const FOCUS_OPTIONS = [
   { id: "Balanced", label: "Balanced", icon: "⚡", desc: "Cardio, strength, & functional mobility" },
@@ -209,7 +209,7 @@ export default function ActivityPlanner() {
     setPlanSaveStatus("idle");
 
     try {
-      const prompt = `Create a comprehensive, structured ${days}-day workout and activity plan tailored for:
+      const prompt = `Create a comprehensive, structured ${days === 1 ? "single-day" : `${days}-day`} workout and activity plan tailored for:
 - User Goal: ${user?.goal || "maintain"} weight
 - Target Calorie Burn: ${calorieBurnTarget} kcal/day
 - Fitness Level: ${level}
@@ -217,7 +217,7 @@ export default function ActivityPlanner() {
 - Equipment Access: ${equipment}
 - Body Weight: ${user?.weight || 70}kg
 
-Return ONLY a valid JSON array of ${days} day objects (no markdown, no extra commentary):
+Return ONLY a valid JSON array of ${days} day object${days > 1 ? "s" : ""} (no markdown, no extra commentary):
 [
   {
     "day": "Day 1",
@@ -254,14 +254,16 @@ Return ONLY a valid JSON array of ${days} day objects (no markdown, no extra com
 Requirements:
 - Each day must include 2 to 4 structured activities.
 - Realistic duration (15 to 75 min total) and calorie burn estimates.
-- Progressive variation across days matching ${focus} and ${level}.
+${days > 1 ? `- Progressive variation across days matching ${focus} and ${level}.` : `- Balanced single-day workout flow matching ${focus} and ${level}.`}
 - Strictly adhere to equipment constraints: ${equipment}.
 - Total daily calories burned should approximate ~${calorieBurnTarget} kcal.`;
 
       const parsedPlan = await generateStructuredActivityPlan(prompt);
       setPlan(parsedPlan);
       setActiveDay(0);
-      toast.success(`Generated your ${parsedPlan.length}-day ${focus} training plan!`);
+      toast.success(
+        `Generated your ${parsedPlan.length === 1 ? "single-day" : `${parsedPlan.length}-day`} ${focus} training plan!`
+      );
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Failed to generate activity plan. Please try again.";
@@ -294,7 +296,7 @@ Requirements:
     try {
       await api.post("/api/workout-plans", {
         plan: {
-          title: `${focus} ${days}-Day Routine`,
+          title: `${focus} ${days === 1 ? "1-Day" : `${days}-Day`} Routine`,
           goal: user?.goal || "maintain",
           level,
           daysPerWeek: days,
@@ -515,7 +517,7 @@ Requirements:
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
                 Weekly Training Days
               </label>
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {DAYS_OPTIONS.map((d) => (
                   <button
                     key={d}
@@ -528,7 +530,7 @@ Requirements:
                     }`}
                   >
                     <Calendar className="w-3.5 h-3.5 shrink-0" />
-                    <span>{d} Days / Week</span>
+                    <span>{d === 1 ? "1 Day" : `${d} Days`}</span>
                   </button>
                 ))}
               </div>
@@ -675,7 +677,7 @@ Requirements:
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Generate {days}-Day {focus} Routine</span>
+                  <span>Generate {days === 1 ? "Single Day" : `${days}-Day`} {focus} Routine</span>
                 </>
               )}
             </button>
@@ -693,7 +695,7 @@ Requirements:
                     Active Routine
                   </span>
                   <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-200/60 dark:bg-amber-800/50 text-amber-900 dark:text-amber-200">
-                    {focus} • {plan.length} Days • {level}
+                    {focus} • {plan.length === 1 ? "1 Day" : `${plan.length} Days`} • {level}
                   </span>
                 </div>
                 <p className="text-xs text-amber-700 dark:text-amber-300/90 mt-1">
@@ -1018,7 +1020,7 @@ Requirements:
 
               <button
                 type="button"
-                onClick={() => applyPreset(5, "Endurance", "Intermediate", "Mixed", 0)}
+                onClick={() => applyPreset(3, "Endurance", "Intermediate", "Mixed", 0)}
                 className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-amber-500/50 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-amber-50/30 dark:hover:bg-amber-950/20 transition-all cursor-pointer group"
               >
                 <div className="flex items-center justify-between">
@@ -1028,23 +1030,23 @@ Requirements:
                   <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all" />
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  5 Days • Running intervals, cycling tempos, and active recovery.
+                  3 Days • Running intervals, cycling tempos, and active recovery.
                 </p>
               </button>
 
               <button
                 type="button"
-                onClick={() => applyPreset(3, "Mobility", "Beginner", "Bodyweight", -50)}
+                onClick={() => applyPreset(1, "Balanced", "Beginner", "Bodyweight", 0)}
                 className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-amber-500/50 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-amber-50/30 dark:hover:bg-amber-950/20 transition-all cursor-pointer group"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                    <span>🧘</span> Core Mobility & Joint Health
+                    <span>⚡</span> Single-Day Full-Body Express
                   </span>
                   <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all" />
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  3 Days • Zero gear yoga, dynamic flexibility, and deep spinal decompression.
+                  1 Day • Fast bodyweight workout session ready to complete today.
                 </p>
               </button>
             </div>

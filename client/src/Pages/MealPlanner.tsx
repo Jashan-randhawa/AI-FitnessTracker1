@@ -19,7 +19,7 @@ import type { Meal, DayPlan } from "../schemas/aiPlans.schema";
 import type { FoodEntry } from "../assets/types";
 
 // ── Options & Presets ──────────────────────────────────────────
-const DAYS_OPTIONS = [3, 5, 7];
+const DAYS_OPTIONS = [1, 3, 5, 7];
 
 const DIET_STYLES = [
   { id: "Balanced", label: "Balanced", icon: "⚖️", desc: "Equal macro balance for daily energy" },
@@ -163,14 +163,14 @@ export default function MealPlanner() {
           ? `\n- Dietary restrictions/allergies: ${selectedRestrictions.join(", ")}`
           : "";
 
-      const prompt = `Generate a comprehensive ${days}-day structured meal plan tailored for:
+      const prompt = `Generate a comprehensive ${days === 1 ? "single-day" : `${days}-day`} structured meal plan tailored for:
 - User Goal: ${user?.goal || "maintain"} weight
 - Target Calories: ${targetCalories} kcal/day
 - Dietary Focus: ${dietStyle}
 - Preferred Cuisine: ${cuisine}
 - Body Weight: ${user?.weight || 70}kg${restrictionsText}
 
-Return ONLY a valid JSON array of ${days} day objects (no markdown, no extra commentary):
+Return ONLY a valid JSON array of ${days} day object${days > 1 ? "s" : ""} (no markdown, no extra commentary):
 [
   {
     "day": "Day 1",
@@ -188,13 +188,15 @@ Requirements:
 - Each day must include 4 distinct meals: breakfast, lunch, dinner, snack.
 - Total daily calories must be close to ${targetCalories} kcal (±10%).
 - Ensure realistic, high-quality macro balances (protein, carbs, fat).
-- Never duplicate identical dishes across consecutive days.
+${days > 1 ? "- Never duplicate identical dishes across consecutive days." : "- Ensure vibrant variety across all 4 meals."}
 - Respect the ${dietStyle} lifestyle and ${cuisine} cuisine preferences.`;
 
       const parsedPlan = await generateStructuredMealPlan(prompt);
       setPlan(parsedPlan);
       setActiveDay(0);
-      toast.success(`Generated your ${parsedPlan.length}-day ${dietStyle} meal plan!`);
+      toast.success(
+        `Generated your ${parsedPlan.length === 1 ? "single-day" : `${parsedPlan.length}-day`} ${dietStyle} meal plan!`
+      );
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Failed to generate meal plan. Please try again.";
@@ -417,7 +419,7 @@ Requirements:
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
                 Plan Duration
               </label>
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {DAYS_OPTIONS.map((d) => (
                   <button
                     key={d}
@@ -430,7 +432,7 @@ Requirements:
                     }`}
                   >
                     <Calendar className="w-3.5 h-3.5 shrink-0" />
-                    <span>{d} Days</span>
+                    <span>{d === 1 ? "1 Day" : `${d} Days`}</span>
                   </button>
                 ))}
               </div>
@@ -570,7 +572,7 @@ Requirements:
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Generate {days}-Day {dietStyle} Plan</span>
+                  <span>Generate {days === 1 ? "Single Day" : `${days}-Day`} {dietStyle} Plan</span>
                 </>
               )}
             </button>
@@ -588,7 +590,7 @@ Requirements:
                     Active Plan
                   </span>
                   <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-200/60 dark:bg-emerald-800/50 text-emerald-900 dark:text-emerald-200">
-                    {dietStyle} • {plan.length} Days
+                    {dietStyle} • {plan.length === 1 ? "1 Day" : `${plan.length} Days`}
                   </span>
                 </div>
                 <p className="text-xs text-emerald-700 dark:text-emerald-300/90 mt-1">
@@ -859,7 +861,7 @@ Requirements:
 
               <button
                 type="button"
-                onClick={() => applyPreset(7, "Low Carb", "Any", -200)}
+                onClick={() => applyPreset(3, "Low Carb", "Any", -200)}
                 className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-emerald-500/50 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 transition-all cursor-pointer group"
               >
                 <div className="flex items-center justify-between">
@@ -869,23 +871,23 @@ Requirements:
                   <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all" />
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  7 Days • Healthy fats and lean proteins for steady fat loss.
+                  3 Days • Healthy fats and lean proteins for a quick dietary reset.
                 </p>
               </button>
 
               <button
                 type="button"
-                onClick={() => applyPreset(5, "Vegetarian", "Any", 0)}
+                onClick={() => applyPreset(1, "Balanced", "Any", 0)}
                 className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-emerald-500/50 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 transition-all cursor-pointer group"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                    <span>🌱</span> Plant-Forward Energizer
+                    <span>⚡</span> Single-Day Quick Reset
                   </span>
                   <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all" />
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  5 Days • High-fiber legumes, oats, nuts, and fresh produce.
+                  1 Day • Balanced 4-meal nutrition blueprint ready for today.
                 </p>
               </button>
             </div>
