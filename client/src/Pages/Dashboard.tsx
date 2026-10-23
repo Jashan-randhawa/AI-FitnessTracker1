@@ -12,11 +12,9 @@ import { StaggerContainer, StaggerItem } from "../components/animations/StaggerL
 import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { fetchDailyFitnessTip } from "../services/aiAssistantClient";
+import { buildDailyTotals, calcStreakFromMap, dateKey } from "../utils/dailyTotals";
 
 // ── Helpers ────────────────────────────────────────────────
-const resolveDate = (entry: any): string =>
-  entry.date ?? entry.createdAt ?? new Date().toISOString();
-
 const getLastSevenDays = () =>
   Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
@@ -34,23 +32,6 @@ const bmiLabel = (bmi: number) => {
   if (bmi < 25) return "Normal";
   if (bmi < 30) return "Overweight";
   return "Obese";
-};
-
-const calcStreak = (foodLogs: any[], activityLogs: any[]): number => {
-  let streak = 0;
-  const d = new Date();
-  const todayHasData =
-    foodLogs.some((l) => new Date(resolveDate(l)).toDateString() === d.toDateString()) ||
-    activityLogs.some((l) => new Date(resolveDate(l)).toDateString() === d.toDateString());
-  if (!todayHasData) d.setDate(d.getDate() - 1);
-  for (let i = 0; i < 365; i++) {
-    const ds = d.toDateString();
-    const hasFood = foodLogs.some((l) => new Date(resolveDate(l)).toDateString() === ds);
-    const hasActivity = activityLogs.some((l) => new Date(resolveDate(l)).toDateString() === ds);
-    if (hasFood || hasActivity) { streak++; d.setDate(d.getDate() - 1); }
-    else break;
-  }
-  return streak;
 };
 
 // ── useToday Hook ──────────────────────────────────────────
@@ -205,17 +186,25 @@ const RingProgress = ({
 const WATER_BTNS = [150, 250, 350, 500];
 const DAILY_WATER_GOAL = 2500; // ml
 
-const WaterTracker = ({ logs, onAdd, today }: {
-  logs: any[]; onAdd: (ml: number) => void; today: string;
+const WaterTracker = ({
+  logs,
+  onAdd,
+  today,
+  todayTotal: propTodayTotal,
+}: {
+  logs?: any[];
+  onAdd: (ml: number) => void;
+  today: string;
+  todayTotal?: number;
 }) => {
   const [customAmount, setCustomAmount] = useState("");
   const [showCustom, setShowCustom] = useState(false);
 
-  const todayTotal = useMemo(
-    () => logs.filter((l) => new Date(resolveDate(l)).toDateString() === today)
-              .reduce((s, l) => s + (l.amount ?? 0), 0),
+  const calculatedTotal = useMemo(
+    () => (logs ?? []).filter((l) => dateKey(l) === today).reduce((s, l) => s + (l.amount ?? 0), 0),
     [logs, today]
   );
+  const todayTotal = propTodayTotal ?? calculatedTotal;
   const pct = Math.min((todayTotal / DAILY_WATER_GOAL) * 100, 100);
   const glasses = Math.round(todayTotal / 250);
 
@@ -343,31 +332,25 @@ export default function Dashboard() {
   const [chartTab, setChartTab] = useState<"calories" | "protein" | "carbs" | "fat">("calories");
   const [showAllBadges, setShowAllBadges] = useState(false);
 
-  const todayFoodLogs = useMemo(
-    () => allFoodLogs.filter((l) => new Date(resolveDate(l)).toDateString() === today),
-    [allFoodLogs, today]
-  );
-  const todayActivityLogs = useMemo(
-    () => allActivityLogs.filter((l) => new Date(resolveDate(l)).toDateString() === today),
-    [allActivityLogs, today]
+  const daily = useMemo(
+    () => buildDailyTotals(allFoodLogs, allActivityLogs, allWaterLogs),
+    [allFoodLogs, allActivityLogs, allWaterLogs]
   );
 
-  const totalCaloriesToday = useMemo(() => todayFoodLogs.reduce((s, l) => s + (l.calories ?? 0), 0), [todayFoodLogs]);
-  const totalCaloriesBurnedToday = useMemo(() => todayActivityLogs.reduce((s, l) => s + (l.calories ?? l.caloriesBurned ?? 0), 0), [todayActivityLogs]);
-  const totalActivityMinutes = useMemo(() => todayActivityLogs.reduce((s, l) => s + (l.duration ?? 0), 0), [todayActivityLogs]);
+  const todayTotals = daily.get(today);
+  const totalCaloriesToday = todayTotals?.calories ?? 0;
+  const totalCaloriesBurnedToday = todayTotals?.burned ?? 0;
+  const totalActivityMinutes = todayTotals?.minutes ?? 0;
+  const mealsLoggedToday = todayTotals?.meals ?? 0;
+  const waterTodayTotal = todayTotals?.water ?? 0;
 
   const calorieLimit = user?.dailycaloriesintake ?? 2000;
   const calorieBurnGoal = user?.dailycaloriesburned ?? 400;
   const bmi = user?.weight && user?.height ? calcBMI(user.weight, user.height) : null;
 
-  const streak = useMemo(() => calcStreak(allFoodLogs, allActivityLogs), [allFoodLogs, allActivityLogs, today]);
+  const streak = useMemo(() => calcStreakFromMap(daily, today), [daily, today]);
   const netCalories = totalCaloriesToday - totalCaloriesBurnedToday;
   const netColor = netCalories > calorieLimit * 0.1 ? "text-rose-500" : netCalories < 0 ? "text-sky-500" : "text-emerald-500";
-
-  const waterTodayTotal = useMemo(
-    () => allWaterLogs.filter((l) => new Date(resolveDate(l)).toDateString() === today).reduce((s, l) => s + (l.amount ?? 0), 0),
-    [allWaterLogs, today]
-  );
 
   // ── Badges ──────────────────────────────────────────────
   const earnedBadges = useMemo(
@@ -377,27 +360,26 @@ export default function Dashboard() {
 
   // ── Macro totals today ───────────────────────────────────
   const macrosToday = useMemo(() => ({
-    protein: todayFoodLogs.reduce((s, l) => s + (l.protein ?? 0), 0),
-    carbs: todayFoodLogs.reduce((s, l) => s + (l.carbs ?? 0), 0),
-    fat: todayFoodLogs.reduce((s, l) => s + (l.fat ?? 0), 0),
-  }), [todayFoodLogs]);
+    protein: todayTotals?.protein ?? 0,
+    carbs: todayTotals?.carbs ?? 0,
+    fat: todayTotals?.fat ?? 0,
+  }), [todayTotals]);
 
   // ── Weekly chart data ────────────────────────────────────
   const weeklyData = useMemo(() => {
     const days = getLastSevenDays();
     return days.map(({ dateStr, day }) => {
-      const dayFood = allFoodLogs.filter((l) => new Date(resolveDate(l)).toDateString() === dateStr);
+      const totals = daily.get(dateStr);
       return {
         day,
-        Calories: dayFood.reduce((s, l) => s + (l.calories ?? 0), 0),
-        Protein: Math.round(dayFood.reduce((s, l) => s + (l.protein ?? 0), 0)),
-        Carbs: Math.round(dayFood.reduce((s, l) => s + (l.carbs ?? 0), 0)),
-        Fat: Math.round(dayFood.reduce((s, l) => s + (l.fat ?? 0), 0)),
-        Burned: allActivityLogs.filter((l) => new Date(resolveDate(l)).toDateString() === dateStr)
-          .reduce((s, l) => s + (l.calories ?? l.caloriesBurned ?? 0), 0),
+        Calories: totals?.calories ?? 0,
+        Protein: Math.round(totals?.protein ?? 0),
+        Carbs: Math.round(totals?.carbs ?? 0),
+        Fat: Math.round(totals?.fat ?? 0),
+        Burned: totals?.burned ?? 0,
       };
     });
-  }, [allFoodLogs, allActivityLogs, today]);
+  }, [daily, today]);
 
   // ── Chart config by tab ──────────────────────────────────
   const CHART_CFG = {
@@ -541,7 +523,7 @@ export default function Dashboard() {
 
         {/* ── Water tracker ── */}
         <motion.div variants={StaggerItem}>
-          <WaterTracker logs={allWaterLogs} onAdd={handleAddWater} today={today} />
+          <WaterTracker logs={allWaterLogs} onAdd={handleAddWater} today={today} todayTotal={waterTodayTotal} />
         </motion.div>
 
         {/* ── Macro breakdown ── */}
@@ -605,7 +587,7 @@ export default function Dashboard() {
           <h3 className="text-sm font-bold mb-4">Today's Summary</h3>
           <div className="space-y-0">
             {[
-              { label: "Meals Logged",       value: todayFoodLogs.length,               unit: "",     icon: "🍽️" },
+              { label: "Meals Logged",       value: mealsLoggedToday,                    unit: "",     icon: "🍽️" },
               { label: "Calories Consumed",  value: totalCaloriesToday,                  unit: " kcal", icon: "🔥" },
               { label: "Calories Burned",    value: totalCaloriesBurnedToday,            unit: " kcal", icon: "⚡" },
               { label: "Active Time",        value: totalActivityMinutes,                unit: " min",  icon: "⏱️" },
