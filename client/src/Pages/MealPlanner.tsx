@@ -234,6 +234,7 @@ ${days > 1 ? "- Never duplicate identical dishes across consecutive days." : "- 
           carbs: meal.carbs || null,
           fat: meal.fat || null,
           mealType: meal.mealType,
+          mealtype: meal.mealType,
           date: new Date().toISOString(),
         },
       });
@@ -243,13 +244,13 @@ ${days > 1 ? "- Never duplicate identical dishes across consecutive days." : "- 
         setAllFoodLogs((prev: FoodEntry[]) => [entry, ...prev]);
       }
       toast.success(`Logged "${meal.name}" (${meal.calories} kcal)`);
-    } catch {
+    } catch (err: unknown) {
       setLoggedMeals((prev) => {
         const next = new Set(prev);
         next.delete(key);
         return next;
       });
-      toast.error(`Failed to log "${meal.name}". Please try again.`);
+      const errorMsg = (err as any)?.response?.data?.error?.message || (err as any)?.response?.data?.message || (err as any)?.response?.data?.error || (err instanceof Error ? err.message : `Failed to log "${meal.name}". Please try again.`); toast.error(errorMsg);
     }
   };
 
@@ -277,6 +278,7 @@ ${days > 1 ? "- Never duplicate identical dishes across consecutive days." : "- 
             carbs: meal.carbs || null,
             fat: meal.fat || null,
             mealType: meal.mealType,
+          mealtype: meal.mealType,
             date: new Date().toISOString(),
           },
         });
@@ -286,7 +288,7 @@ ${days > 1 ? "- Never duplicate identical dishes across consecutive days." : "- 
           setAllFoodLogs((prev: FoodEntry[]) => [entry, ...prev]);
         }
         count++;
-      } catch {
+      } catch (err: unknown) {
         setLoggedMeals((prev) => {
           const next = new Set(prev);
           next.delete(key);

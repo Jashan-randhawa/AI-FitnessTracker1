@@ -1,7 +1,9 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const mongoose = require('mongoose');
 const WorkoutPlan = require('../src/models/WorkoutPlan');
 const ActivityLog = require('../src/models/ActivityLog');
+const FoodLog = require('../src/models/FoodLog');
 const workoutPlanController = require('../src/controllers/workoutPlan.controller');
 
 describe('WorkoutPlan & ActivityLog Schema Extensions Tests', () => {
@@ -54,6 +56,43 @@ describe('WorkoutPlan & ActivityLog Schema Extensions Tests', () => {
     assert.equal(log.exercises[0].sets.length, 2);
     assert.equal(log.exercises[0].sets[0].weight, 30);
     assert.equal(log.exercises[0].sets[0].completed, true);
+  });
+
+  it('ActivityLog accepts various planner activity types (walking, custom, weight training) and mixed-case intensity without validation error', () => {
+    const typesToTest = ['walking', 'running', 'cycling', 'swimming', 'weight training', 'custom', 'hiit', 'mobility'];
+    for (const type of typesToTest) {
+      const log = new ActivityLog({
+        user: new mongoose.Types.ObjectId(),
+        name: `Planned ${type}`,
+        duration: 30,
+        calories: 150,
+        type,
+        intensity: 'Medium',
+        source: 'planner',
+      });
+      const err = log.validateSync();
+      assert.equal(err, undefined, `Failed validation for activity type ${type}: ${err?.message}`);
+      assert.equal(log.type, type.toLowerCase().trim());
+      assert.equal(log.intensity, 'medium');
+      assert.equal(log.source, 'planner');
+    }
+  });
+
+  it('FoodLog schema stores both mealtype and mealType and validates without error', () => {
+    const food = new FoodLog({
+      user: new mongoose.Types.ObjectId(),
+      name: 'Avocado Toast',
+      calories: 350,
+      protein: 14,
+      carbs: 32,
+      fat: 16,
+      mealType: 'breakfast',
+      mealtype: 'breakfast',
+    });
+    const err = food.validateSync();
+    assert.equal(err, undefined, `FoodLog validation failed: ${err?.message}`);
+    assert.equal(food.mealType, 'breakfast');
+    assert.equal(food.mealtype, 'breakfast');
   });
 
   it('savePlan validates that days array is provided', async () => {

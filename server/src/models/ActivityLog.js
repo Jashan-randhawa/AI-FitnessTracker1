@@ -38,17 +38,20 @@ const activityLogSchema = new mongoose.Schema(
     // Additive extensions for workout session and planner tracking
     type: {
       type: String,
-      enum: ['cardio', 'strength', 'hiit', 'yoga', 'mobility', 'general'],
+      trim: true,
+      lowercase: true,
       default: 'general',
     },
     intensity: {
       type: String,
-      enum: ['low', 'medium', 'high'],
+      trim: true,
+      lowercase: true,
       default: 'medium',
     },
     source: {
       type: String,
-      enum: ['manual', 'planner', 'live-session', 'quick-log'],
+      trim: true,
+      lowercase: true,
       default: 'manual',
     },
     planId: {

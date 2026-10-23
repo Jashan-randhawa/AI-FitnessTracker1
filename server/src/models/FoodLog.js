@@ -4,9 +4,9 @@ const toJSONPlugin = require('../utils/toJSONPlugin');
 const foodLogSchema = new mongoose.Schema(
   {
     name: String,
-    // Lowercase field name kept as-is — the client sends `mealtype` (lowercase)
-    // in the create payload to match the original Strapi attribute name.
+    // Support both `mealtype` (Strapi compatibility) and `mealType` (camelCase)
     mealtype: String,
+    mealType: String,
     calories: Number,
     protein: Number,
     carbs: Number,

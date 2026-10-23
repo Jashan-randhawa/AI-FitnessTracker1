@@ -2,9 +2,33 @@ const asyncHandler = require('express-async-handler');
 const FoodLog = require('../models/FoodLog');
 const sendError = require('../utils/sendError');
 
-// POST /api/foodlogs — body: { data: { name, calories, protein, carbs, fat, mealtype, date } }
+const normalizeFoodPayload = (raw) => {
+  const body = { ...raw };
+  const rawMealType = body.mealtype || body.mealType || 'snack';
+  const normMealType = String(rawMealType).toLowerCase().trim();
+  body.mealtype = normMealType;
+  body.mealType = normMealType;
+
+  if (body.calories !== undefined) {
+    body.calories = Number(body.calories) || 0;
+  }
+  if (body.protein !== undefined && body.protein !== null) {
+    body.protein = Number(body.protein) || 0;
+  }
+  if (body.carbs !== undefined && body.carbs !== null) {
+    body.carbs = Number(body.carbs) || 0;
+  }
+  if (body.fat !== undefined && body.fat !== null) {
+    body.fat = Number(body.fat) || 0;
+  }
+  return body;
+};
+
+// POST /api/foodlogs — body: { data: { name, calories, protein, carbs, fat, mealtype, mealType, date } }
 const create = asyncHandler(async (req, res) => {
-  const body = req.body.data || {};
+  const raw = req.body.data || req.body || {};
+  const body = normalizeFoodPayload(raw);
+
   const entry = await FoodLog.create({
     ...body,
     date: body.date || new Date(),
@@ -28,7 +52,7 @@ const findOne = asyncHandler(async (req, res) => {
 
 // PUT /api/foodlogs/:id
 const update = asyncHandler(async (req, res) => {
-  const body = req.body.data || req.body || {};
+  const body = normalizeFoodPayload(req.body.data || req.body || {});
   const entry = await FoodLog.findOneAndUpdate({ _id: req.params.id, user: req.user._id }, body, {
     new: true,
     runValidators: true,

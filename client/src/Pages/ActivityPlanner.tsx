@@ -330,9 +330,10 @@ ${days > 1 ? `- Progressive variation across days matching ${focus} and ${level}
         data: {
           name: activity.name,
           duration: activity.duration,
+          calories: activity.caloriesBurned,
           caloriesBurned: activity.caloriesBurned,
-          type: activity.type || "custom",
-          intensity: activity.intensity || "medium",
+          type: (activity.type || "custom").toLowerCase().trim(),
+          intensity: (activity.intensity || "medium").toLowerCase().trim(),
           source: "planner",
           date: new Date().toISOString(),
         },
@@ -343,13 +344,18 @@ ${days > 1 ? `- Progressive variation across days matching ${focus} and ${level}
         setAllActivityLogs((prev: ActivityEntry[]) => [entry, ...prev]);
       }
       toast.success(`Logged "${activity.name}" (${activity.caloriesBurned} kcal)`);
-    } catch {
+    } catch (err: unknown) {
       setLoggedActivities((prev) => {
         const next = new Set(prev);
         next.delete(key);
         return next;
       });
-      toast.error(`Failed to log "${activity.name}". Please try again.`);
+      const errorMsg =
+        (err as any)?.response?.data?.error?.message ||
+        (err as any)?.response?.data?.message ||
+        (err as any)?.response?.data?.error ||
+        (err instanceof Error ? err.message : `Failed to log "${activity.name}". Please try again.`);
+      toast.error(errorMsg);
     }
   };
 
@@ -373,9 +379,10 @@ ${days > 1 ? `- Progressive variation across days matching ${focus} and ${level}
           data: {
             name: activity.name,
             duration: activity.duration,
+            calories: activity.caloriesBurned,
             caloriesBurned: activity.caloriesBurned,
-            type: activity.type || "custom",
-            intensity: activity.intensity || "medium",
+            type: (activity.type || "custom").toLowerCase().trim(),
+            intensity: (activity.intensity || "medium").toLowerCase().trim(),
             source: "planner",
             date: new Date().toISOString(),
           },
