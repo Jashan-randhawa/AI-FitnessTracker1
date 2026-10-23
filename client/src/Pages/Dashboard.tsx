@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from "recharts";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
 import { useappcontext } from "../Context/AppContext";
@@ -13,9 +13,10 @@ import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { fetchDailyFitnessTip } from "../services/aiAssistantClient";
 import { buildDailyTotals, calcStreakFromMap, dateKey } from "../utils/dailyTotals";
+import type { FoodEntry, ActivityEntry } from "../assets/types";
 
 // ── Helpers ────────────────────────────────────────────────
-const getLastSevenDays = () =>
+const getLastSevenDays = (_refDate?: string) =>
   Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
@@ -32,6 +33,13 @@ const bmiLabel = (bmi: number) => {
   if (bmi < 25) return "Normal";
   if (bmi < 30) return "Overweight";
   return "Obese";
+};
+
+const getGreeting = (): string => {
+  const hour = new Date().getHours();
+  if (hour >= 4 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 17) return "Good afternoon";
+  return "Good evening";
 };
 
 // ── useToday Hook ──────────────────────────────────────────
@@ -79,15 +87,81 @@ const useToday = (): string => {
   return today;
 };
 
-// ── Badge definitions ──────────────────────────────────────
-const BADGE_DEFS = [
-  { id: "first_log",    label: "First Step",      icon: "🥗", desc: "Logged your first meal",           check: (f: any[], _a: any[], _streak: number) => f.length >= 1 },
-  { id: "streak_3",     label: "3-Day Streak",    icon: "🔥", desc: "Active 3 days in a row",           check: (_f: any[], _a: any[], streak: number) => streak >= 3 },
-  { id: "streak_7",     label: "Week Warrior",    icon: "🏅", desc: "Active 7 days in a row",           check: (_f: any[], _a: any[], streak: number) => streak >= 7 },
-  { id: "workouts_10",  label: "10 Workouts",     icon: "💪", desc: "Logged 10 activities",             check: (_f: any[], a: any[]) => a.length >= 10 },
-  { id: "food_50",      label: "Nutrition Pro",   icon: "🥦", desc: "Logged 50 food entries",           check: (f: any[]) => f.length >= 50 },
-  { id: "workouts_25",  label: "Fitness Fanatic", icon: "🏋️", desc: "Logged 25 activities",            check: (_f: any[], a: any[]) => a.length >= 25 },
-  { id: "streak_30",    label: "Monthly Master",  icon: "🌟", desc: "Active 30 days in a row",          check: (_f: any[], _a: any[], streak: number) => streak >= 30 },
+// ── Badge definitions with Progress ────────────────────────
+export interface BadgeDef {
+  id: string;
+  label: string;
+  icon: string;
+  desc: string;
+  unit?: string;
+  check: (f: FoodEntry[], a: ActivityEntry[], streak: number) => boolean;
+  progress: (f: FoodEntry[], a: ActivityEntry[], streak: number) => { current: number; target: number };
+}
+
+const BADGE_DEFS: BadgeDef[] = [
+  {
+    id: "first_log",
+    label: "First Step",
+    icon: "🥗",
+    desc: "Logged your first meal",
+    unit: "meal",
+    check: (f) => f.length >= 1,
+    progress: (f) => ({ current: Math.min(f.length, 1), target: 1 }),
+  },
+  {
+    id: "streak_3",
+    label: "3-Day Streak",
+    icon: "🔥",
+    desc: "Active 3 days in a row",
+    unit: "days",
+    check: (_f, _a, streak) => streak >= 3,
+    progress: (_f, _a, streak) => ({ current: Math.min(streak, 3), target: 3 }),
+  },
+  {
+    id: "streak_7",
+    label: "Week Warrior",
+    icon: "🏅",
+    desc: "Active 7 days in a row",
+    unit: "days",
+    check: (_f, _a, streak) => streak >= 7,
+    progress: (_f, _a, streak) => ({ current: Math.min(streak, 7), target: 7 }),
+  },
+  {
+    id: "workouts_10",
+    label: "10 Workouts",
+    icon: "💪",
+    desc: "Logged 10 activities",
+    unit: "workouts",
+    check: (_f, a) => a.length >= 10,
+    progress: (_f, a) => ({ current: Math.min(a.length, 10), target: 10 }),
+  },
+  {
+    id: "food_50",
+    label: "Nutrition Pro",
+    icon: "🥦",
+    desc: "Logged 50 food entries",
+    unit: "meals",
+    check: (f) => f.length >= 50,
+    progress: (f) => ({ current: Math.min(f.length, 50), target: 50 }),
+  },
+  {
+    id: "workouts_25",
+    label: "Fitness Fanatic",
+    icon: "🏋️",
+    desc: "Logged 25 activities",
+    unit: "workouts",
+    check: (_f, a) => a.length >= 25,
+    progress: (_f, a) => ({ current: Math.min(a.length, 25), target: 25 }),
+  },
+  {
+    id: "streak_30",
+    label: "Monthly Master",
+    icon: "🌟",
+    desc: "Active 30 days in a row",
+    unit: "days",
+    check: (_f, _a, streak) => streak >= 30,
+    progress: (_f, _a, streak) => ({ current: Math.min(streak, 30), target: 30 }),
+  },
 ];
 
 // ── Sub-components ─────────────────────────────────────────
@@ -351,12 +425,40 @@ export default function Dashboard() {
   const streak = useMemo(() => calcStreakFromMap(daily, today), [daily, today]);
   const netCalories = totalCaloriesToday - totalCaloriesBurnedToday;
   const netColor = netCalories > calorieLimit * 0.1 ? "text-rose-500" : netCalories < 0 ? "text-sky-500" : "text-emerald-500";
+  const greeting = useMemo(() => getGreeting(), []);
 
   // ── Badges ──────────────────────────────────────────────
   const earnedBadges = useMemo(
     () => BADGE_DEFS.filter((b) => b.check(allFoodLogs, allActivityLogs, streak)),
     [allFoodLogs, allActivityLogs, streak]
   );
+
+  // ── Next Badge Progress ──────────────────────────────────
+  const nextBadgeProgress = useMemo(() => {
+    const unearned = BADGE_DEFS.filter((b) => !b.check(allFoodLogs, allActivityLogs, streak));
+    if (unearned.length === 0) return null;
+
+    let best = unearned[0];
+    let bestRatio = -1;
+
+    for (const b of unearned) {
+      const { current, target } = b.progress(allFoodLogs, allActivityLogs, streak);
+      const ratio = target > 0 ? current / target : 0;
+      if (ratio > bestRatio) {
+        bestRatio = ratio;
+        best = b;
+      }
+    }
+
+    const { current, target } = best.progress(allFoodLogs, allActivityLogs, streak);
+    const pct = Math.min(Math.round((current / target) * 100), 100);
+    return {
+      badge: best,
+      current,
+      target,
+      pct,
+    };
+  }, [allFoodLogs, allActivityLogs, streak]);
 
   // ── Macro totals today ───────────────────────────────────
   const macrosToday = useMemo(() => ({
@@ -367,7 +469,7 @@ export default function Dashboard() {
 
   // ── Weekly chart data ────────────────────────────────────
   const weeklyData = useMemo(() => {
-    const days = getLastSevenDays();
+    const days = getLastSevenDays(today);
     return days.map(({ dateStr, day }) => {
       const totals = daily.get(dateStr);
       return {
@@ -380,6 +482,72 @@ export default function Dashboard() {
       };
     });
   }, [daily, today]);
+
+  // ── Weekly Summary Strip & Trend vs Last Week ────────────
+  const weeklySummary = useMemo(() => {
+    const days = getLastSevenDays();
+    let foodDaysCount = 0;
+    let activityDaysCount = 0;
+    let totalCalories = 0;
+    let totalBurned = 0;
+    let totalProtein = 0;
+    let daysOnTarget = 0;
+
+    for (const { dateStr } of days) {
+      const dayTotals = daily.get(dateStr);
+      if (dayTotals) {
+        if (dayTotals.hasFood || dayTotals.meals > 0) {
+          foodDaysCount++;
+          totalCalories += dayTotals.calories;
+          totalProtein += dayTotals.protein;
+          if (dayTotals.calories <= calorieLimit) {
+            daysOnTarget++;
+          }
+        }
+        if (dayTotals.hasActivity || dayTotals.burned > 0 || dayTotals.minutes > 0) {
+          activityDaysCount++;
+          totalBurned += dayTotals.burned;
+        }
+      }
+    }
+
+    const avgCalories = foodDaysCount > 0 ? Math.round(totalCalories / foodDaysCount) : null;
+    const avgBurned = activityDaysCount > 0 ? Math.round(totalBurned / activityDaysCount) : null;
+    const avgProtein = foodDaysCount > 0 ? Math.round(totalProtein / foodDaysCount) : null;
+
+    // Trend vs previous 7 days (days -13 to -7)
+    let prevFoodDaysCount = 0;
+    let prevTotalCalories = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - (13 - i));
+      const prevTotals = daily.get(d.toDateString());
+      if (prevTotals && (prevTotals.hasFood || prevTotals.meals > 0)) {
+        prevFoodDaysCount++;
+        prevTotalCalories += prevTotals.calories;
+      }
+    }
+
+    let calorieTrend: { percent: number; direction: "up" | "down" | "flat" } | null = null;
+    if (foodDaysCount >= 3 && prevFoodDaysCount >= 3 && avgCalories !== null) {
+      const prevAvgCalories = Math.round(prevTotalCalories / prevFoodDaysCount);
+      if (prevAvgCalories > 0) {
+        const diff = Math.round(((avgCalories - prevAvgCalories) / prevAvgCalories) * 100);
+        calorieTrend = {
+          percent: Math.abs(diff),
+          direction: diff > 0 ? "up" : diff < 0 ? "down" : "flat",
+        };
+      }
+    }
+
+    return {
+      avgCalories,
+      avgBurned,
+      daysOnTarget,
+      avgProtein,
+      calorieTrend,
+    };
+  }, [daily, calorieLimit]);
 
   // ── Chart config by tab ──────────────────────────────────
   const CHART_CFG = {
@@ -477,12 +645,10 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white pb-10 overflow-y-auto transition-colors duration-200">
 
-      {/* Hero — flat brand fill, not a gradient. Meta's hero pattern is
-          photography/solid-first; introducing a teal blend here would be
-          exactly the kind of stray third accent the system's Don'ts forbid. */}
+      {/* Hero */}
       <div className="page-header-dashboard">
         <p className="text-emerald-100 text-xs font-medium mb-1">Welcome back!</p>
-        <h1 className="text-2xl font-bold tracking-tight text-white">Hi there! 👋 {user?.username ?? "User"}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-white">{greeting}, {user?.username ?? "User"} 👋</h1>
         {user?.goal && (
           <div className="mt-4 flex items-center gap-2 bg-amber-400/20 border border-amber-400/30 rounded-xl px-4 py-2.5 backdrop-blur-sm">
             <span className="text-amber-300 text-base">🎯</span>
@@ -575,6 +741,28 @@ export default function Dashboard() {
               );
             })}
           </div>
+
+          {/* Next closest badge progress */}
+          {nextBadgeProgress && (
+            <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700/40">
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <span className="font-semibold text-gray-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <span>{nextBadgeProgress.badge.icon}</span>
+                  Next: {nextBadgeProgress.badge.label}
+                </span>
+                <span className="text-gray-500 dark:text-slate-400 font-medium">
+                  {nextBadgeProgress.current} / {nextBadgeProgress.target} {nextBadgeProgress.badge.unit ?? ""}
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                  style={{ width: `${nextBadgeProgress.pct}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {BADGE_DEFS.length > 4 && (
             <button onClick={() => setShowAllBadges(!showAllBadges)} className="mt-3 text-xs text-emerald-500 hover:text-emerald-600 cursor-pointer">
               {showAllBadges ? "Show less" : `Show all ${BADGE_DEFS.length} badges`}
@@ -615,9 +803,58 @@ export default function Dashboard() {
           </motion.div>
         )}
 
-        {/* ── Weekly chart with macro tabs ── */}
+        {/* ── Weekly chart with macro tabs & summary strip ── */}
         <motion.div variants={StaggerItem} className={softCardCls}>
-          <h3 className="text-sm font-bold mb-1">Weekly Trends</h3>
+          <h3 className="text-sm font-bold mb-3">Weekly Trends</h3>
+
+          {/* ── Weekly Summary Strip ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+            <div className="bg-slate-100/80 dark:bg-slate-700/30 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-gray-500 dark:text-slate-400 font-medium">Avg Calories In</p>
+              <div className="flex items-center justify-center gap-1 mt-0.5">
+                <span className="text-sm font-bold text-gray-900 dark:text-white">
+                  {weeklySummary.avgCalories !== null ? `${weeklySummary.avgCalories.toLocaleString()} kcal` : "—"}
+                </span>
+                {weeklySummary.calorieTrend && (
+                  <span
+                    className={`text-[10px] font-semibold ${
+                      weeklySummary.calorieTrend.direction === "up"
+                        ? "text-rose-500"
+                        : weeklySummary.calorieTrend.direction === "down"
+                        ? "text-emerald-500"
+                        : "text-slate-400"
+                    }`}
+                    title={`${weeklySummary.calorieTrend.direction === "up" ? "+" : "-"}${weeklySummary.calorieTrend.percent}% vs previous 7 days`}
+                  >
+                    {weeklySummary.calorieTrend.direction === "up" ? "▲" : weeklySummary.calorieTrend.direction === "down" ? "▼" : "•"}
+                    {weeklySummary.calorieTrend.percent}%
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-slate-100/80 dark:bg-slate-700/30 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-gray-500 dark:text-slate-400 font-medium">Avg Burned</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">
+                {weeklySummary.avgBurned !== null ? `${weeklySummary.avgBurned.toLocaleString()} kcal` : "—"}
+              </p>
+            </div>
+
+            <div className="bg-slate-100/80 dark:bg-slate-700/30 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-gray-500 dark:text-slate-400 font-medium">Days on Target</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">
+                {weeklySummary.daysOnTarget}/7
+              </p>
+            </div>
+
+            <div className="bg-slate-100/80 dark:bg-slate-700/30 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-gray-500 dark:text-slate-400 font-medium">Avg Protein</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">
+                {weeklySummary.avgProtein !== null ? `${weeklySummary.avgProtein}g` : "—"}
+              </p>
+            </div>
+          </div>
+
           {/* Tab bar */}
           <div className="flex gap-1 mb-4 mt-2 flex-wrap">
             {(["calories", "protein", "carbs", "fat"] as const).map((t) => (
@@ -626,12 +863,34 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
+
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={weeklyData} barGap={4} barCategoryGap="30%">
               <XAxis dataKey="day" tick={{ fill: isLight ? "#9ca3af" : "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis hide />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)" }} />
-              <Bar dataKey={cfg.key} name={cfg.key} radius={[4, 4, 0, 0]} fill={cfg.color} />
+              {chartTab === "calories" && (
+                <>
+                  <ReferenceLine
+                    y={calorieLimit}
+                    stroke={isLight ? "#059669" : "#10b981"}
+                    strokeDasharray="3 3"
+                  />
+                  <ReferenceLine
+                    y={calorieBurnGoal}
+                    stroke={isLight ? "#ea580c" : "#f97316"}
+                    strokeDasharray="3 3"
+                  />
+                </>
+              )}
+              <Bar dataKey={cfg.key} name={cfg.key} radius={[4, 4, 0, 0]} fill={cfg.color}>
+                {chartTab === "calories" && weeklyData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={entry.Calories > calorieLimit ? "#f43f5e" : cfg.color}
+                  />
+                ))}
+              </Bar>
               {"burnKey" in cfg && <Bar dataKey={cfg.burnKey} name={cfg.burnKey} radius={[4, 4, 0, 0]} fill={cfg.burnColor} />}
             </BarChart>
           </ResponsiveContainer>
@@ -642,6 +901,11 @@ export default function Dashboard() {
             {"burnKey" in cfg && (
               <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-slate-400">
                 <div className="w-2.5 h-2.5 rounded-sm" style={{ background: cfg.burnColor }} /> {cfg.burnKey}
+              </div>
+            )}
+            {chartTab === "calories" && (
+              <div className="flex items-center gap-1.5 text-xs text-rose-500">
+                <div className="w-2.5 h-2.5 rounded-sm bg-rose-500" /> Over Limit
               </div>
             )}
           </div>
