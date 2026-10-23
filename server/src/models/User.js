@@ -81,6 +81,22 @@ const userSchema = new mongoose.Schema(
     },
     dailycaloriesintake: Number,
     dailycaloriesburned: Number,
+    dailyproteingoal: {
+      type: Number,
+      min: [0, 'dailyproteingoal cannot be negative'],
+    },
+    dailycarbsgoal: {
+      type: Number,
+      min: [0, 'dailycarbsgoal cannot be negative'],
+    },
+    dailyfatgoal: {
+      type: Number,
+      min: [0, 'dailyfatgoal cannot be negative'],
+    },
+    dailywatergoal: {
+      type: Number,
+      min: [0, 'dailywatergoal cannot be negative'],
+    },
     onboardedAt: Date,
 
     // ── Password reset (indexed fields instead of Strapi's scanned JSON blob) ──

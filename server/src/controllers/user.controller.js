@@ -17,6 +17,10 @@ const ALLOWED_FIELDS = [
   'goal',
   'dailycaloriesintake',
   'dailycaloriesburned',
+  'dailyproteingoal',
+  'dailycarbsgoal',
+  'dailyfatgoal',
+  'dailywatergoal',
   'onboardedAt',
 ];
 

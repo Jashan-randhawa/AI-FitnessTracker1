@@ -14,6 +14,10 @@ export type User = {
   goal?: "lose" | "maintain" | "gain";
   dailycaloriesintake?: number;
   dailycaloriesburned?: number;
+  dailyproteingoal?: number;
+  dailycarbsgoal?: number;
+  dailyfatgoal?: number;
+  dailywatergoal?: number;
   createdAt?: string;
   updatedAt?: string;
 } | null;

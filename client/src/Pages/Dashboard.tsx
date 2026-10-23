@@ -13,6 +13,7 @@ import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { fetchDailyFitnessTip } from "../services/aiAssistantClient";
 import { buildDailyTotals, calcStreakFromMap, dateKey } from "../utils/dailyTotals";
+import { deriveGoals } from "../utils/deriveGoals";
 import type { FoodEntry, ActivityEntry } from "../assets/types";
 
 // ── Helpers ────────────────────────────────────────────────
@@ -258,18 +259,19 @@ const RingProgress = ({
 
 // ── Water tracker quick-add ────────────────────────────────
 const WATER_BTNS = [150, 250, 350, 500];
-const DAILY_WATER_GOAL = 2500; // ml
 
 const WaterTracker = ({
   logs,
   onAdd,
   today,
   todayTotal: propTodayTotal,
+  waterGoal = 2500,
 }: {
   logs?: any[];
   onAdd: (ml: number) => void;
   today: string;
   todayTotal?: number;
+  waterGoal?: number;
 }) => {
   const [customAmount, setCustomAmount] = useState("");
   const [showCustom, setShowCustom] = useState(false);
@@ -279,7 +281,7 @@ const WaterTracker = ({
     [logs, today]
   );
   const todayTotal = propTodayTotal ?? calculatedTotal;
-  const pct = Math.min((todayTotal / DAILY_WATER_GOAL) * 100, 100);
+  const pct = Math.min((todayTotal / Math.max(waterGoal, 1)) * 100, 100);
   const glasses = Math.round(todayTotal / 250);
 
   const handleCustomAdd = () => {
@@ -310,7 +312,7 @@ const WaterTracker = ({
         />
       </div>
       <p className="text-[10px] text-blue-500 dark:text-blue-400 mb-3">
-        Goal: {DAILY_WATER_GOAL} ml · {Math.max(DAILY_WATER_GOAL - todayTotal, 0)} ml remaining
+        Goal: {waterGoal} ml · {Math.max(waterGoal - todayTotal, 0)} ml remaining
       </p>
 
       {/* Quick-add buttons */}
@@ -418,8 +420,9 @@ export default function Dashboard() {
   const mealsLoggedToday = todayTotals?.meals ?? 0;
   const waterTodayTotal = todayTotals?.water ?? 0;
 
-  const calorieLimit = user?.dailycaloriesintake ?? 2000;
-  const calorieBurnGoal = user?.dailycaloriesburned ?? 400;
+  const goals = useMemo(() => deriveGoals(user), [user]);
+  const calorieLimit = goals.calorieLimit;
+  const calorieBurnGoal = goals.calorieBurnGoal;
   const bmi = user?.weight && user?.height ? calcBMI(user.weight, user.height) : null;
 
   const streak = useMemo(() => calcStreakFromMap(daily, today), [daily, today]);
@@ -689,7 +692,7 @@ export default function Dashboard() {
 
         {/* ── Water tracker ── */}
         <motion.div variants={StaggerItem}>
-          <WaterTracker logs={allWaterLogs} onAdd={handleAddWater} today={today} todayTotal={waterTodayTotal} />
+          <WaterTracker logs={allWaterLogs} onAdd={handleAddWater} today={today} todayTotal={waterTodayTotal} waterGoal={goals.waterGoal} />
         </motion.div>
 
         {/* ── Macro breakdown ── */}
@@ -697,17 +700,52 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold">Today's Macros</h3>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { label: "Protein", value: macrosToday.protein, color: "text-blue-500", bg: "bg-blue-500/10", unit: "g" },
-              { label: "Carbs",   value: macrosToday.carbs,   color: "text-amber-500", bg: "bg-amber-500/10", unit: "g" },
-              { label: "Fat",     value: macrosToday.fat,     color: "text-pink-500", bg: "bg-pink-500/10", unit: "g" },
-            ].map((m) => (
-              <div key={m.label} className={`${m.bg} rounded-xl p-3 text-center`}>
-                <p className={`text-lg font-bold ${m.color}`}><AnimatedNumber value={m.value} />{m.unit}</p>
-                <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{m.label}</p>
-              </div>
-            ))}
+              {
+                label: "Protein",
+                value: macrosToday.protein,
+                goal: goals.proteinGoal,
+                color: "text-blue-500",
+                barColor: "bg-blue-500",
+                bg: "bg-blue-500/10",
+              },
+              {
+                label: "Carbs",
+                value: macrosToday.carbs,
+                goal: goals.carbsGoal,
+                color: "text-amber-500",
+                barColor: "bg-amber-500",
+                bg: "bg-amber-500/10",
+              },
+              {
+                label: "Fat",
+                value: macrosToday.fat,
+                goal: goals.fatGoal,
+                color: "text-pink-500",
+                barColor: "bg-pink-500",
+                bg: "bg-pink-500/10",
+              },
+            ].map((m) => {
+              const pct = Math.min(Math.round((m.value / Math.max(m.goal, 1)) * 100), 100);
+              return (
+                <div key={m.label} className={`${m.bg} rounded-xl p-3 flex flex-col justify-between`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">{m.label}</span>
+                    <span className={`text-xs font-bold ${m.color}`}>{pct}%</span>
+                  </div>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white mb-2">
+                    <AnimatedNumber value={m.value} /> <span className="text-xs font-normal text-gray-400 dark:text-slate-400">/ {m.goal} g</span>
+                  </p>
+                  <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700/60 overflow-hidden">
+                    <div
+                      className={`h-full ${m.barColor} rounded-full transition-all duration-700`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
           {macrosToday.protein === 0 && macrosToday.carbs === 0 && macrosToday.fat === 0 && (
             <p className="text-xs text-gray-400 dark:text-slate-500 text-center mt-3">
@@ -883,6 +921,27 @@ export default function Dashboard() {
                   />
                 </>
               )}
+              {chartTab === "protein" && (
+                <ReferenceLine
+                  y={goals.proteinGoal}
+                  stroke={isLight ? "#2563eb" : "#3b82f6"}
+                  strokeDasharray="3 3"
+                />
+              )}
+              {chartTab === "carbs" && (
+                <ReferenceLine
+                  y={goals.carbsGoal}
+                  stroke={isLight ? "#d97706" : "#f59e0b"}
+                  strokeDasharray="3 3"
+                />
+              )}
+              {chartTab === "fat" && (
+                <ReferenceLine
+                  y={goals.fatGoal}
+                  stroke={isLight ? "#db2777" : "#ec4899"}
+                  strokeDasharray="3 3"
+                />
+              )}
               <Bar dataKey={cfg.key} name={cfg.key} radius={[4, 4, 0, 0]} fill={cfg.color}>
                 {chartTab === "calories" && weeklyData.map((entry, index) => (
                   <Cell
@@ -906,6 +965,11 @@ export default function Dashboard() {
             {chartTab === "calories" && (
               <div className="flex items-center gap-1.5 text-xs text-rose-500">
                 <div className="w-2.5 h-2.5 rounded-sm bg-rose-500" /> Over Limit
+              </div>
+            )}
+            {chartTab !== "calories" && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                <div className="w-3.5 h-0 border-t-2 border-dashed" style={{ borderColor: cfg.color }} /> Target ({chartTab === "protein" ? goals.proteinGoal : chartTab === "carbs" ? goals.carbsGoal : goals.fatGoal}g)
               </div>
             )}
           </div>

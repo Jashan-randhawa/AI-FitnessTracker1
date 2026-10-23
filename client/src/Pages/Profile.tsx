@@ -8,6 +8,7 @@ import autoTable from "jspdf-autotable";
 import AnimatedNumber from "../components/AnimatedNumber";
 import { Eye, EyeOff, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { PasswordStrengthMeter } from "../components/auth/PasswordStrengthMeter";
+import { deriveGoals } from "../utils/deriveGoals";
 
 const GOAL_LABELS: Record<string, string> = {
   lose: "Lose Weight",
@@ -49,6 +50,7 @@ const calcStreak = (foodLogs: any[], activityLogs: any[]): number => {
 const EditProfileModal = ({ user, onClose, onSave }: {
   user: any; onClose: () => void; onSave: (d: any) => Promise<void>;
 }) => {
+  const derived = useMemo(() => deriveGoals(user), [user]);
   const [username, setUsername] = useState(user?.username ?? "");
   const [age, setAge] = useState(String(user?.age ?? ""));
   const [weight, setWeight] = useState(String(user?.weight ?? ""));
@@ -56,6 +58,10 @@ const EditProfileModal = ({ user, onClose, onSave }: {
   const [goal, setGoal] = useState(user?.goal ?? "maintain");
   const [caloriesIn, setCaloriesIn] = useState(String(user?.dailycaloriesintake ?? ""));
   const [caloriesOut, setCaloriesOut] = useState(String(user?.dailycaloriesburned ?? ""));
+  const [proteinGoal, setProteinGoal] = useState(user?.dailyproteingoal ? String(user.dailyproteingoal) : "");
+  const [carbsGoal, setCarbsGoal] = useState(user?.dailycarbsgoal ? String(user.dailycarbsgoal) : "");
+  const [fatGoal, setFatGoal] = useState(user?.dailyfatgoal ? String(user.dailyfatgoal) : "");
+  const [waterGoal, setWaterGoal] = useState(user?.dailywatergoal ? String(user.dailywatergoal) : "");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async (e?: React.FormEvent) => {
@@ -80,6 +86,10 @@ const EditProfileModal = ({ user, onClose, onSave }: {
         goal,
         dailycaloriesintake: Number(caloriesIn) || undefined,
         dailycaloriesburned: Number(caloriesOut) || undefined,
+        dailyproteingoal: Number(proteinGoal) || undefined,
+        dailycarbsgoal: Number(carbsGoal) || undefined,
+        dailyfatgoal: Number(fatGoal) || undefined,
+        dailywatergoal: Number(waterGoal) || undefined,
       });
       onClose();
     } catch {
@@ -125,6 +135,54 @@ const EditProfileModal = ({ user, onClose, onSave }: {
               <input type={type} className={inputCls} value={val} onChange={(e) => set(e.target.value)} />
             </div>
           ))}
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-700/50">
+            <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-1">Macro & Water Targets</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+              Leave blank to use derived defaults ({derived.proteinGoal}g protein, {derived.carbsGoal}g carbs, {derived.fatGoal}g fat, {derived.waterGoal}ml water).
+            </p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 block">Protein (g)</label>
+                <input
+                  type="number"
+                  className={inputCls}
+                  placeholder={`Auto: ${derived.proteinGoal}`}
+                  value={proteinGoal}
+                  onChange={(e) => setProteinGoal(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 block">Carbs (g)</label>
+                <input
+                  type="number"
+                  className={inputCls}
+                  placeholder={`Auto: ${derived.carbsGoal}`}
+                  value={carbsGoal}
+                  onChange={(e) => setCarbsGoal(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 block">Fat (g)</label>
+                <input
+                  type="number"
+                  className={inputCls}
+                  placeholder={`Auto: ${derived.fatGoal}`}
+                  value={fatGoal}
+                  onChange={(e) => setFatGoal(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 block">Water (ml)</label>
+                <input
+                  type="number"
+                  className={inputCls}
+                  placeholder={`Default: ${derived.waterGoal}`}
+                  value={waterGoal}
+                  onChange={(e) => setWaterGoal(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
           <div>
             <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">Goal</label>
             <div className="grid grid-cols-3 gap-2">
@@ -665,6 +723,7 @@ const exportCSV = (allFoodLogs: any[], allActivityLogs: any[]) => {
 // ── Main Profile Page ─────────────────────────────────────────
 export default function Profile() {
   const { user, setUser, allFoodLogs, allActivityLogs, logout, setSessionToken } = useappcontext();
+  const userGoals = useMemo(() => deriveGoals(user), [user]);
   const { theme, toggleTheme } = useTheme();
   const [showEdit, setShowEdit] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
@@ -843,6 +902,8 @@ export default function Profile() {
             <InfoRow label="Height" value={user?.height ? `${user.height} cm` : "—"} icon={<svg {...svgProps} stroke="#34d399"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></svg>} />
             <InfoRow label="Goal"   value={GOAL_LABELS[user?.goal ?? ""] ?? user?.goal ?? "—"} icon={<svg {...svgProps} stroke="#fb923c"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>} />
             <InfoRow label="Calorie Target" value={user?.dailycaloriesintake ? `${user.dailycaloriesintake} kcal/day` : "—"} icon={<svg {...svgProps} stroke="#f97316"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" /><path d="M12 6v6l4 2" /></svg>} />
+            <InfoRow label="Macro Targets" value={`P: ${userGoals.proteinGoal}g · C: ${userGoals.carbsGoal}g · F: ${userGoals.fatGoal}g`} icon={<svg {...svgProps} stroke="#3b82f6"><circle cx="12" cy="12" r="10" /><path d="M12 2a10 10 0 0 1 10 10H12V2z" /></svg>} />
+            <InfoRow label="Water Target" value={`${userGoals.waterGoal} ml/day`} icon={<svg {...svgProps} stroke="#0284c7"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" /></svg>} />
             <button onClick={() => setShowEdit(true)}
               className="w-full mt-2 py-3 bg-slate-200 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600/50 text-sm font-semibold rounded-xl transition-all cursor-pointer">
               Edit Profile
