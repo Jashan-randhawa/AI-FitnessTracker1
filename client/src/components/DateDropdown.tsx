@@ -1,3 +1,4 @@
+import { resolveDate } from "../utils/dates";
 import { useMemo, useRef, useState, useEffect } from "react";
 
 interface Props {
@@ -8,7 +9,6 @@ interface Props {
   onSelectDate: (dateStr: string | null) => void;
 }
 
-const resolveDate = (e: any) => e.date ?? e.createdAt ?? new Date().toISOString();
 
 const toDateKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

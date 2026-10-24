@@ -91,8 +91,6 @@ const Onboarding = () => {
     try {
       await api.put(`/api/users/${user.id}`, payload);
 
-      // Only persist locally after a confirmed API success
-      localStorage.setItem("fitnessUser", JSON.stringify(payload));
 
       toast.success("Welcome to FitTrack! 🎉");
       setOnboardingCompleted(true);

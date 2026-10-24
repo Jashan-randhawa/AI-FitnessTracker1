@@ -9,41 +9,14 @@ import AnimatedNumber from "../components/AnimatedNumber";
 import { Eye, EyeOff, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { PasswordStrengthMeter } from "../components/auth/PasswordStrengthMeter";
 import { deriveGoals } from "../utils/deriveGoals";
+import { BADGE_DEFS } from "../utils/badges";
+import { resolveDate } from "../utils/dates";
+import { buildDailyTotals, calcStreakFromMap } from "../utils/dailyTotals";
 
 const GOAL_LABELS: Record<string, string> = {
   lose: "Lose Weight",
   maintain: "Maintain Weight",
   gain: "Gain Weight",
-};
-
-// ── Badge definitions (same as Dashboard) ──────────────────
-const BADGE_DEFS = [
-  { id: "first_log",   label: "First Step",       icon: "🥗", desc: "Logged your first meal"        },
-  { id: "streak_3",    label: "3-Day Streak",     icon: "🔥", desc: "Active 3 days in a row"        },
-  { id: "streak_7",    label: "Week Warrior",     icon: "🏅", desc: "Active 7 days in a row"        },
-  { id: "workouts_10", label: "10 Workouts",      icon: "💪", desc: "Logged 10 activities"          },
-  { id: "food_50",     label: "Nutrition Pro",    icon: "🥦", desc: "Logged 50 food entries"        },
-  { id: "workouts_25", label: "Fitness Fanatic",  icon: "🏋️", desc: "Logged 25 activities"         },
-  { id: "streak_30",   label: "Monthly Master",   icon: "🌟", desc: "Active 30 days in a row"       },
-];
-
-const resolveDate = (e: any) => e.date ?? e.createdAt ?? new Date().toISOString();
-
-const calcStreak = (foodLogs: any[], activityLogs: any[]): number => {
-  let streak = 0;
-  const d = new Date();
-  const todayHasData =
-    foodLogs.some((l) => new Date(resolveDate(l)).toDateString() === d.toDateString()) ||
-    activityLogs.some((l) => new Date(resolveDate(l)).toDateString() === d.toDateString());
-  if (!todayHasData) d.setDate(d.getDate() - 1);
-  for (let i = 0; i < 365; i++) {
-    const ds = d.toDateString();
-    if (foodLogs.some((l) => new Date(resolveDate(l)).toDateString() === ds) ||
-        activityLogs.some((l) => new Date(resolveDate(l)).toDateString() === ds)) {
-      streak++; d.setDate(d.getDate() - 1);
-    } else break;
-  }
-  return streak;
 };
 
 // ── Edit Profile Modal ──────────────────────────────────────
@@ -722,7 +695,7 @@ const exportCSV = (allFoodLogs: any[], allActivityLogs: any[]) => {
 
 // ── Main Profile Page ─────────────────────────────────────────
 export default function Profile() {
-  const { user, setUser, allFoodLogs, allActivityLogs, logout, setSessionToken } = useappcontext();
+  const { user, setUser, allFoodLogs, allActivityLogs, allWaterLogs, logout, setSessionToken } = useappcontext();
   const userGoals = useMemo(() => deriveGoals(user), [user]);
   const { theme, toggleTheme } = useTheme();
   const [showEdit, setShowEdit] = useState(false);
@@ -759,19 +732,10 @@ export default function Profile() {
     return new Date(user.createdAt).toLocaleDateString("en-GB");
   }, [user]);
 
-  const streak = useMemo(() => calcStreak(allFoodLogs, allActivityLogs), [allFoodLogs, allActivityLogs]);
+  const streak = useMemo(() => calcStreakFromMap(buildDailyTotals(allFoodLogs, allActivityLogs, allWaterLogs)), [allFoodLogs, allActivityLogs, allWaterLogs]);
 
   const earnedBadges = useMemo(() => {
-    return BADGE_DEFS.filter((b) => {
-      if (b.id === "first_log")   return allFoodLogs.length >= 1;
-      if (b.id === "streak_3")    return streak >= 3;
-      if (b.id === "streak_7")    return streak >= 7;
-      if (b.id === "workouts_10") return allActivityLogs.length >= 10;
-      if (b.id === "food_50")     return allFoodLogs.length >= 50;
-      if (b.id === "workouts_25") return allActivityLogs.length >= 25;
-      if (b.id === "streak_30")   return streak >= 30;
-      return false;
-    });
+    return BADGE_DEFS.filter((b) => b.check(allFoodLogs, allActivityLogs, streak));
   }, [allFoodLogs, allActivityLogs, streak]);
 
   const handleSave = async (data: any) => {

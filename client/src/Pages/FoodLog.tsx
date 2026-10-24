@@ -1,3 +1,4 @@
+import { resolveDate } from "../utils/dates";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useappcontext } from "../Context/AppContext";
@@ -30,8 +31,6 @@ const normalizeFoodEntry = (raw: any) => {
   return raw;
 };
 
-const resolveDate = (entry: any): string =>
-  entry.date ?? entry.createdAt ?? new Date().toISOString();
 
 // Resolve mealType from either casing (mealType or legacy mealtype)
 const resolveMealType = (entry: any): MealType => {

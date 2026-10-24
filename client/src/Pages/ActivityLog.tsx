@@ -1,3 +1,4 @@
+import { resolveDate } from "../utils/dates";
 import { useState, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import DateDropdown from "../components/DateDropdown";
@@ -7,8 +8,6 @@ import toast from "react-hot-toast";
 import api from "../configs/api";
 import { StaggerContainer, StaggerItem } from "../components/animations/StaggerList";
 
-const resolveDate = (entry: any): string =>
-  entry.date ?? entry.createdAt ?? new Date().toISOString();
 
 const normalizeActivityEntry = (raw: any) => {
   if (!raw) return null;

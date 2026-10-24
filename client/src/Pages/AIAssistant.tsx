@@ -1,3 +1,4 @@
+import { resolveDate } from "../utils/dates";
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -90,8 +91,6 @@ const parseMarkdownIntoWorkoutDays = (markdown: string) => {
   return days;
 };
 
-const resolveDate = (entry: any): string =>
-  entry.date ?? entry.createdAt ?? new Date().toISOString();
 
 const BASE_SUGGESTIONS = [
   "What should I eat before a workout?",
