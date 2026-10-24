@@ -21,6 +21,23 @@ const find = asyncHandler(async (req, res) => {
   res.json(result.map((r) => r.toJSON()));
 });
 
+// PUT /api/waterlogs/:id — body: { data: { amount } }
+const update = asyncHandler(async (req, res) => {
+  const raw = req.body.data || req.body || {};
+  const amount = Number(raw.amount);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 10000) {
+    return sendError(res, 400, 'amount must be between 1 and 10000 ml');
+  }
+  const entry = await WaterLog.findOneAndUpdate(
+    { _id: req.params.id, user: req.user._id },
+    { amount },
+    { new: true, runValidators: true }
+  );
+  if (!entry) return sendError(res, 404, 'Water log entry not found');
+  publishChange(String(req.user._id), 'water', entry.date);
+  res.json(entry.toJSON());
+});
+
 // DELETE /api/waterlogs/:id
 const remove = asyncHandler(async (req, res) => {
   const entry = await WaterLog.findOneAndDelete({ _id: req.params.id, user: req.user._id });
@@ -29,4 +46,4 @@ const remove = asyncHandler(async (req, res) => {
   res.json(entry.toJSON());
 });
 
-module.exports = { create, find, remove };
+module.exports = { create, find, update, remove };

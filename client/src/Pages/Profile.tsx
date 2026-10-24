@@ -9,9 +9,10 @@ import AnimatedNumber from "../components/AnimatedNumber";
 import { Eye, EyeOff, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { PasswordStrengthMeter } from "../components/auth/PasswordStrengthMeter";
 import { deriveGoals } from "../utils/deriveGoals";
-import { BADGE_DEFS } from "../utils/badges";
+import { withBadgeState } from "../utils/badges";
+import { useDaySummary } from "../data/summaryStore";
+import { localDayKey } from "../utils/localDay";
 import { resolveDate } from "../utils/dates";
-import { buildDailyTotals, calcStreakFromMap } from "../utils/dailyTotals";
 
 const GOAL_LABELS: Record<string, string> = {
   lose: "Lose Weight",
@@ -695,7 +696,7 @@ const exportCSV = (allFoodLogs: any[], allActivityLogs: any[]) => {
 
 // ── Main Profile Page ─────────────────────────────────────────
 export default function Profile() {
-  const { user, setUser, allFoodLogs, allActivityLogs, allWaterLogs, logout, setSessionToken } = useappcontext();
+  const { user, setUser, allFoodLogs, allActivityLogs, logout, setSessionToken } = useappcontext();
   const userGoals = useMemo(() => deriveGoals(user), [user]);
   const { theme, toggleTheme } = useTheme();
   const [showEdit, setShowEdit] = useState(false);
@@ -732,11 +733,13 @@ export default function Profile() {
     return new Date(user.createdAt).toLocaleDateString("en-GB");
   }, [user]);
 
-  const streak = useMemo(() => calcStreakFromMap(buildDailyTotals(allFoodLogs, allActivityLogs, allWaterLogs)), [allFoodLogs, allActivityLogs, allWaterLogs]);
+  // Streak and achievements come from the server's day summary.
+  const todayKey = useMemo(() => localDayKey(), []);
+  const daySummary = useDaySummary(todayKey);
+  const streak = daySummary.data?.streak ?? 0;
+  const badgeViews = useMemo(() => withBadgeState(daySummary.data?.badges), [daySummary.data]);
 
-  const earnedBadges = useMemo(() => {
-    return BADGE_DEFS.filter((b) => b.check(allFoodLogs, allActivityLogs, streak));
-  }, [allFoodLogs, allActivityLogs, streak]);
+  const earnedBadges = useMemo(() => badgeViews.filter((b) => b.earned), [badgeViews]);
 
   const handleSave = async (data: any) => {
     try {
@@ -1000,10 +1003,10 @@ export default function Profile() {
           <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold">Achievements</p>
-              <span className="text-xs text-slate-400">{earnedBadges.length}/{BADGE_DEFS.length}</span>
+              <span className="text-xs text-slate-400">{earnedBadges.length}/{badgeViews.length}</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {BADGE_DEFS.map((b) => {
+              {badgeViews.map((b) => {
                 const earned = earnedBadges.some((e) => e.id === b.id);
                 return (
                   <div key={b.id} title={b.desc}

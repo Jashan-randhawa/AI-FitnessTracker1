@@ -21,6 +21,20 @@ const api = axios.create({
 
 // Automatically attach Bearer token from localStorage to every outgoing request
 api.interceptors.request.use((config) => {
+  // The server buckets day totals in this timezone, so every request declares it.
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz) {
+      if (config.headers && typeof config.headers.set === "function") {
+        config.headers.set("X-Timezone", tz);
+      } else {
+        config.headers = config.headers || {};
+        config.headers["X-Timezone"] = tz;
+      }
+    }
+  } catch {
+    // Older runtimes without Intl timezone support fall back to the server's default.
+  }
   const token = localStorage.getItem("token");
   if (token) {
     if (config.headers && typeof config.headers.set === "function") {
