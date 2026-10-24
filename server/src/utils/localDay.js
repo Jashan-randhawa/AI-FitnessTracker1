@@ -1,0 +1,71 @@
+/**
+ * Local-calendar-day helpers. All day buckets are computed in the user's
+ * IANA timezone (sent by the client as the X-Timezone header), so a meal
+ * logged at 23:50 local time counts toward that local day, not the UTC day.
+ */
+
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+const isValidTimeZone = (tz) => {
+  if (typeof tz !== 'string' || tz.length === 0 || tz.length > 64) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const isValidDateKey = (value) => {
+  if (typeof value !== 'string' || !DATE_KEY.test(value)) return false;
+  const ms = Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === value;
+};
+
+/** Local calendar day (YYYY-MM-DD) that `date` falls on in timezone `tz`. */
+const dayKey = (date, tz) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const get = (type) => parts.find((p) => p.type === type).value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
+};
+
+/** Adds `n` calendar days to a YYYY-MM-DD key (pure calendar arithmetic). */
+const addDays = (key, n) => {
+  const d = new Date(`${key}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+/** All day keys from `from` to `to` inclusive. */
+const rangeKeys = (from, to) => {
+  const keys = [];
+  for (let k = from; k <= to; k = addDays(k, 1)) keys.push(k);
+  return keys;
+};
+
+/**
+ * A UTC window guaranteed to contain every instant of local days from..to in
+ * any timezone (offsets run from UTC-12 to UTC+14). Rows are then filtered to
+ * the exact local days after grouping.
+ */
+const utcWindowFor = (from, to) => {
+  const HOUR = 3600 * 1000;
+  return {
+    start: new Date(Date.parse(`${from}T00:00:00Z`) - 14 * HOUR),
+    end: new Date(Date.parse(`${addDays(to, 1)}T00:00:00Z`) + 14 * HOUR),
+  };
+};
+
+module.exports = {
+  isValidTimeZone,
+  isValidDateKey,
+  dayKey,
+  addDays,
+  rangeKeys,
+  utcWindowFor,
+};

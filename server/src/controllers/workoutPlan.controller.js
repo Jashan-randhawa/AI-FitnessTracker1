@@ -1,4 +1,5 @@
 const asyncHandler = require('express-async-handler');
+const { publishChange } = require('../services/eventBus');
 const WorkoutPlan = require('../models/WorkoutPlan');
 const { WorkoutPlanActionSchema } = require('../schemas/aiPlans.schema');
 const sendError = require('../utils/sendError');
@@ -60,6 +61,7 @@ const savePlan = asyncHandler(async (req, res) => {
     isActive,
   });
 
+  publishChange(String(req.user._id), 'plan');
   res.status(201).json({ plan: newPlan.toJSON() });
 });
 
@@ -81,6 +83,7 @@ const setActivePlan = asyncHandler(async (req, res) => {
 
   plan.isActive = true;
   await plan.save();
+  publishChange(String(req.user._id), 'plan');
 
   res.json({ plan: plan.toJSON() });
 });
@@ -96,6 +99,7 @@ const deletePlan = asyncHandler(async (req, res) => {
     return sendError(res, 404, 'Workout plan not found');
   }
 
+  publishChange(String(req.user._id), 'plan');
   res.json({ success: true, message: 'Plan deleted successfully' });
 });
 

@@ -1,4 +1,5 @@
 const asyncHandler = require('express-async-handler');
+const { publishChange } = require('../services/eventBus');
 const WaterLog = require('../models/WaterLog');
 const sendError = require('../utils/sendError');
 
@@ -10,6 +11,7 @@ const create = asyncHandler(async (req, res) => {
     date: body.date || new Date(),
     user: req.user._id,
   });
+  publishChange(String(req.user._id), 'water', entry.date);
   res.json(entry.toJSON());
 });
 
@@ -23,6 +25,7 @@ const find = asyncHandler(async (req, res) => {
 const remove = asyncHandler(async (req, res) => {
   const entry = await WaterLog.findOneAndDelete({ _id: req.params.id, user: req.user._id });
   if (!entry) return sendError(res, 404, 'Water log entry not found');
+  publishChange(String(req.user._id), 'water', entry.date);
   res.json(entry.toJSON());
 });
 

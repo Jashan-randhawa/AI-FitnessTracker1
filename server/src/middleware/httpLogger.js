@@ -14,10 +14,12 @@ const httpLogger = (req, res, next) => {
     }
 
     const duration = Date.now() - startTime;
+    // Stream tickets travel in the query string; never write them to logs.
+    const safeUrl = (req.originalUrl || req.url || '').replace(/([?&]ticket=)[^&]*/g, '$1[redacted]');
     const meta = {
       requestId: req.id || req.requestId,
       method: req.method,
-      url: req.originalUrl || req.url,
+      url: safeUrl,
       status: res.statusCode,
       durationMs: duration,
       ip: req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress,
@@ -25,11 +27,11 @@ const httpLogger = (req, res, next) => {
     };
 
     if (res.statusCode >= 500) {
-      logger.error(`HTTP ${req.method} ${req.originalUrl} ${res.statusCode} (${duration}ms)`, meta);
+      logger.error(`HTTP ${req.method} ${meta.url} ${res.statusCode} (${duration}ms)`, meta);
     } else if (res.statusCode >= 400) {
-      logger.warn(`HTTP ${req.method} ${req.originalUrl} ${res.statusCode} (${duration}ms)`, meta);
+      logger.warn(`HTTP ${req.method} ${meta.url} ${res.statusCode} (${duration}ms)`, meta);
     } else {
-      logger.info(`HTTP ${req.method} ${req.originalUrl} ${res.statusCode} (${duration}ms)`, meta);
+      logger.info(`HTTP ${req.method} ${meta.url} ${res.statusCode} (${duration}ms)`, meta);
     }
   });
 
