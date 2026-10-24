@@ -1,4 +1,5 @@
 const asyncHandler = require('express-async-handler');
+const { publishChange } = require('../services/eventBus');
 const User = require('../models/User');
 const sendError = require('../utils/sendError');
 const generateToken = require('../utils/generateToken');
@@ -73,6 +74,7 @@ const updateUser = asyncHandler(async (req, res) => {
     return sendError(res, 404, 'User not found');
   }
 
+  publishChange(String(user._id), 'goals');
   res.json(user.toJSON());
 });
 

@@ -1,4 +1,5 @@
 const asyncHandler = require('express-async-handler');
+const { publishChange } = require('../services/eventBus');
 const FoodLog = require('../models/FoodLog');
 const sendError = require('../utils/sendError');
 
@@ -34,6 +35,7 @@ const create = asyncHandler(async (req, res) => {
     date: body.date || new Date(),
     user: req.user._id,
   });
+  publishChange(String(req.user._id), 'food', entry.date);
   res.json(entry.toJSON());
 });
 
@@ -58,6 +60,7 @@ const update = asyncHandler(async (req, res) => {
     runValidators: true,
   });
   if (!entry) return sendError(res, 404, 'Food log entry not found');
+  publishChange(String(req.user._id), 'food', entry.date);
   res.json(entry.toJSON());
 });
 
@@ -65,6 +68,7 @@ const update = asyncHandler(async (req, res) => {
 const remove = asyncHandler(async (req, res) => {
   const entry = await FoodLog.findOneAndDelete({ _id: req.params.id, user: req.user._id });
   if (!entry) return sendError(res, 404, 'Food log entry not found');
+  publishChange(String(req.user._id), 'food', entry.date);
   res.json(entry.toJSON());
 });
 

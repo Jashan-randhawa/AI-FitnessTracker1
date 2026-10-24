@@ -1,4 +1,5 @@
 const asyncHandler = require('express-async-handler');
+const { publishChange } = require('../services/eventBus');
 const ActivityLog = require('../models/ActivityLog');
 const sendError = require('../utils/sendError');
 
@@ -42,6 +43,7 @@ const create = asyncHandler(async (req, res) => {
   if (json.caloriesBurned === undefined && json.calories !== undefined) {
     json.caloriesBurned = json.calories;
   }
+  publishChange(String(req.user._id), 'activity', json.date);
   res.json(json);
 });
 
@@ -83,6 +85,7 @@ const update = asyncHandler(async (req, res) => {
   if (json.caloriesBurned === undefined && json.calories !== undefined) {
     json.caloriesBurned = json.calories;
   }
+  publishChange(String(req.user._id), 'activity', json.date);
   res.json(json);
 });
 
@@ -90,6 +93,7 @@ const update = asyncHandler(async (req, res) => {
 const remove = asyncHandler(async (req, res) => {
   const entry = await ActivityLog.findOneAndDelete({ _id: req.params.id, user: req.user._id });
   if (!entry) return sendError(res, 404, 'Activity log entry not found');
+  publishChange(String(req.user._id), 'activity', entry.date);
   res.json(entry.toJSON());
 });
 

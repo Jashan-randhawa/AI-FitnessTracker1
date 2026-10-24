@@ -29,5 +29,7 @@ router.use('/waterlogs', require('./waterlog.routes'));
 router.use('/chathistories', require('./chathistory.routes'));
 router.use('/blogs', require('./blog.routes'));
 router.use('/workout-plans', require('./workoutPlan.routes'));
+router.use('/summary', require('./summary.routes'));
+router.use('/events', require('./events.routes'));
 
 module.exports = router;
