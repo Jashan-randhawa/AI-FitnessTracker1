@@ -3,7 +3,7 @@
 # ⚡ FitTrack AI
 ### Intelligent Health, Nutrition & Fitness Operating System
 
-[![Version](https://img.shields.io/badge/Version-v2.5.0-emerald?style=for-the-badge)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.5.0)
+[![Version](https://img.shields.io/badge/Version-v2.6.0-emerald?style=for-the-badge)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases)
 [![CI](https://github.com/Jashan-randhawa/AI-FitnessTracker1/actions/workflows/ci.yml/badge.svg)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/actions/workflows/ci.yml)
 [![GitHub Packages](https://img.shields.io/badge/GitHub_Packages-7_Published-2ea44f?style=for-the-badge&logo=github)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-blue?style=for-the-badge&logo=github)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki)
@@ -14,13 +14,13 @@
 [![Express](https://img.shields.io/badge/Express-4.19-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E=20.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tests](https://img.shields.io/badge/Unit_Tests-142_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
+[![Tests](https://img.shields.io/badge/Unit_Tests-241_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
 [![Audit](https://img.shields.io/badge/Vulnerabilities-0-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://ai-fitness-tracker1.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
 
 <p align="center">
-  A full-stack, AI-powered health and fitness companion designed to transform daily habits into measurable progress. Featuring multimodal AI meal logging, real-time context-aware coaching, interactive activity heatmaps, adaptive workout and meal planners, dual Google + password authentication, and a mobile-optimized interface.
+  A full-stack, AI-powered health and fitness operating system designed to transform daily habits into measurable progress. Featuring multimodal AI meal logging, context-aware coaching with clinical safety boundaries, $O(N)$ single-pass analytics with midnight rollover, customizable macro & hydration goals, glassmorphism single-day and multi-day meal & activity planners with 1-click tracker logging, interactive heatmaps, and hardened dual authentication.
 </p>
 
 [🚀 **Explore Live Demo**](https://ai-fitness-tracker1.vercel.app) • [📦 **Modular Packages**](#-modular-packages-ecosystem) • [📖 **Wiki Documentation**](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki) • [✨ **Features**](#-features) • [📱 **Mobile View**](#-mobile-experience) • [🧪 **Testing & CI**](#-testing--cicd) • [🛠️ **Quick Start**](#-quick-start) • [📡 **API Reference**](#-api-reference)
@@ -34,10 +34,12 @@
 **FitTrack AI** combines modern fitness tracking with generative artificial intelligence to deliver an experience that goes beyond standard calorie counting:
 
 - **Intelligent Vision & NLP Logging:** Snap a photo or type a meal description; AI identifies foods and computes calories and macros automatically.
-- **Context-Aware AI Coaching:** FitBot tracks your personal goals, daily calories consumed/burned, and past conversation context to provide personalized guidance.
+- **Context-Aware Coaching & Clinical Safety:** FitBot tracks your personal biometrics, target calories, daily consumed/burned metrics, and past conversation memory while enforcing clinical safe-harbor boundaries against hazardous dietary advice.
+- **High-Performance Analytics & Midnight Rollover:** $O(N)$ single-pass daily totals aggregation engine (`dailyTotals.ts`), dynamic midnight rollover (`useToday`) with visibility detection, weekly insight tiles, and goal reference lines with rose exceed highlights.
+- **Full-Stack Macro & Hydration Target Customization:** Profile and dashboard integration with customizable protein, carbohydrate, fat, and hydration goals, backed by intelligent automatic derivation (30/40/30 macro split, 2500 ml water).
+- **Redesigned Modern Planners:** Glassmorphism UI for both Meal Planner and Activity Planner featuring single-day ("Today") and multi-day scheduling (1, 3, 5, 7 days), smart presets, and one-click "Log to Tracker" integration.
 - **Interactive Calendar Heatmaps:** GitHub-style 90-day activity and nutrition heatmaps with intensity scaling, streak tracking, and instant date navigation.
-- **Tailored Multi-Day Planners:** Custom meal schedules and multi-split activity routines created to match your schedule and fitness targets.
-- **Hardened Security & Rate Limiting:** Protected with `express-rate-limit`, strict AI payload caps, secure fragment-based Google OAuth, and anti-enumeration password resets.
+- **Hardened Security & Rate Limiting:** Protected with dual-tier rate limiting (IP + authenticated user ID), strict AI payload caps, Brevo F1–F5 transactional email resilience, secure fragment-based Google OAuth, and anti-enumeration password resets.
 - **Mobile-First Experience:** Built with responsive bottom-dock navigation, edge-to-edge notch handling, and adaptive data cards for desktop and mobile screens.
 - **Comprehensive Wellness Hub:** Includes YouTube workout streaming with server-side caching, live workout tracker with draft persistence, Bhangra & gym pump playlists, persistent AI workout plans, real-time weather & Air Quality Index (AQI), and live fitness news.
 
@@ -77,6 +79,11 @@ npm install @jashan-randhawa/fitness-utils
 
 ### 🧠 1. Artificial Intelligence Core
 - **FitBot Personal Coach (`/ai-assistant` & `/ai`):** Chat with a context-aware fitness assistant powered by OpenRouter LLMs. FitBot references your profile (weight, target calories, training goal) and remembers past sessions.
+  - **Zod Schema Validation & Plan Contracts:** Automated structural parsing and validation for meal and workout plans ensuring non-negative values, realistic workout durations ($\le 720$ min), and validated schema structures.
+  - **Clinical Safety Boundaries & Non-Diagnosis Guarantees:** Built-in clinical safe harbor refusing harmful diet advice, extreme caloric deficits, or medical treatment prescriptions while requiring affirmative confirmation for rigorous training splits.
+  - **Transparent AI Context & Memory Management:** User-directed conversation memory scoping, per-user isolation, and zero-leak context privacy controls (`/api/ai-assistant/memory`).
+  - **LRU Query Caching & Concurrency Controls:** Bounded 5-minute query caching with LRU eviction and per-user concurrent request limits (`MAX_USER_CONCURRENT_AI_REQUESTS`).
+  - **Idempotent Message Persistence & Cancellation:** Client-side generation cancellation with `AbortController`, request deduplication, and retry queues.
   - **Hands-Free Voice Experience:** Integrated Speech-to-Text (STT) for hands-free workout/diet queries, plus Text-to-Speech (TTS) read-aloud playback via the Web Speech API.
   - **Dynamic Input & Stop Controls:** Auto-resizing textarea (up to 140px) with single-tap instant generation abortion via `AbortController`.
   - **Rich Markdown Tables & Collapsible Cards:** Native rendering of markdown tables for multi-day workout splits and macro breakdowns, along with interactive collapsible plan cards.
@@ -88,14 +95,24 @@ npm install @jashan-randhawa/fitness-utils
 - **Automated Model Fallback (`OPENROUTER_FALLBACK_MODEL`):** Automatic failover to secondary fallback models (e.g., Gemini 2.0 Flash) if the primary model (`openai/gpt-4o-mini`) is temporarily unavailable.
 - **Dual-Tier Rate Limiting:** 30 req/min per IP (`aiLimiter`) plus 20 req/min per authenticated user (`aiUserLimiter`) keyed on `req.user.id` to prevent NAT starvation and credit exhaustion.
 - **Structured JSON Validation & Repair Retry:** Automated parse verification and repair retry on Activity Planner and Meal Planner calls, ensuring valid multi-day workout JSON plans.
-- **In-Memory Query Cache:** 5-minute short-TTL caching on identical prompt hashes, saving API credits and accelerating repeat advice queries.
 - **AI Food Snap (Vision Analysis):** Upload or capture a meal photo directly from your camera for instant dish recognition and nutritional estimation.
 - **Smart Natural Language Nutrition Estimator:** Type `"Grilled salmon with brown rice and broccoli"` and receive automated calorie and macronutrient breakdowns (Protein, Carbs, Fat).
-- **AI Workout & Meal Planners:** Generates 3, 5, or 7-day workout and diet routines customized by equipment, focus, and daily calorie burn target.
 - **Graceful Degradation:** Production outage handling delivering clear, user-friendly status responses (`503 Service Unavailable`) instead of raw stack traces.
 - **Prompt Injection & Token Guardrails:** Server-side message history bounds (50 messages max), per-message length limits (8,000 chars), and graceful sliding-window conversation truncation.
 
-### 📊 2. Health Analytics & Daily Tracking
+### 📊 2. Health Analytics & Performance Engine
+- **Single-Pass Daily Totals Engine (`dailyTotals.ts`):** High-performance $O(N)$ aggregation over food, activity, and water logs for blazing-fast streak calculations, daily totals, and weekly charts.
+- **Live Midnight Rollover (`useToday` Hook):** Seamless date rollover at local midnight (`setTimeout`) and on tab visibility restoration (`visibilitychange`) without requiring a browser reload.
+- **Weekly Insights & Trends Strip:** 4 actionable metrics computed across logged days:
+  - Average Calories In per logged day.
+  - Average Calories Burned per logged day.
+  - Days on Target (`x/7`) meeting calorie goals with active meals.
+  - Average Protein intake per logged day.
+  - Week-over-week comparative percentage indicators (▲/▼ %) guarded against erratic divide-by-zero rates ($\ge 3$ logged days condition).
+- **Goal Reference Lines & Visual Alerts:** Recharts `ReferenceLine` goals on calorie and macro chart tabs with dynamic `Cell` styling (rose `#f43f5e` highlight when exceeding calorie limits).
+- **Customizable Macro & Hydration Goals:** Full-stack target configuration across Profile and Dashboard with dynamic macro progress bars ("x / goal g") and customizable hydration goals.
+- **Next-Badge Gamification Progress:** Real-time progress bars for nearest unearned achievement badges (`x / target`).
+- **Dynamic Time-Based Greeting:** Contextual greeting adapted to the user's local hour ("Good morning", "Good afternoon", "Good evening").
 - **Interactive Dashboard:** 
   - **Dynamic Goal Rings:** Real-time visual meters for Calories In, Calories Out, and Active Minutes that scale responsively for mobile and desktop screens.
   - **Activity Streak Engine:** Tracks consecutive daily logging milestones with confetti celebrations.
@@ -106,14 +123,21 @@ npm install @jashan-randhawa/fitness-utils
   - Contribution-style activity and nutrition heatmap embedded in both **Food Log** and **Activity Log**.
   - 4-level color intensity scaling based on daily calories consumed or burned.
   - Streak tracking (current & max streak), interactive day selection, and tooltip summaries for past 90 days.
-- **Interactive Water Intake Tracker:** Visual hydration progress with quick-add presets (`+150ml`, `+250ml`, `+350ml`, `+500ml`) and custom volume input.
+- **Interactive Water Intake Tracker:** Visual hydration progress with quick-add presets (`+150ml`, `+250ml`, `+350ml`, `+500ml`), custom volume input, and customizable daily target.
 - **Filterable Date Selector:** Historic log inspection with date-by-date nutritional breakdown.
 - **Data Exports (PDF, CSV & PNG):**
   - **Formatted PDF Report:** Multi-page PDF report with stats summary, profile metrics, food logs, and activity records powered by jsPDF and AutoTable.
   - **Raw CSV Spreadsheets:** Downloadable comma-separated records of food and activity history with timestamps, categories, and nutritional values.
   - **PNG Progress Card:** Shareable visual progress cards generated client-side with html2canvas for streak milestones and stats.
 
-### 🏋️ 3. Workout Studio, Live Tracker & Music Player
+### 🥗 3. Redesigned Meal & Activity Planners
+- **Glassmorphism UI Overhaul:** Modern glass cards, glowing accents, and dark mode responsiveness matching app-wide design aesthetics.
+- **Single-Day & Multi-Day Modes:** Support planning for 1 day ("Today / Single Day") in addition to multi-day schedules (3, 5, 7 days) in both Meal Planner and Activity Planner.
+- **Smart Presets & Goal Filters:** Quick presets for Weight Loss, Muscle Gain, Maintenance, Keto, High Protein, Endurance, HIIT, Strength, and Home Workouts.
+- **One-Click "Log to Tracker":** Seamlessly log meals directly to Food Log (`/api/foodlogs`) and workouts directly to Activity Log (`/api/activitylogs`) with validated payload normalization (`mealType`, `time`, `calories`, `protein`, `carbs`, `fat`, structured exercises, and sets).
+- **Nutrition Summary & Macro Distribution:** Visual breakdown of daily calories, protein, carbs, and fat per day with progress against targets.
+
+### 🏋️ 4. Workout Studio, Live Tracker & Music Player
 - **Three-Tab Segmented Control:** Instantly switch between **Videos**, **Today's Plan**, and **Music** with compact mobile hero and animated tab transitions.
 - **Today's Plan (Persistent Workout Plans):**
   - Auto-loads your active workout plan from the server on mount. Switch between multiple saved plans, mark one as active, or delete unused ones.
@@ -130,12 +154,12 @@ npm install @jashan-randhawa/fitness-utils
 - **High-Energy Punjabi Gym Playlists:** Curated pump-up mixes (Diljit Dosanjh, AP Dhillon, Sidhu Moosewala, Karan Aujla, Shubh) tagged by BPM and mood (Hype, Pump, Warm-Up, Cool-Down).
 - **Accessible BottomSheet Modals:** Framer Motion drag-to-dismiss with `max-h-[92dvh]`, safe-area bottom padding, focus trapping, and `prefers-reduced-motion` support.
 
-### 🌤️ 4. Outdoor Weather & Health News
+### 🌤️ 5. Outdoor Weather & Health News
 - **Live Weather & AQI:** Real-time temperature, wind, humidity, and Air Quality Index powered by Open-Meteo to plan safe outdoor training sessions.
 - **Health & Wellness News Feed:** Live headlines curated from leading health publications via NewsAPI.
 - **Curated Fitness Blog:** Informative fitness articles with search and category tags.
 
-### 🔐 5. Security & Authentication Hardening
+### 🔐 6. Security & Authentication Hardening
 - **Unified Dual Sign-In Architecture (Google OAuth + Password):** Allows users to seamlessly authenticate with Google OAuth, standard password credentials, or both on a single shared account. Features a 6-case automated linking matrix, squat account protection, and cross-provider security alerts.
 - **Resilient Google OAuth Callback Handling:** Frontend `GoogleCallback` utilizes a single-execution `useRef` lifecycle guard to eliminate duplicate OAuth code exchange triggers, timing-safe fragment scrubbing before React state changes, explicit URL parameter error code mapping (`access_denied`, `google_state_invalid`, `oauth_failed`), and an interactive fallback retry screen.
 - **Session Safety & Instant Revocation:** Tokens are verified against `user.passwordChangedAt` on every protected request, immediately invalidating active JWTs across devices upon password change or reset. Step-up authentication (`requireRecentLogin`) enforces a 15-minute window for password changes.
@@ -151,7 +175,8 @@ npm install @jashan-randhawa/fitness-utils
 - **Anti-Enumeration Password Recovery:** Uniform responses across all scenarios — including non-existent accounts, third-party OAuth providers, and upstream email delivery errors — ensuring no observable timing or oracle leaks exist.
 - **Production Error Masking:** All database errors (`MongoServerError`, Mongoose internals) and unhandled 5xx exceptions are strictly masked with generic client messages in production (`NODE_ENV === 'production'`), shielding database topologies and credentials from client disclosure.
 
-### 👤 6. Profile Customization & Data Management
+### 👤 7. Profile Customization & Data Management
+- **Custom Macro & Hydration Targets:** Direct configuration for Daily Protein Goal (g), Daily Carbs Goal (g), Daily Fat Goal (g), and Daily Water Goal (ml), with intelligent automatic derivation (30% protein, 40% carbs, 30% fat from calorie target, 2500 ml water) when left blank.
 - **Editable Username:** Users can update their username directly from the Profile card with live validation (3–30 characters) and case-insensitive conflict prevention.
 - **Unified Sign-in Methods Card:** Symmetrical, responsive layout displaying Google Account linkage (`Linked`/`Not linked`) and Password credentials alongside an Email Verification card with live verification status badges (`Verified` / `Pending Verification`), resend verification triggers with 60s cooldown, and unverified account alert banners.
 - **Goal & Biometrics Management:** Fine-tune target calorie intake, calorie burn goals, age, weight, and height with real-time recalculations.
@@ -205,8 +230,9 @@ graph TD
 - **Design System:** Tailwind CSS v4
 - **Routing:** React Router v7 (`react-router-dom` 7.18+)
 - **Motion & Micro-interactions:** Framer Motion 12.x
-- **Data Charts:** Recharts 3.x
+- **Data Charts:** Recharts 3.x (with ReferenceLines, dynamic Cells, and custom tooltips)
 - **Document & Data Export:** jsPDF 4.2.x (patched DOMPurify), jsPDF-AutoTable 5.x, html2canvas
+- **Data Modeling & Validation:** Zod 4.x
 - **Icons:** Lucide React
 - **Notifications:** React Hot Toast
 
@@ -215,6 +241,7 @@ graph TD
 - **Framework:** Express.js 4.19
 - **Database & ODM:** MongoDB & Mongoose 8.x
 - **Security & Reliability:** Helmet, CORS, `express-rate-limit` (dual IP and per-user limiters), bcryptjs, JSON Web Tokens (JWT)
+- **Contract Validation:** Zod 4.x
 - **Media Ingestion:** Multer 2.4.x (multipart form handling for vision analysis)
 - **Logging & Tracing:** Structured JSON Logger (`LOG_LEVEL`), automated secret scrubber (passwords, tokens, API keys), request ID correlation middleware (`X-Request-Id`), and HTTP access logging
 - **Health & Monitoring:** Production uptime monitoring endpoint (`GET /api/health`) with live MongoDB connection state inspection
@@ -233,11 +260,16 @@ cd server
 npm test
 ```
 
-Test coverage includes **142 unit tests** across **38 suites** (0 external runner overhead):
+Test coverage includes **241 unit tests** across **64 suites** (100% passing, 0 external runner overhead):
+- **User Macro & Water Goals (`test/userGoals.test.js`):** Numeric validation, non-negative constraints (`min: 0`), and non-numeric casting guards for `dailyproteingoal`, `dailycarbsgoal`, `dailyfatgoal`, and `dailywatergoal`.
+- **AI Structured Plans & Schemas (`test/aiPlans.test.js`):** Zod validation contracts for meal and workout plan JSON payloads, rejecting negative macros or unrealistic durations.
+- **FitBot Reliability & Cancellation (`test/fitbotReliability.test.js`):** Idempotent persistence, request deduplication, and client abort handling.
+- **FitBot Context, Memory & Privacy (`test/fitbotContextPrivacy.test.js`):** Per-user memory scoping, context injection, and privacy controls.
+- **Release Gate & Safety Boundaries (`test/phase6Release.test.js`):** Multi-user authorization boundaries, adversarial prompt injection defense, clinical safety safe harbor, and LRU cache isolation.
 - **Auth & JWT (`test/auth.test.js`):** Token generation, signature validation, payload integrity, username/email/password registration validators, and login validation.
-- **Dual Sign-In Matrix & Password Policy (`test/authDualSign.test.js`):** Google OAuth 6-case automated linking matrix, squat account protection, password setting/updating with step-up verification (`requireRecentLogin`), and rolling 5-password history prevention.
-- **Signup & Verification Token Flows (`test/authVerification.test.js`):** 64-character token crypto hashing, 24-hour expiration, anti-enumeration behavior, and state updates.
-- **Email Resilience & Debouncing (`test/emailService.test.js`):** 5-layer transactional email tests (F1–F5), 60s cooldown debouncing, Brevo 429/5xx retry handling, and timeout safeguards.
+- **Dual Sign-In Matrix & Password Policy (`test/phase3-google-linking.test.js`, `test/phase4-password-management.test.js`):** Google OAuth 6-case automated linking matrix, squat account protection, password setting/updating with step-up verification (`requireRecentLogin`), and rolling 5-password history prevention.
+- **Signup & Verification Token Flows (`test/phase6-email-verification.test.js`):** 64-character token crypto hashing, 24-hour expiration, anti-enumeration behavior, and state updates.
+- **Email Resilience & Debouncing (`test/brevoEmailService.test.js`):** 5-layer transactional email tests (F1–F5), 60s cooldown debouncing, Brevo 429/5xx retry handling, and timeout safeguards.
 - **AI Assistant Guardrails & Truncation (`test/aiAssistant.test.js`):** Message array boundary checks, maximum character length limits, graceful sliding-window history truncation, and friendly outage responses (`503`).
 - **OpenRouter Resilience & Prompts (`test/openrouter.test.js`):** Transient error detection (429/5xx/timeouts), primary/fallback model defaults, JSON code fence extraction, and versioned FitBot prompt generation.
 - **Structured Logger & Secret Scrubber (`test/logger.test.js`):** Automated redaction of passwords, tokens, API keys, Bearer tokens, and JWTs while preserving token usage metrics.
@@ -250,7 +282,7 @@ Test coverage includes **142 unit tests** across **38 suites** (0 external runne
 ### Continuous Integration (GitHub Actions)
 The repository includes a GitHub Actions CI workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) running on Node.js 20:
 - **Client Job:** Dependency installation (`npm ci`), ESLint validation (`npm run lint`), TypeScript typecheck, and Vite production build (`npm run build`).
-- **Server Job:** Dependency installation, JavaScript syntax validation (`node -c`), module loading check, and test execution (`npm test`).
+- **Server Job:** Dependency installation, JavaScript syntax validation (`node -c`), module loading check, CI email guard, and test execution (`npm test`).
 
 ---
 
@@ -266,16 +298,16 @@ AI-FitnessTracker1/
 │   │   └── favicon.svg                  # Brand favicon
 │   ├── src/
 │   │   ├── Pages/                       # Route views
-│   │   │   ├── Dashboard.tsx            # Analytics, rings, streak, water
+│   │   │   ├── Dashboard.tsx            # Analytics, rings, streak, water, insights
 │   │   │   ├── FoodLog.tsx              # Nutrition logging, AI food snap & heatmap
 │   │   │   ├── ActivityLog.tsx          # Exercise tracker & activity heatmap
 │   │   │   ├── AIAssistant.tsx          # FitBot AI chat interface
 │   │   │   ├── Workouts.tsx             # 3-tab studio (Videos / Today's Plan / Music)
-│   │   │   ├── MealPlanner.tsx          # Multi-day meal generator
-│   │   │   ├── ActivityPlanner.tsx      # Multi-day workout generator (auto-save plans)
+│   │   │   ├── MealPlanner.tsx          # Glassmorphism meal generator (1-day & multi-day)
+│   │   │   ├── ActivityPlanner.tsx      # Glassmorphism workout generator (1-day & multi-day)
 │   │   │   ├── Weather.tsx              # Live forecast & AQI
 │   │   │   ├── Blog.tsx / BlogPost.tsx  # Fitness articles & news feed
-│   │   │   ├── Profile.tsx              # User metrics, PDF & CSV export
+│   │   │   ├── Profile.tsx              # User metrics, macro targets, PDF & CSV export
 │   │   │   ├── Login.tsx                # Auth form (Sign in / Sign up)
 │   │   │   ├── GoogleCallback.tsx       # Secure fragment-based OAuth handler
 │   │   │   ├── ForgotPassword.tsx       # Password reset request view
@@ -298,6 +330,9 @@ AI-FitnessTracker1/
 │   │   │       ├── types.ts             # Workout plan & exercise TypeScript types
 │   │   │       └── data/
 │   │   │           └── playlists.ts     # Static playlist data & filter constants
+│   │   ├── utils/
+│   │   │   ├── dailyTotals.ts           # O(N) single-pass daily aggregation & streak
+│   │   │   └── deriveGoals.ts           # Automatic macro & hydration derivation
 │   │   ├── hooks/
 │   │   │   └── useVideoSearch.ts        # Unified video search hook (YouTube API)
 │   │   ├── Context/
@@ -312,22 +347,30 @@ AI-FitnessTracker1/
 │
 ├── server/                              # Express + MongoDB API
 │   ├── server.js                        # Server entry point
-│   ├── test/                            # Unit tests (node --test - 38 suites)
+│   ├── test/                            # Unit tests (node --test - 64 suites / 241 tests)
 │   │   ├── aiAssistant.test.js          # AI payload caps & truncation tests
+│   │   ├── aiPlans.test.js              # Zod schema validation for structured plans
 │   │   ├── auth.test.js                 # Auth & JWT unit tests
+│   │   ├── brevoEmailService.test.js    # Brevo email delivery tests
+│   │   ├── chatHistory.test.js          # Chat history persistence tests
 │   │   ├── errorHandler.test.js         # Error handling & production masking tests
 │   │   ├── estimates.test.js            # Calorie & food estimate tests
-│   │   ├── health.test.js              # Health check & request-ID tests
-│   │   ├── logger.test.js              # Logger & secret scrubber tests
-│   │   ├── openrouter.test.js          # OpenRouter resilience & prompt tests
-│   │   ├── passwordReset.test.js       # Password reset validation tests
-│   │   └── workoutPlan.test.js         # Workout plan & activity log schema tests
+│   │   ├── fitbotContextPrivacy.test.js # FitBot context, memory & privacy tests
+│   │   ├── fitbotReliability.test.js    # FitBot retry & cancellation tests
+│   │   ├── health.test.js               # Health check & request-ID tests
+│   │   ├── logger.test.js               # Logger & secret scrubber tests
+│   │   ├── metrics.test.js              # Prometheus metrics tests
+│   │   ├── openrouter.test.js           # OpenRouter resilience & prompt tests
+│   │   ├── passwordReset.test.js        # Password reset validation tests
+│   │   ├── phase6Release.test.js        # Release gates, clinical safety & security boundaries
+│   │   ├── userGoals.test.js            # User macro and water targets validation
+│   │   └── workoutPlan.test.js          # Workout plan & activity log schema tests
 │   └── src/
 │       ├── app.js                       # Express configuration & middleware
 │       ├── config/db.js                 # MongoDB connection
 │       ├── models/                      # Mongoose schemas (User, Food, Activity, Water, Blog, Chat, WorkoutPlan)
-│       ├── controllers/                 # Business logic controllers (incl. workoutPlan.controller.js)
-│       ├── routes/                      # API endpoint definitions (incl. workoutPlan.routes.js)
+│       ├── controllers/                 # Business logic controllers (incl. workoutPlan, aiAssistant)
+│       ├── routes/                      # API endpoint definitions (incl. workoutPlan, aiAssistant)
 │       ├── prompts/                     # Versioned AI system prompts (fitbot.prompt.js)
 │       ├── middleware/                  # JWT auth, rateLimiter, requestId, httpLogger, errorHandler
 │       ├── utils/                       # Structured JSON logger, secret scrubber, Redis client
@@ -376,6 +419,7 @@ JWT_EXPIRES_IN=30d
 
 # AI & APIs
 OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_FALLBACK_MODEL=google/gemini-2.0-flash-001
 NEWS_API_KEY=your_newsapi_key
 RAPIDAPI_KEY=your_rapidapi_key
 
@@ -437,7 +481,7 @@ All requests requiring authorization must include the header:
 | `POST` | `/api/auth/verify-email` | Confirm account email verification token | 10 req / 15m | Public |
 | `POST` | `/api/auth/resend-verification` | Request fresh email verification link | 3 req / 15m | Public |
 | `GET` | `/api/users/me` | Fetch authenticated profile details | — | Private |
-| `PUT` | `/api/users/:id` | Update profile biometrics, goals, and **username** | — | Private |
+| `PUT` | `/api/users/:id` | Update profile biometrics, username, and custom macro/water goals (`dailyproteingoal`, `dailycarbsgoal`, `dailyfatgoal`, `dailywatergoal`) | — | Private |
 | `POST` | `/api/users/me/password` | Set password (OAuth) or update password (step-up required) | 5 req / 15m | Private |
 | `GET` | `/api/connect/google` | Initiate Google OAuth sign-in | — | Public |
 | `POST` | `/api/password-reset/request` | Request password reset email (Brevo HTTPS, 60s debounce) | 3 req / 1h | Public |
@@ -515,12 +559,8 @@ All requests requiring authorization must include the header:
 ## 📖 Documentation, Changelog & Engineering Reports
 
 ### 📑 Repository Documentation & RFCs
-- 📋 **[Changelog (`CHANGELOG.md`)](CHANGELOG.md)**: Detailed release history and version change details from `v1.0.0` through `v2.1.0`.
-- 📑 **[Engineering Reports & Architecture RFCs (`docs/ENGINEERING_REPORTS.md`)](docs/ENGINEERING_REPORTS.md)**: Comprehensive compilation of the 4 engineering audits:
-  1. *CI Failure Root Cause Analysis & Verified Fix*
-  2. *Maintenance Plan Verification & Follow-Up Security Audit*
-  3. *FitBot AI Assistant Code Review, Logging & Maintenance Plan*
-  4. *Package Release Assessment & Modular Monorepo Execution Plan*
+- 📋 **[Changelog (`CHANGELOG.md`)](CHANGELOG.md)**: Detailed release history and version change details from `v1.0.0` through `v2.4.0`.
+- 📑 **[Engineering Reports & Architecture RFCs (`docs/ENGINEERING_REPORTS.md`)](docs/ENGINEERING_REPORTS.md)**: Comprehensive compilation of the engineering audits and architecture RFCs.
 - 🛠️ **[Architecture & Developer Guide (`IMPLEMENTATION_GUIDE.md`)](IMPLEMENTATION_GUIDE.md)**: Technical overview of endpoints and folder architecture.
 
 ### 🌐 Official GitHub Wiki
