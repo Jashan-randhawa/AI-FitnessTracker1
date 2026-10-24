@@ -1,7 +1,31 @@
 const { describe, it, before } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
-const { pathToFileURL } = require('node:url');
+const Module = require('node:module');
+const ts = require('typescript');
+
+/**
+ * Loads a client TypeScript module for testing. Node 20 (used in CI) cannot
+ * import .ts files, so the source is transpiled to CommonJS in memory first.
+ */
+const loadTsModule = (relPath) => {
+  const filename = path.resolve(__dirname, relPath);
+  const source = fs.readFileSync(filename, 'utf8');
+  const { outputText } = ts.transpileModule(source, {
+    fileName: filename,
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2020,
+      esModuleInterop: true,
+    },
+  });
+  const mod = new Module(filename, module);
+  mod.filename = filename;
+  mod.paths = Module._nodeModulePaths(path.dirname(filename));
+  mod._compile(outputText, filename);
+  return mod.exports;
+};
 
 describe('Phase 0 Characterization Tests — Pure Function Calculations', () => {
   let buildDailyTotals;
@@ -11,16 +35,9 @@ describe('Phase 0 Characterization Tests — Pure Function Calculations', () => 
   let sanitizeContextString;
   let validateNumericMetric;
 
-  before(async () => {
-    const dailyTotalsPath = pathToFileURL(
-      path.resolve(__dirname, '../../client/src/utils/dailyTotals.ts')
-    ).href;
-    const fitbotHistoryPath = pathToFileURL(
-      path.resolve(__dirname, '../../client/src/utils/fitbotHistory.ts')
-    ).href;
-
-    const dailyTotalsModule = await import(dailyTotalsPath);
-    const fitbotHistoryModule = await import(fitbotHistoryPath);
+  before(() => {
+    const dailyTotalsModule = loadTsModule('../../client/src/utils/dailyTotals.ts');
+    const fitbotHistoryModule = loadTsModule('../../client/src/utils/fitbotHistory.ts');
 
     buildDailyTotals = dailyTotalsModule.buildDailyTotals;
     calcStreakFromMap = dailyTotalsModule.calcStreakFromMap;

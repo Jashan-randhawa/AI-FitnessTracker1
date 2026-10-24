@@ -226,7 +226,9 @@ const sendPasswordResetEmail = async ({
     requestId,
   });
 
-  await recordFailedEmail(to, subject, lastReason, MAX_RETRIES);
+  // Not awaited: the audit write is best-effort (it logs its own errors) and must not
+  // hold the reply for the Mongoose buffer timeout when the database is unavailable.
+  recordFailedEmail(to, subject, lastReason, MAX_RETRIES);
 
   return { sent: false, reason: lastReason, attempts: MAX_RETRIES };
 };
