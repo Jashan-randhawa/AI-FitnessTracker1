@@ -19,6 +19,32 @@ const {
 
 const MAX_STREAK_DAYS = 366;
 
+/**
+ * Achievement rules. These mirror the client's badge list (labels and icons
+ * live on the client). Targets and ids must stay in step with it.
+ */
+const BADGE_RULES = [
+  { id: 'first_log', target: 1, value: (c) => c.foodCount },
+  { id: 'streak_3', target: 3, value: (c) => c.streak },
+  { id: 'streak_7', target: 7, value: (c) => c.streak },
+  { id: 'workouts_10', target: 10, value: (c) => c.activityCount },
+  { id: 'food_50', target: 50, value: (c) => c.foodCount },
+  { id: 'workouts_25', target: 25, value: (c) => c.activityCount },
+  { id: 'streak_30', target: 30, value: (c) => c.streak },
+];
+
+/** Pure: achievement state from lifetime counts and the current streak. */
+const computeBadges = ({ foodCount, activityCount, streak }) =>
+  BADGE_RULES.map((rule) => {
+    const value = rule.value({ foodCount, activityCount, streak });
+    return {
+      id: rule.id,
+      earned: value >= rule.target,
+      current: Math.min(value, rule.target),
+      target: rule.target,
+    };
+  });
+
 /** Logs without a `date` fall back to `createdAt`, matching the client today. */
 const bucketExpr = (tz) => ({
   $dateToString: {
@@ -165,6 +191,12 @@ const computeDaySummary = async ({ user, date, tz, today }) => {
   const loggedDays = rows.filter(hasLoggedData).map((r) => r.date);
   const streak = computeStreak(loggedDays, date);
 
+  // Lifetime counts drive the achievements, which are not limited to a window.
+  const [foodCount, activityCount] = await Promise.all([
+    FoodLog.countDocuments({ user: userId }),
+    ActivityLog.countDocuments({ user: userId }),
+  ]);
+
   return {
     timezone: tz,
     date,
@@ -174,6 +206,8 @@ const computeDaySummary = async ({ user, date, tz, today }) => {
     activity: day.activity,
     waterMl: day.waterMl,
     streak,
+    lifetime: { foodCount, activityCount },
+    badges: computeBadges({ foodCount, activityCount, streak }),
   };
 };
 
@@ -206,6 +240,7 @@ module.exports = {
   buildActivityPipeline,
   buildWaterPipeline,
   MAX_STREAK_DAYS,
+  computeBadges,
   // Re-exported so callers that need "today" in a timezone use one helper.
   todayKey: (tz, now = new Date()) => dayKey(now, tz),
 };

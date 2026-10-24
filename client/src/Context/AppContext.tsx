@@ -1,8 +1,10 @@
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, type Dispatch, type SetStateAction } from "react";
 import { initialState, type ActivityEntry, type Credentials, type FoodEntry, type User } from "../assets/types";
 import { useNavigate } from "react-router-dom";
 import api from "../configs/api";
 import toast from "react-hot-toast";
+import { invalidateSummaries, clearSummaries } from "../data/summaryStore";
+import { startLiveUpdates } from "../data/liveStream";
 
 export type WaterEntry = { id: string; amount: number; date: string };
 
@@ -30,9 +32,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User>(null);
   const [isUserFetched, setIsUserFetched] = useState(localStorage.getItem("token") ? false : true);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
-  const [allFoodLogs, setAllFoodLogs] = useState<FoodEntry[]>([]);
-  const [allActivityLogs, setAllActivityLogs] = useState<ActivityEntry[]>([]);
-  const [allWaterLogs, setAllWaterLogs] = useState<WaterEntry[]>([]);
+  const [allFoodLogs, setAllFoodLogsRaw] = useState<FoodEntry[]>([]);
+  const [allActivityLogs, setAllActivityLogsRaw] = useState<ActivityEntry[]>([]);
+  const [allWaterLogs, setAllWaterLogsRaw] = useState<WaterEntry[]>([]);
+
+  // Every list change also marks the cached day/range summaries stale, so any
+  // page showing totals refreshes without its own refetch logic.
+  const withInvalidate = <T,>(setter: Dispatch<SetStateAction<T>>): Dispatch<SetStateAction<T>> =>
+    (action) => {
+      setter(action);
+      invalidateSummaries();
+    };
+  const setAllFoodLogs = useMemo(() => withInvalidate(setAllFoodLogsRaw), []);
+  const setAllActivityLogs = useMemo(() => withInvalidate(setAllActivityLogsRaw), []);
+  const setAllWaterLogs = useMemo(() => withInvalidate(setAllWaterLogsRaw), []);
 
   const signup = async (credentials: Credentials) => {
     try {
@@ -166,6 +179,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = () => {
     localStorage.removeItem("token");
+    clearSummaries();
     setUser(null);
     setAllFoodLogs([]);
     setAllActivityLogs([]);
@@ -182,6 +196,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       token: jwt,
     }));
   };
+
+  // Open the live-update stream for the signed-in user; close it on logout.
+  const liveToken = user?.token;
+  useEffect(() => {
+    if (!liveToken) return;
+    return startLiveUpdates(invalidateSummaries);
+  }, [liveToken]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");

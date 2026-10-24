@@ -12,9 +12,12 @@ import { StaggerContainer, StaggerItem } from "../components/animations/StaggerL
 import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { fetchDailyFitnessTip } from "../services/aiAssistantClient";
-import { buildDailyTotals, calcStreakFromMap, dateKey } from "../utils/dailyTotals";
+import { dateKey } from "../utils/dailyTotals";
+import { useDaySummary, useRangeSummary } from "../data/summaryStore";
+import { localDayKey, addDaysKey } from "../utils/localDay";
+import { summaryRowsToTotals } from "../utils/summaryTotals";
 import { deriveGoals } from "../utils/deriveGoals";
-import type { FoodEntry, ActivityEntry } from "../assets/types";
+import { withBadgeState, nextBadge } from "../utils/badges";
 
 // ── Helpers ────────────────────────────────────────────────
 const getLastSevenDays = (_refDate?: string) =>
@@ -88,84 +91,6 @@ const useToday = (): string => {
   return today;
 };
 
-// ── Badge definitions with Progress ────────────────────────
-export interface BadgeDef {
-  id: string;
-  label: string;
-  icon: string;
-  desc: string;
-  unit?: string;
-  check: (f: FoodEntry[], a: ActivityEntry[], streak: number) => boolean;
-  progress: (f: FoodEntry[], a: ActivityEntry[], streak: number) => { current: number; target: number };
-}
-
-const BADGE_DEFS: BadgeDef[] = [
-  {
-    id: "first_log",
-    label: "First Step",
-    icon: "🥗",
-    desc: "Logged your first meal",
-    unit: "meal",
-    check: (f) => f.length >= 1,
-    progress: (f) => ({ current: Math.min(f.length, 1), target: 1 }),
-  },
-  {
-    id: "streak_3",
-    label: "3-Day Streak",
-    icon: "🔥",
-    desc: "Active 3 days in a row",
-    unit: "days",
-    check: (_f, _a, streak) => streak >= 3,
-    progress: (_f, _a, streak) => ({ current: Math.min(streak, 3), target: 3 }),
-  },
-  {
-    id: "streak_7",
-    label: "Week Warrior",
-    icon: "🏅",
-    desc: "Active 7 days in a row",
-    unit: "days",
-    check: (_f, _a, streak) => streak >= 7,
-    progress: (_f, _a, streak) => ({ current: Math.min(streak, 7), target: 7 }),
-  },
-  {
-    id: "workouts_10",
-    label: "10 Workouts",
-    icon: "💪",
-    desc: "Logged 10 activities",
-    unit: "workouts",
-    check: (_f, a) => a.length >= 10,
-    progress: (_f, a) => ({ current: Math.min(a.length, 10), target: 10 }),
-  },
-  {
-    id: "food_50",
-    label: "Nutrition Pro",
-    icon: "🥦",
-    desc: "Logged 50 food entries",
-    unit: "meals",
-    check: (f) => f.length >= 50,
-    progress: (f) => ({ current: Math.min(f.length, 50), target: 50 }),
-  },
-  {
-    id: "workouts_25",
-    label: "Fitness Fanatic",
-    icon: "🏋️",
-    desc: "Logged 25 activities",
-    unit: "workouts",
-    check: (_f, a) => a.length >= 25,
-    progress: (_f, a) => ({ current: Math.min(a.length, 25), target: 25 }),
-  },
-  {
-    id: "streak_30",
-    label: "Monthly Master",
-    icon: "🌟",
-    desc: "Active 30 days in a row",
-    unit: "days",
-    check: (_f, _a, streak) => streak >= 30,
-    progress: (_f, _a, streak) => ({ current: Math.min(streak, 30), target: 30 }),
-  },
-];
-
-// ── Sub-components ─────────────────────────────────────────
 const SkeletonCard = ({ height = "h-28" }: { height?: string }) => (
   <div className={`${height} rounded-2xl skeleton-shimmer-card`} />
 );
@@ -263,12 +188,14 @@ const WATER_BTNS = [150, 250, 350, 500];
 const WaterTracker = ({
   logs,
   onAdd,
+  onRemoveLast,
   today,
   todayTotal: propTodayTotal,
   waterGoal = 2500,
 }: {
   logs?: any[];
   onAdd: (ml: number) => void;
+  onRemoveLast?: () => void;
   today: string;
   todayTotal?: number;
   waterGoal?: number;
@@ -334,6 +261,15 @@ const WaterTracker = ({
         </button>
       </div>
 
+      {onRemoveLast && todayTotal > 0 && (
+        <button
+          onClick={onRemoveLast}
+          className="mb-3 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+        >
+          Remove last entry
+        </button>
+      )}
+
       {/* Inline custom amount input */}
       {showCustom && (
         <div className="flex gap-2 mb-3">
@@ -398,7 +334,7 @@ const useIsMobile = () => {
 export default function Dashboard() {
   const today = useToday();
   const isMobile = useIsMobile();
-  const { user, allFoodLogs, allActivityLogs, allWaterLogs, setAllWaterLogs, isUserFetched } = useappcontext();
+  const { user, allWaterLogs, setAllWaterLogs, isUserFetched } = useappcontext();
   const { theme } = useTheme();
   const isLight = theme.toString() === "light";
   const navigate = useNavigate();
@@ -408,9 +344,14 @@ export default function Dashboard() {
   const [chartTab, setChartTab] = useState<"calories" | "protein" | "carbs" | "fat">("calories");
   const [showAllBadges, setShowAllBadges] = useState(false);
 
+  // Totals, streak, goals and achievements come from the server's summaries.
+  // The 14-day range covers this week and the week before it (for trends).
+  const todayKey = useMemo(() => localDayKey(new Date(today)), [today]);
+  const daySummary = useDaySummary(todayKey);
+  const rangeSummary = useRangeSummary(addDaysKey(todayKey, -13), todayKey);
   const daily = useMemo(
-    () => buildDailyTotals(allFoodLogs, allActivityLogs, allWaterLogs),
-    [allFoodLogs, allActivityLogs, allWaterLogs]
+    () => summaryRowsToTotals(rangeSummary.data?.days ?? []),
+    [rangeSummary.data]
   );
 
   const todayTotals = daily.get(today);
@@ -420,48 +361,20 @@ export default function Dashboard() {
   const mealsLoggedToday = todayTotals?.meals ?? 0;
   const waterTodayTotal = todayTotals?.water ?? 0;
 
-  const goals = useMemo(() => deriveGoals(user), [user]);
+  const goals = useMemo(() => daySummary.data?.goals ?? deriveGoals(user), [daySummary.data, user]);
   const calorieLimit = goals.calorieLimit;
   const calorieBurnGoal = goals.calorieBurnGoal;
   const bmi = user?.weight && user?.height ? calcBMI(user.weight, user.height) : null;
 
-  const streak = useMemo(() => calcStreakFromMap(daily, today), [daily, today]);
+  const streak = daySummary.data?.streak ?? 0;
   const netCalories = totalCaloriesToday - totalCaloriesBurnedToday;
   const netColor = netCalories > calorieLimit * 0.1 ? "text-rose-500" : netCalories < 0 ? "text-sky-500" : "text-emerald-500";
   const greeting = useMemo(() => getGreeting(), []);
 
-  // ── Badges ──────────────────────────────────────────────
-  const earnedBadges = useMemo(
-    () => BADGE_DEFS.filter((b) => b.check(allFoodLogs, allActivityLogs, streak)),
-    [allFoodLogs, allActivityLogs, streak]
-  );
-
-  // ── Next Badge Progress ──────────────────────────────────
-  const nextBadgeProgress = useMemo(() => {
-    const unearned = BADGE_DEFS.filter((b) => !b.check(allFoodLogs, allActivityLogs, streak));
-    if (unearned.length === 0) return null;
-
-    let best = unearned[0];
-    let bestRatio = -1;
-
-    for (const b of unearned) {
-      const { current, target } = b.progress(allFoodLogs, allActivityLogs, streak);
-      const ratio = target > 0 ? current / target : 0;
-      if (ratio > bestRatio) {
-        bestRatio = ratio;
-        best = b;
-      }
-    }
-
-    const { current, target } = best.progress(allFoodLogs, allActivityLogs, streak);
-    const pct = Math.min(Math.round((current / target) * 100), 100);
-    return {
-      badge: best,
-      current,
-      target,
-      pct,
-    };
-  }, [allFoodLogs, allActivityLogs, streak]);
+  // ── Badges (earned state and progress from the server) ──
+  const badgeViews = useMemo(() => withBadgeState(daySummary.data?.badges), [daySummary.data]);
+  const earnedBadges = useMemo(() => badgeViews.filter((b) => b.earned), [badgeViews]);
+  const nextBadgeProgress = useMemo(() => nextBadge(badgeViews), [badgeViews]);
 
   // ── Macro totals today ───────────────────────────────────
   const macrosToday = useMemo(() => ({
@@ -561,6 +474,27 @@ export default function Dashboard() {
   } as const;
 
   // ── Water log helpers ────────────────────────────────────
+  const handleRemoveLastWater = useCallback(async () => {
+    const todayLogs = allWaterLogs.filter((l) => dateKey(l) === today);
+    const last = [...todayLogs].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    )[0];
+    if (!last) return;
+    const id = last.id;
+    setAllWaterLogs((prev: any[]) => prev.filter((e) => e.id !== id));
+    try {
+      await api.delete(`/api/waterlogs/${id}`);
+    } catch {
+      toast.error("Could not remove that entry");
+      try {
+        const { data } = await api.get("/api/waterlogs");
+        setAllWaterLogs(Array.isArray(data) ? data : []);
+      } catch {
+        // Next live update or page load will resync the list.
+      }
+    }
+  }, [allWaterLogs, today, setAllWaterLogs]);
+
   const handleAddWater = useCallback(async (ml: number) => {
     const token = localStorage.getItem("token");
     const tmpId = `tmp-${Date.now()}`;
@@ -692,7 +626,7 @@ export default function Dashboard() {
 
         {/* ── Water tracker ── */}
         <motion.div variants={StaggerItem}>
-          <WaterTracker logs={allWaterLogs} onAdd={handleAddWater} today={today} todayTotal={waterTodayTotal} waterGoal={goals.waterGoal} />
+          <WaterTracker logs={allWaterLogs} onAdd={handleAddWater} onRemoveLast={handleRemoveLastWater} today={today} todayTotal={waterTodayTotal} waterGoal={goals.waterGoal} />
         </motion.div>
 
         {/* ── Macro breakdown ── */}
@@ -758,10 +692,10 @@ export default function Dashboard() {
         <motion.div variants={StaggerItem} className={softCardCls}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold">Achievements</h3>
-            <span className="text-xs text-gray-400 dark:text-slate-500">{earnedBadges.length}/{BADGE_DEFS.length} earned</span>
+            <span className="text-xs text-gray-400 dark:text-slate-500">{earnedBadges.length}/{badgeViews.length} earned</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {(showAllBadges ? BADGE_DEFS : BADGE_DEFS.slice(0, 4)).map((b) => {
+            {(showAllBadges ? badgeViews : badgeViews.slice(0, 4)).map((b) => {
               const earned = earnedBadges.some((e) => e.id === b.id);
               return (
                 <div
@@ -801,9 +735,9 @@ export default function Dashboard() {
             </div>
           )}
 
-          {BADGE_DEFS.length > 4 && (
+          {badgeViews.length > 4 && (
             <button onClick={() => setShowAllBadges(!showAllBadges)} className="mt-3 text-xs text-emerald-500 hover:text-emerald-600 cursor-pointer">
-              {showAllBadges ? "Show less" : `Show all ${BADGE_DEFS.length} badges`}
+              {showAllBadges ? "Show less" : `Show all ${badgeViews.length} badges`}
             </button>
           )}
         </motion.div>

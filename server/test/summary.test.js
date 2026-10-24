@@ -19,6 +19,7 @@ const {
   buildActivityPipeline,
   buildWaterPipeline,
   MAX_STREAK_DAYS,
+  computeBadges,
 } = require('../src/services/summary.service');
 
 describe('timezone-aware day keys', () => {
@@ -178,5 +179,35 @@ describe('aggregation pipelines', () => {
     const [match] = buildFoodPipeline(userId, '2026-10-01', '2026-10-31', 'UTC');
     const hasCreatedAtFallback = match.$match.$or.some((c) => c.createdAt && c.date?.$exists === false);
     assert.equal(hasCreatedAtFallback, true);
+  });
+});
+
+describe('achievements (parity with client badge list ids and targets)', () => {
+  const byId = (list) => Object.fromEntries(list.map((b) => [b.id, b]));
+
+  it('lists the same seven achievements with fixed targets', () => {
+    const list = computeBadges({ foodCount: 0, activityCount: 0, streak: 0 });
+    assert.deepEqual(
+      list.map((b) => [b.id, b.target]),
+      [['first_log', 1], ['streak_3', 3], ['streak_7', 7], ['workouts_10', 10],
+       ['food_50', 50], ['workouts_25', 25], ['streak_30', 30]]
+    );
+  });
+
+  it('caps progress at the target and marks earned at the target', () => {
+    const b = byId(computeBadges({ foodCount: 60, activityCount: 12, streak: 8 }));
+    assert.deepEqual(b.first_log, { id: 'first_log', earned: true, current: 1, target: 1 });
+    assert.deepEqual(b.food_50, { id: 'food_50', earned: true, current: 50, target: 50 });
+    assert.deepEqual(b.workouts_10, { id: 'workouts_10', earned: true, current: 10, target: 10 });
+    assert.deepEqual(b.workouts_25, { id: 'workouts_25', earned: false, current: 12, target: 25 });
+    assert.deepEqual(b.streak_7, { id: 'streak_7', earned: true, current: 7, target: 7 });
+    assert.deepEqual(b.streak_30, { id: 'streak_30', earned: false, current: 8, target: 30 });
+  });
+
+  it('uses streak for streak badges and activity count for workout badges', () => {
+    const b = byId(computeBadges({ foodCount: 0, activityCount: 30, streak: 3 }));
+    assert.equal(b.streak_3.earned, true);
+    assert.equal(b.workouts_25.earned, true);
+    assert.equal(b.first_log.earned, false);
   });
 });

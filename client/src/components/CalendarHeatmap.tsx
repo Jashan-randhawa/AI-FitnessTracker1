@@ -1,3 +1,4 @@
+import { resolveDate } from "../utils/dates";
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -17,8 +18,6 @@ interface DayData {
   level: 0 | 1 | 2 | 3 | 4;
 }
 
-const resolveDate = (entry: any): string =>
-  entry.date ?? entry.createdAt ?? new Date().toISOString();
 
 export default function CalendarHeatmap({
   logs,
