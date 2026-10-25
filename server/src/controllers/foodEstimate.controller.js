@@ -1,5 +1,8 @@
 const asyncHandler = require('express-async-handler');
-const { estimateFood } = require('../services/foodEstimate.service');
+const mongoose = require('mongoose');
+const foodEstimateService = require('../services/foodEstimate.service');
+const { buildFitnessContext } = require('../services/fitnessContext.service');
+const { computeEstimateFit } = require('../utils/estimateFit');
 
 // POST /api/food-estimate — body: { name } — authenticated
 const estimate = asyncHandler(async (req, res) => {
@@ -9,8 +12,20 @@ const estimate = asyncHandler(async (req, res) => {
   }
 
   try {
-    const result = await estimateFood(name.trim());
-    res.json({ success: true, result });
+    const result = await foodEstimateService.estimateFood(name.trim());
+
+    let fit = null;
+    if (req.user && mongoose.connection.readyState === 1) {
+      try {
+        const timeZone = req.headers['x-timezone'];
+        const context = await buildFitnessContext({ user: req.user, timeZone });
+        fit = computeEstimateFit(result, context);
+      } catch {
+        fit = null;
+      }
+    }
+
+    res.json({ success: true, result, fit });
   } catch (error) {
     const message = error?.message || 'Failed to estimate food nutrition.';
     const isProviderIssue = message.includes('OpenRouter API key not set') || message.includes('API key not set');

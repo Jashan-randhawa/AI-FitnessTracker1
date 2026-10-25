@@ -55,6 +55,7 @@ const AddFoodModal = ({
   const [loading, setLoading]   = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<{ protein: number; carbs: number; fat: number } | null>(null);
+  const [aiFit, setAiFit] = useState<{ message: string; caloriePercentageOfRemaining: number } | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -65,6 +66,7 @@ const AddFoodModal = ({
     if (!foodName.trim()) return;
     setAiLoading(true);
     setAiResult(null);
+    setAiFit(null);
     try {
       const token = localStorage.getItem("token");
       const response = await api.post(
@@ -73,6 +75,7 @@ const AddFoodModal = ({
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const result = response.data.result;
+      const fit = response.data.fit;
       if (result?.calories === undefined || result?.calories === null)
         throw new Error("Invalid estimate response from server");
 
@@ -81,6 +84,7 @@ const AddFoodModal = ({
       setCarbs(String(result.carbs ?? 0));
       setFat(String(result.fat ?? 0));
       setAiResult({ protein: result.protein ?? 0, carbs: result.carbs ?? 0, fat: result.fat ?? 0 });
+      setAiFit(fit || null);
     } catch (error: any) {
       const message =
         error?.response?.data?.error?.message ||
@@ -94,6 +98,7 @@ const AddFoodModal = ({
   const scheduleEstimate = (foodName: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setAiResult(null);
+    setAiFit(null);
     debounceRef.current = setTimeout(() => fetchAiEstimate(foodName), 700);
   };
 
@@ -235,6 +240,11 @@ const AddFoodModal = ({
               <span className="text-amber-500 font-medium">C: {aiResult.carbs}g</span>
               <span className="text-pink-500 font-medium">F: {aiResult.fat}g</span>
             </div>
+            {aiFit && (
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
+                🎯 {aiFit.message}
+              </div>
+            )}
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
               💡 Edit any value above if needed before saving.
             </p>
@@ -573,7 +583,8 @@ export default function FoodLog() {
       );
 
       handleAdd(normalizeFoodEntry(raw));
-      toast.success(`Logged: ${name} · ${calories} kcal`);
+      const fitMsg = response.data?.fit?.message ? ` (${response.data.fit.message})` : "";
+      toast.success(`Logged: ${name} · ${calories} kcal${fitMsg}`);
 
     } catch (error: any) {
       console.error("AI Food Snap error:", error);
