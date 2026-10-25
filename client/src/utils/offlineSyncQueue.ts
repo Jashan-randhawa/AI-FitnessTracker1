@@ -5,7 +5,7 @@ export interface QueuedMutation {
   id: string;
   endpoint: string;
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  data: any;
+  data: unknown;
   description?: string;
   timestamp: number;
 }
@@ -133,7 +133,7 @@ let isReplaying = false;
  * Replays all pending mutations sequentially over the API.
  */
 export const replayOfflineQueue = async (
-  onItemReplayed?: (mutation: QueuedMutation, result: any) => void
+  onItemReplayed?: (mutation: QueuedMutation, result: unknown) => void
 ): Promise<number> => {
   if (isReplaying || (typeof navigator !== 'undefined' && !navigator.onLine)) {
     return 0;
@@ -166,7 +166,7 @@ export const replayOfflineQueue = async (
         await removeOfflineMutation(item.id);
         replayedCount++;
         onItemReplayed?.(item, res?.data);
-      } catch (err: any) {
+      } catch {
         // Stop replay if network is truly down
         if (!navigator.onLine) {
           break;
@@ -192,7 +192,7 @@ export const replayOfflineQueue = async (
  * Subscribes to browser window 'online' event to automatically replay queued mutations.
  */
 export const initOfflineSync = (
-  onItemReplayed?: (mutation: QueuedMutation, result: any) => void
+  onItemReplayed?: (mutation: QueuedMutation, result: unknown) => void
 ): (() => void) => {
   if (typeof window === 'undefined') return () => {};
 

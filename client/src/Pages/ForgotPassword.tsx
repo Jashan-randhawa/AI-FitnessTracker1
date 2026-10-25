@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useId } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   MailIcon,
   ArrowLeftIcon,
@@ -107,9 +108,11 @@ const ForgotPassword = () => {
       toast.success("Reset link sent! Check your inbox.");
       setResendCooldown(60);
       setStep("sent");
-    } catch (err: any) {
-      const errorType = err.response?.data?.error?.type as AlertKind;
-      const errorMsg = err.response?.data?.error?.message || "Something went wrong.";
+    } catch (err: unknown) {
+      const axiosErr = axios.isAxiosError(err) ? err : null;
+      const resData = axiosErr?.response?.data as { error?: { type?: string; message?: string } } | undefined;
+      const errorType = resData?.error?.type as AlertKind;
+      const errorMsg = resData?.error?.message || "Something went wrong.";
 
       if (errorType === "rate_limited") {
         setAlertKind("rate_limited");
@@ -140,10 +143,12 @@ const ForgotPassword = () => {
       await api.post("/api/password-reset/request", { email: email.trim() });
       toast.success("Another link has been sent.");
       setResendCooldown(60);
-    } catch (err: any) {
-      const errorType = err.response?.data?.error?.type as AlertKind;
+    } catch (err: unknown) {
+      const axiosErr = axios.isAxiosError(err) ? err : null;
+      const resData = axiosErr?.response?.data as { error?: { type?: string; message?: string } } | undefined;
+      const errorType = resData?.error?.type as AlertKind;
       const errorMsg =
-        err.response?.data?.error?.message || "Could not resend. Try again.";
+        resData?.error?.message || "Could not resend. Try again.";
       if (errorType === "email_failed") {
         setAlertKind("email_failed");
         setAlertMessage(errorMsg);

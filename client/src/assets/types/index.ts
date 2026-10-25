@@ -38,6 +38,8 @@ export type FoodEntry = {
   fat?: number;
   mealType?: "breakfast" | "lunch" | "dinner" | "snack";
   date: string;
+  createdAt?: string;
+  aiGenerated?: boolean;
 };
 
 // ── Activity Log entry ──
@@ -89,23 +91,43 @@ export type Credentials = {
   password: string;
 };
 
-// ── App context initial state ──
-export const initialState = {
-  user: null as User,
-  setUser: (_: any) => {},
+// ── App context initial state & interface ──
+export type AppContextType = {
+  user: User;
+  setUser: React.Dispatch<React.SetStateAction<User>>;
+  isUserFetched: boolean;
+  fetchUser: (token: string, retries?: number) => Promise<void>;
+  signup: (credentials: Credentials) => Promise<void>;
+  login: (credentials: Credentials) => Promise<void>;
+  googleLogin: (googleAccessToken: string) => Promise<void>;
+  logout: () => void;
+  onboardingCompleted: boolean;
+  setOnboardingCompleted: React.Dispatch<React.SetStateAction<boolean>>;
+  allFoodLogs: FoodEntry[];
+  allActivityLogs: ActivityEntry[];
+  allWaterLogs: WaterEntry[];
+  setAllFoodLogs: React.Dispatch<React.SetStateAction<FoodEntry[]>>;
+  setAllActivityLogs: React.Dispatch<React.SetStateAction<ActivityEntry[]>>;
+  setAllWaterLogs: React.Dispatch<React.SetStateAction<WaterEntry[]>>;
+  setSessionToken: (jwt: string, updatedUser?: Partial<NonNullable<User>>) => void;
+};
+
+export const initialState: AppContextType = {
+  user: null,
+  setUser: () => {},
   isUserFetched: false,
-  fetchUser: async (_: string) => {},
-  signup: async (_: Credentials) => {},
-  login: async (_: Credentials) => {},
-  googleLogin: async (_: string) => {},
+  fetchUser: async () => {},
+  signup: async () => {},
+  login: async () => {},
+  googleLogin: async () => {},
   logout: () => {},
   onboardingCompleted: false,
-  setOnboardingCompleted: (_: boolean) => {},
-  allFoodLogs: [] as FoodEntry[],
-  allActivityLogs: [] as ActivityEntry[],
-  allWaterLogs: [] as WaterEntry[],
-  setAllFoodLogs: (_: any) => {},
-  setAllActivityLogs: (_: any) => {},
-  setAllWaterLogs: (_: any) => {},
-  setSessionToken: (_jwt: string, _updatedUser?: any) => {},
+  setOnboardingCompleted: () => {},
+  allFoodLogs: [],
+  allActivityLogs: [],
+  allWaterLogs: [],
+  setAllFoodLogs: () => {},
+  setAllActivityLogs: () => {},
+  setAllWaterLogs: () => {},
+  setSessionToken: () => {},
 };

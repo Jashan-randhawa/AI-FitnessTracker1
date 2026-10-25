@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
 import { motion } from "framer-motion";
 import {
   Sparkles,
@@ -132,8 +133,8 @@ export default function MealPlanner() {
 
   // Sync default target calories if user updates
   useEffect(() => {
-    if (user?.dailycaloriesintake && targetCalories === 2000) {
-      setTargetCalories(user.dailycaloriesintake);
+    if (user?.dailycaloriesintake) {
+      setTargetCalories((prev) => (prev === 2000 ? user.dailycaloriesintake! : prev));
     }
   }, [user?.dailycaloriesintake]);
 
@@ -300,7 +301,20 @@ ${days > 1 ? "- Never duplicate identical dishes across consecutive days." : "- 
         next.delete(key);
         return next;
       });
-      const errorMsg = (err as any)?.response?.data?.error?.message || (err as any)?.response?.data?.message || (err as any)?.response?.data?.error || (err instanceof Error ? err.message : `Failed to log "${meal.name}". Please try again.`); toast.error(errorMsg);
+      let errorMsg = `Failed to log "${meal.name}". Please try again.`;
+      if (axios.isAxiosError(err)) {
+        const resData = err.response?.data as { error?: { message?: string } | string; message?: string } | undefined;
+        if (typeof resData?.error === "object" && resData?.error?.message) {
+          errorMsg = resData.error.message;
+        } else if (typeof resData?.error === "string") {
+          errorMsg = resData.error;
+        } else if (resData?.message) {
+          errorMsg = resData.message;
+        }
+      } else if (err instanceof Error) {
+        errorMsg = err.message;
+      }
+      toast.error(errorMsg);
     }
   };
 
@@ -338,7 +352,7 @@ ${days > 1 ? "- Never duplicate identical dishes across consecutive days." : "- 
           setAllFoodLogs((prev: FoodEntry[]) => [entry, ...prev]);
         }
         count++;
-      } catch (err: unknown) {
+      } catch {
         setLoggedMeals((prev) => {
           const next = new Set(prev);
           next.delete(key);

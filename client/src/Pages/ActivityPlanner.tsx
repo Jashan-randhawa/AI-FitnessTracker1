@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
 import { motion } from "framer-motion";
 import {
   Sparkles,
@@ -125,8 +126,8 @@ export default function ActivityPlanner() {
 
   // Sync default target calorie burn if user updates
   useEffect(() => {
-    if (user?.dailycaloriesburned && calorieBurnTarget === 400) {
-      setCalorieBurnTarget(user.dailycaloriesburned);
+    if (user?.dailycaloriesburned) {
+      setCalorieBurnTarget((prev) => (prev === 400 ? user.dailycaloriesburned! : prev));
     }
   }, [user?.dailycaloriesburned]);
 
@@ -175,7 +176,7 @@ export default function ActivityPlanner() {
         const activePlan = res.data?.plan;
         if (activePlan && Array.isArray(activePlan.days) && activePlan.days.length > 0) {
           const parsed = safeParseActivityPlan({
-            days: activePlan.days.map((d: any) => ({
+            days: activePlan.days.map((d: { day: string; exercises?: unknown; focus?: string }) => ({
               day: d.day,
               activities: d.exercises,
               recoveryFocus: d.focus,
@@ -389,11 +390,19 @@ ${customFocus.trim() ? `- Special Focus / User Request: ${customFocus.trim()}` :
         next.delete(key);
         return next;
       });
-      const errorMsg =
-        (err as any)?.response?.data?.error?.message ||
-        (err as any)?.response?.data?.message ||
-        (err as any)?.response?.data?.error ||
-        (err instanceof Error ? err.message : `Failed to log "${activity.name}". Please try again.`);
+      let errorMsg = `Failed to log "${activity.name}". Please try again.`;
+      if (axios.isAxiosError(err)) {
+        const resData = err.response?.data as { error?: { message?: string } | string; message?: string } | undefined;
+        if (typeof resData?.error === "object" && resData?.error?.message) {
+          errorMsg = resData.error.message;
+        } else if (typeof resData?.error === "string") {
+          errorMsg = resData.error;
+        } else if (resData?.message) {
+          errorMsg = resData.message;
+        }
+      } else if (err instanceof Error) {
+        errorMsg = err.message;
+      }
       toast.error(errorMsg);
     }
   };

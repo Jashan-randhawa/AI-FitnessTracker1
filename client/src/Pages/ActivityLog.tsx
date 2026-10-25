@@ -4,17 +4,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import DateDropdown from "../components/DateDropdown";
 import CalendarHeatmap from "../components/CalendarHeatmap";
 import { useappcontext } from "../Context/AppContext";
+import type { ActivityEntry } from "../assets/types";
 import toast from "react-hot-toast";
 import api from "../configs/api";
 import { StaggerContainer, StaggerItem } from "../components/animations/StaggerList";
 
 
-const normalizeActivityEntry = (raw: any) => {
+const normalizeActivityEntry = (raw: Record<string, unknown> | null | undefined): ActivityEntry | null => {
   if (!raw) return null;
   if (raw.attributes && typeof raw.attributes === "object") {
-    return { id: raw.id, ...raw.attributes };
+    return { id: String(raw.id ?? ""), ...(raw.attributes as Record<string, unknown>) } as unknown as ActivityEntry;
   }
-  return raw;
+  return raw as unknown as ActivityEntry;
 };
 
 
@@ -84,10 +85,11 @@ const AddActivityModal = ({
           suggestion: data.data.suggestion,
         });
       }
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || "AI estimate failed";
+    } catch (err: unknown) {
+      const errData = err && typeof err === "object" && "response" in err ? (err as { response?: { data?: { error?: string } } }).response?.data : undefined;
+      const msg = errData?.error || (err instanceof Error ? err.message : "AI estimate failed");
       toast.error(`AI: ${msg}`);
-      console.error("calorie-estimate error:", err?.response?.data ?? err);
+      console.error("calorie-estimate error:", errData ?? err);
     } finally {
       setAiLoading(false);
     }
@@ -229,9 +231,9 @@ const AddActivityModal = ({
 };
 
 // ── Activity Entry Row ─────────────────────────────────────
-const ActivityRow = ({ entry, onDelete }: { entry: any; onDelete: (id: string) => void }) => {
+const ActivityRow = ({ entry, onDelete }: { entry: ActivityEntry; onDelete: (id: string) => void }) => {
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const cfg = getConfig(entry.name ?? entry.type);
+  const cfg = getConfig(entry.name ?? entry.type ?? "custom");
 
   const handleConfirmToggle = (id: string) => {
     setConfirmId((prev) => (prev === id ? null : id));
@@ -301,7 +303,7 @@ export default function ActivityLog() {
       ? new Date(filterDate).toDateString()
       : today;
     return allActivityLogs.filter((l) => new Date(resolveDate(l)).toDateString() === target);
-  }, [allActivityLogs, filterDate]);
+  }, [allActivityLogs, filterDate, today]);
 
   const totalMinutes = useMemo(
     () => todayLogs.reduce((s, l) => s + (l.duration ?? 0), 0),
@@ -321,13 +323,14 @@ export default function ActivityLog() {
       const entry = normalizeActivityEntry(raw);
       if (!entry) return;
       const normalized = { ...entry, date: resolveDate(entry) };
-      setAllActivityLogs((prev: any[]) => {
+      setAllActivityLogs((prev: ActivityEntry[]) => {
         if (prev.some((l) => l.id === normalized.id)) return prev;
         return [...prev, normalized];
       });
       toast.success(`${name} logged!`);
-    } catch (error: any) {
-      toast.error(error?.response?.data?.error?.message || "Failed to log activity");
+    } catch (error: unknown) {
+      const errData = error && typeof error === "object" && "response" in error ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data : undefined;
+      toast.error(errData?.error?.message || "Failed to log activity");
     }
   };
 
@@ -337,10 +340,11 @@ export default function ActivityLog() {
       await api.delete(`/api/activitylogs/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setAllActivityLogs((prev: any[]) => prev.filter((l) => l.id !== id));
+      setAllActivityLogs((prev: ActivityEntry[]) => prev.filter((l) => l.id !== id));
       toast.success("Activity deleted");
-    } catch (error: any) {
-      toast.error(error?.response?.data?.error?.message || "Failed to delete activity");
+    } catch (error: unknown) {
+      const errData = error && typeof error === "object" && "response" in error ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data : undefined;
+      toast.error(errData?.error?.message || "Failed to delete activity");
     }
   };
 

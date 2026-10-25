@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import axios from "axios";
 import api, { API_BASE_URL } from "../configs/api";
 import toast from "react-hot-toast";
 import { useappcontext } from "../Context/AppContext";
@@ -9,11 +10,11 @@ import AnimatedNumber from "../components/AnimatedNumber";
 import { Eye, EyeOff, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { PasswordStrengthMeter } from "../components/auth/PasswordStrengthMeter";
 import { deriveGoals, calculateGoalSuggestion } from "../utils/deriveGoals";
-import { withBadgeState } from "../utils/badges";
+import { withBadgeState, type BadgeView } from "../utils/badges";
 import { useDaySummary } from "../data/summaryStore";
 import { localDayKey } from "../utils/localDay";
 import { resolveDate } from "../utils/dates";
-import type { User, WeightEntry } from "../assets/types";
+import type { User, WeightEntry, FoodEntry, ActivityEntry } from "../assets/types";
 
 const GOAL_LABELS: Record<string, string> = {
   lose: "Lose Weight",
@@ -47,7 +48,7 @@ export const DIET_STYLE_OPTIONS = [
 
 // ── Edit Profile Modal ──────────────────────────────────────
 const EditProfileModal = ({ user, onClose, onSave }: {
-  user: any; onClose: () => void; onSave: (d: any) => Promise<void>;
+  user: User; onClose: () => void; onSave: (d: Partial<NonNullable<User>>) => Promise<void>;
 }) => {
   const derived = useMemo(() => deriveGoals(user), [user]);
   const [username, setUsername] = useState(user?.username ?? "");
@@ -330,7 +331,7 @@ const PasswordModal = ({
 }: {
   hasPassword: boolean;
   onClose: () => void;
-  onSuccess: (jwt: string, updatedUser: any) => void;
+  onSuccess: (jwt: string, updatedUser: User) => void;
 }) => {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -359,9 +360,10 @@ const PasswordModal = ({
         toast.success(data.message || "Password updated successfully!");
         onClose();
       }
-    } catch (err: any) {
-      const code = err.response?.data?.code || err.response?.data?.error?.code;
-      const msg = err.response?.data?.message || err.response?.data?.error?.message;
+    } catch (err: unknown) {
+      const errData = axios.isAxiosError(err) ? err.response?.data : undefined;
+      const code = errData?.code || errData?.error?.code;
+      const msg = errData?.message || errData?.error?.message;
       if (code === "reauth_required") {
         setReauthNeeded(true);
       } else {
@@ -498,7 +500,7 @@ const InfoRow = ({ icon, label, value }: { icon: React.ReactNode; label: string;
 
 // ── Shareable progress card ───────────────────────────────────
 const ShareCard = ({ user, streak, foodCount, activityCount, onClose }: {
-  user: any; streak: number; foodCount: number; activityCount: number; onClose: () => void;
+  user: User; streak: number; foodCount: number; activityCount: number; onClose: () => void;
 }) => {
   // Draw the progress card on a Canvas — no external library needed
   const downloadCard = () => {
@@ -625,7 +627,9 @@ const ShareCard = ({ user, streak, foodCount, activityCount, onClose }: {
 };
 
 // ── PDF Export ───────────────────────────────────────────────
-const exportPDF = (allFoodLogs: any[], allActivityLogs: any[], user: any, streak: number, earnedBadges: any[]) => {
+type JsPDFWithAutoTable = jsPDF & { lastAutoTable?: { finalY: number } };
+
+const exportPDF = (allFoodLogs: FoodEntry[], allActivityLogs: ActivityEntry[], user: User, streak: number, earnedBadges: BadgeView[]) => {
   try {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
@@ -695,7 +699,7 @@ const exportPDF = (allFoodLogs: any[], allActivityLogs: any[], user: any, streak
     });
 
     // ── Food logs table ──
-    const afterProfile = (doc as any).lastAutoTable.finalY + 8;
+    const afterProfile = ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? 50) + 8;
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(15, 23, 42);
@@ -730,7 +734,7 @@ const exportPDF = (allFoodLogs: any[], allActivityLogs: any[], user: any, streak
     }
 
     // ── Activity logs table ──
-    const afterFood = (doc as any).lastAutoTable?.finalY ?? afterProfile + 15;
+    const afterFood = (doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? afterProfile + 15;
     const actY = afterFood + 8;
 
     // Add new page if not enough space
@@ -768,7 +772,7 @@ const exportPDF = (allFoodLogs: any[], allActivityLogs: any[], user: any, streak
     }
 
     // ── Footer on every page ──
-    const totalPages = (doc as any).internal.getNumberOfPages();
+    const totalPages = doc.getNumberOfPages ? doc.getNumberOfPages() : (doc.internal as unknown as { getNumberOfPages: () => number }).getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       doc.setFontSize(7);
@@ -785,9 +789,9 @@ const exportPDF = (allFoodLogs: any[], allActivityLogs: any[], user: any, streak
 };
 
 // ── CSV Export ───────────────────────────────────────────────
-const exportCSV = (allFoodLogs: any[], allActivityLogs: any[]) => {
+const exportCSV = (allFoodLogs: FoodEntry[], allActivityLogs: ActivityEntry[]) => {
   try {
-    const escapeCsv = (val: any) => {
+    const escapeCsv = (val: unknown) => {
       const str = String(val ?? "").replace(/"/g, '""');
       return `"${str}"`;
     };
@@ -1012,8 +1016,9 @@ export default function Profile() {
           return prev - 1;
         });
       }, 1000);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to send verification link.");
+    } catch (err: unknown) {
+      const msg = axios.isAxiosError(err) ? err.response?.data?.message : undefined;
+      toast.error(msg || "Failed to send verification link.");
     } finally {
       setSendingVerification(false);
     }
@@ -1031,18 +1036,19 @@ export default function Profile() {
 
   const earnedBadges = useMemo(() => badgeViews.filter((b) => b.earned), [badgeViews]);
 
-  const handleSave = async (data: any) => {
+  const handleSave = async (data: Partial<NonNullable<User>>) => {
     try {
       const token = localStorage.getItem("token");
-      const userId = user?.id || (user as any)?._id || "me";
+      const userId = user?.id || (user as { _id?: string })?._id || "me";
       const res = await api.put(`/api/users/${userId}`, data, { headers: { Authorization: `Bearer ${token}` } });
       const updatedUser = res.data;
-      setUser((prev: any) => ({ ...prev, ...updatedUser }));
+      setUser((prev) => ({ ...(prev || {}), ...updatedUser } as NonNullable<User>));
       toast.success("Profile updated!");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errData = axios.isAxiosError(error) ? error.response?.data : undefined;
       const errMsg =
-        error?.response?.data?.message ||
-        error?.response?.data?.error?.message ||
+        errData?.message ||
+        errData?.error?.message ||
         "Failed to update profile";
       toast.error(errMsg);
       throw error;
@@ -1615,8 +1621,8 @@ export default function Profile() {
           hasPassword={Boolean(user?.hasPassword)}
           onClose={() => setShowPasswordModal(false)}
           onSuccess={(jwt, updatedUser) => {
-            setSessionToken(jwt, updatedUser);
-            if (updatedUser) setUser((prev: any) => ({ ...prev, ...updatedUser }));
+            setSessionToken(jwt, updatedUser || undefined);
+            if (updatedUser) setUser((prev) => ({ ...(prev || {}), ...updatedUser } as NonNullable<User>));
           }}
         />
       )}

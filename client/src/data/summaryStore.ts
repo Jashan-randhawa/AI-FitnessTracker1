@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
+import axios from "axios";
 import api from "../configs/api";
 import { browserTimeZone } from "../utils/localDay";
 
@@ -106,13 +107,16 @@ const load = <T,>(key: string, url: string): Promise<void> => {
       if (current && current.revision > started) return;
       cache.set(key, { status: "ready", data, revision: started });
     })
-    .catch((err: any) => {
+    .catch((err: unknown) => {
       const current = cache.get(key);
       if (current && current.revision > started) return;
+      const errorMessage = axios.isAxiosError(err)
+        ? (err.response?.data as { message?: string } | undefined)?.message || err.message
+        : "Could not load summary";
       cache.set(key, {
         status: "error",
         data: previous?.data,
-        error: err?.response?.data?.message || "Could not load summary",
+        error: errorMessage,
         revision: started,
       });
     })

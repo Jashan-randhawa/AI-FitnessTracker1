@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLin
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
 import { useappcontext } from "../Context/AppContext";
+import type { WaterEntry } from "../assets/types";
 import { useTheme } from "../Context/Themecontext";
 import { useNavigate } from "react-router-dom";
 import api from "../configs/api";
@@ -104,12 +105,24 @@ const SkeletonCard = ({ height = "h-28" }: { height?: string }) => (
   <div className={`${height} rounded-2xl skeleton-shimmer-card`} />
 );
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipPayloadItem {
+  name: string;
+  value: string | number;
+  fill?: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload?.length) {
     return (
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-xs shadow-xl">
         <p className="text-gray-600 dark:text-slate-300 font-medium mb-1">{label}</p>
-        {payload.map((p: any) => (
+        {payload.map((p) => (
           <p key={p.name} style={{ color: p.fill }} className="font-semibold">{p.name}: {p.value}</p>
         ))}
       </div>
@@ -202,7 +215,7 @@ const WaterTracker = ({
   todayTotal: propTodayTotal,
   waterGoal = 2500,
 }: {
-  logs?: any[];
+  logs?: WaterEntry[];
   onAdd: (ml: number) => void;
   onRemoveLast?: () => void;
   today: string;
@@ -490,7 +503,7 @@ export default function Dashboard() {
     )[0];
     if (!last) return;
     const id = last.id;
-    setAllWaterLogs((prev: any[]) => prev.filter((e) => e.id !== id));
+    setAllWaterLogs((prev: WaterEntry[]) => prev.filter((e) => e.id !== id));
     try {
       await api.delete(`/api/waterlogs/${id}`);
     } catch {
@@ -509,7 +522,7 @@ export default function Dashboard() {
     const tmpId = `tmp-${Date.now()}`;
     const optimistic = { id: tmpId, amount: ml, date: new Date().toISOString() };
     // Show immediately in UI
-    setAllWaterLogs((prev: any[]) => [optimistic, ...prev]);
+    setAllWaterLogs((prev: WaterEntry[]) => [optimistic, ...prev]);
     try {
       const { data: raw } = await api.post(
         "/api/waterlogs",
@@ -522,10 +535,10 @@ export default function Dashboard() {
         ? { id: saved.id, ...saved.attributes }
         : { id: saved?.id ?? tmpId, amount: saved?.amount ?? ml, date: saved?.date ?? new Date().toISOString() };
       // Replace optimistic entry with real server entry
-      setAllWaterLogs((prev: any[]) => prev.map((e) => e.id === tmpId ? entry : e));
+      setAllWaterLogs((prev: WaterEntry[]) => prev.map((e) => e.id === tmpId ? entry : e));
     } catch {
       // Roll back
-      setAllWaterLogs((prev: any[]) => prev.filter((e) => e.id !== tmpId));
+      setAllWaterLogs((prev: WaterEntry[]) => prev.filter((e) => e.id !== tmpId));
       toast.error("Failed to save water entry");
     }
   }, [setAllWaterLogs]);

@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from "react";
+import axios from "axios";
 import { Toaster, toast } from "react-hot-toast";
 import { useappcontext } from "../Context/AppContext";
 import api from "../configs/api";
@@ -113,15 +114,16 @@ const Onboarding = () => {
       toast.success("Welcome to FitTrack! 🎉");
       setOnboardingCompleted(true);
       fetchUser(user.token ?? "");
-    } catch (error: any) {
-      const status = error?.response?.status;
-      const message = error?.response?.data?.message;
+    } catch (error: unknown) {
+      const axiosErr = axios.isAxiosError(error) ? error : null;
+      const status = axiosErr?.response?.status;
+      const message = (axiosErr?.response?.data as { message?: string } | undefined)?.message;
 
       if (status === 401 || status === 403) {
         toast.error("Session expired. Please log in again.");
       } else if (status === 404) {
         toast.error("User not found. Please contact support.");
-      } else if (status >= 500) {
+      } else if (typeof status === "number" && status >= 500) {
         toast.error("Server error. Please try again later.");
       } else {
         toast.error(message || "Failed to save your data. Please try again.");

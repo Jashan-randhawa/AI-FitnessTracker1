@@ -1,7 +1,9 @@
 import { resolveDate } from "../utils/dates";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
 import { useappcontext } from "../Context/AppContext";
+import type { FoodEntry } from "../assets/types";
 import toast from "react-hot-toast";
 import api from "../configs/api";
 import { useTheme } from "../Context/Themecontext";
@@ -23,21 +25,45 @@ const MEAL_CONFIG: Record<MealType, { label: string; icon: string; color: string
 
 const MEAL_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 
-// Controller returns entity directly (with backward-compatible support for attributes wrapper)
-const normalizeFoodEntry = (raw: any) => {
+type LogEntryLike = {
+  id?: string;
+  name?: string;
+  calories?: number;
+  protein?: number | null;
+  carbs?: number | null;
+  fat?: number | null;
+  mealType?: MealType | string;
+  mealtype?: MealType | string;
+  date?: string;
+  createdAt?: string;
+  attributes?: Record<string, unknown>;
+  aiGenerated?: boolean;
+};
+
+const normalizeFoodEntry = (raw: LogEntryLike | null | undefined): (FoodEntry & { aiGenerated?: boolean }) | null => {
   if (!raw) return null;
   if (raw.attributes && typeof raw.attributes === "object") {
-    return { id: raw.id, ...raw.attributes };
+    return { id: String(raw.id ?? ""), ...raw.attributes } as unknown as FoodEntry;
   }
-  // Normalize mealtype → mealType
-  if (raw.mealtype && !raw.mealType) raw.mealType = raw.mealtype;
-  return raw;
+  const rawMealType = String(raw.mealType ?? raw.mealtype ?? "snack").toLowerCase();
+  const mealType: MealType = (MEAL_ORDER as readonly string[]).includes(rawMealType) ? (rawMealType as MealType) : "snack";
+  return {
+    id: String(raw.id ?? ""),
+    name: raw.name ?? "",
+    calories: raw.calories ?? 0,
+    protein: raw.protein ?? undefined,
+    carbs: raw.carbs ?? undefined,
+    fat: raw.fat ?? undefined,
+    mealType,
+    date: raw.date ?? raw.createdAt ?? new Date().toISOString(),
+    aiGenerated: raw.aiGenerated,
+  };
 };
 
 // Resolve mealType from either casing (mealType or legacy mealtype)
-const resolveMealType = (entry: any): MealType => {
-  const m = entry.mealType ?? entry.mealtype ?? "snack";
-  return MEAL_ORDER.includes(m) ? m : "snack";
+const resolveMealType = (entry: { mealType?: string; mealtype?: string }): MealType => {
+  const m = (entry.mealType ?? entry.mealtype ?? "snack").toLowerCase();
+  return (MEAL_ORDER as readonly string[]).includes(m) ? (m as MealType) : "snack";
 };
 
 // ── Circular SVG Macro Gauge ──────────────────────────────────
@@ -137,7 +163,7 @@ const FoodSnapAdjustmentModal = ({
   onCancel,
 }: {
   data: FoodSnapReviewData;
-  onCommit: (adjusted: any) => Promise<void>;
+  onCommit: (adjusted: LogEntryLike) => Promise<void>;
   onCancel: () => void;
 }) => {
   const [portionMultiplier, setPortionMultiplier] = useState(1.0);
@@ -398,7 +424,7 @@ const AddFoodModal = ({
 }: {
   defaultMeal: MealType;
   setShowForm: (show: boolean) => void;
-  onAdd: (entry: any) => void;
+  onAdd: (entry: LogEntryLike | null | undefined) => void;
 }) => {
   const [name, setName]         = useState("");
   const [calories, setCalories] = useState("");
@@ -439,9 +465,11 @@ const AddFoodModal = ({
       setFat(String(result.fat ?? 0));
       setAiResult({ protein: result.protein ?? 0, carbs: result.carbs ?? 0, fat: result.fat ?? 0 });
       setAiFit(fit || null);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosErr = axios.isAxiosError(error) ? error : null;
+      const resData = axiosErr?.response?.data as { error?: { message?: string } } | undefined;
       const message =
-        error?.response?.data?.error?.message ||
+        resData?.error?.message ||
         (error instanceof Error ? error.message : "Could not estimate nutrition");
       toast.error(message);
     } finally {
@@ -486,8 +514,9 @@ const AddFoodModal = ({
       onAdd(normalizeFoodEntry(raw));
       setShowForm(false);
       toast.success("Entry added!");
-    } catch (error: any) {
-      if (!navigator.onLine || error?.code === "ERR_NETWORK" || error?.message?.toLowerCase().includes("network")) {
+    } catch (error: unknown) {
+      const axiosErr = axios.isAxiosError(error) ? error : null;
+      if (!navigator.onLine || axiosErr?.code === "ERR_NETWORK" || (error instanceof Error && error.message.toLowerCase().includes("network"))) {
         await enqueueOfflineMutation({
           endpoint: "/api/foodlogs",
           method: "POST",
@@ -504,7 +533,8 @@ const AddFoodModal = ({
         toast.success("Saved offline. Will sync automatically when back online 📶");
         return;
       }
-      toast.error(error?.response?.data?.error?.message || "Failed to add food log");
+      const resData = axiosErr?.response?.data as { error?: { message?: string } } | undefined;
+      toast.error(resData?.error?.message || "Failed to add food log");
     } finally {
       setLoading(false);
     }
@@ -640,7 +670,7 @@ const AddFoodModal = ({
 
 // ── Food Item Card ─────────────────────────────────────────
 const FoodItemCard = ({ entry, onDelete }: {
-  entry: any;
+  entry: FoodEntry;
   onDelete: (id: string) => void;
 }) => {
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -706,7 +736,7 @@ const FoodItemCard = ({ entry, onDelete }: {
 
 // ── Meal Section ───────────────────────────────────────────
 const MealSection = ({ mealType, entries, onDelete }: {
-  mealType: MealType; entries: any[]; onDelete: (id: string) => void;
+  mealType: MealType; entries: FoodEntry[]; onDelete: (id: string) => void;
 }) => {
   if (entries.length === 0) return null;
   const cfg = MEAL_CONFIG[mealType];
@@ -858,7 +888,7 @@ export default function FoodLog() {
       ? new Date(filterDate).toDateString()
       : today;
     return allFoodLogs.filter((l) => new Date(resolveDate(l)).toDateString() === target);
-  }, [allFoodLogs, filterDate]);
+  }, [allFoodLogs, filterDate, today]);
 
   const totalCalories = useMemo(
     () => todayLogs.reduce((s, l) => s + (l.calories ?? 0), 0),
@@ -889,32 +919,36 @@ export default function FoodLog() {
 
   const openModal = (meal: MealType) => { setDefaultMeal(meal); setShowForm(true); };
 
-  const handleAdd = (entry: any) => {
+  const handleAdd = (entry: (Partial<FoodEntry> & { mealtype?: MealType }) | LogEntryLike | null | undefined) => {
     if (!entry) return;
-    const normalized = { ...entry, date: resolveDate(entry) };
-    if (normalized.mealtype && !normalized.mealType) normalized.mealType = normalized.mealtype;
-    setAllFoodLogs((prev: any[]) => {
+    const normalized = { ...entry, date: resolveDate(entry) } as FoodEntry;
+    if ("mealtype" in entry && entry.mealtype && !normalized.mealType) {
+      normalized.mealType = entry.mealtype as MealType;
+    }
+    setAllFoodLogs((prev: FoodEntry[]) => {
       if (prev.some((l) => l.id === normalized.id)) return prev;
       return [...prev, normalized];
     });
   };
 
   const handleDelete = async (id: string) => {
-    setAllFoodLogs((prev: any[]) => prev.filter((l) => l.id !== id));
+    setAllFoodLogs((prev: FoodEntry[]) => prev.filter((l) => l.id !== id));
     try {
       const token = localStorage.getItem("token");
       await api.delete(`/api/foodlogs/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success("Entry deleted");
-    } catch (error: any) {
+    } catch (error: unknown) {
       const token = localStorage.getItem("token");
       if (token) {
         const { data } = await api.get("/api/foodlogs", { headers: { Authorization: `Bearer ${token}` } });
         const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
         setAllFoodLogs(list);
       }
-      toast.error(error?.response?.data?.error?.message || "Failed to delete entry");
+      const axiosErr = axios.isAxiosError(error) ? error : null;
+      const resData = axiosErr?.response?.data as { error?: { message?: string } } | undefined;
+      toast.error(resData?.error?.message || "Failed to delete entry");
     }
   };
 
@@ -975,9 +1009,11 @@ export default function FoodLog() {
           },
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("AI Food Snap error:", error);
-      toast.error(error?.response?.data?.error?.message || "Could not analyze image. Please add manually.");
+      const axiosErr = axios.isAxiosError(error) ? error : null;
+      const resData = axiosErr?.response?.data as { error?: { message?: string } } | undefined;
+      toast.error(resData?.error?.message || "Could not analyze image. Please add manually.");
       openModal(mealType);
       URL.revokeObjectURL(previewUrl);
     } finally {
@@ -986,7 +1022,7 @@ export default function FoodLog() {
     }
   };
 
-  const handleCommitAdjustedSnap = async (payload: any) => {
+  const handleCommitAdjustedSnap = async (payload: LogEntryLike) => {
     try {
       const token = localStorage.getItem("token");
       const { data: raw } = await api.post(
@@ -1000,8 +1036,10 @@ export default function FoodLog() {
         URL.revokeObjectURL(snapReviewData.previewUrl);
       }
       setSnapReviewData(null);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error?.message || "Failed to log meal");
+    } catch (err: unknown) {
+      const axiosErr = axios.isAxiosError(err) ? err : null;
+      const resData = axiosErr?.response?.data as { error?: { message?: string } } | undefined;
+      toast.error(resData?.error?.message || "Failed to log meal");
       throw err;
     }
   };
@@ -1013,7 +1051,7 @@ export default function FoodLog() {
     const fakeInput = document.createElement("input");
     fakeInput.type = "file";
     Object.defineProperty(fakeInput, "files", { value: dataTransfer.files });
-    handleImageChange({ target: fakeInput } as any);
+    handleImageChange({ target: fakeInput } as unknown as React.ChangeEvent<HTMLInputElement>);
   };
 
   const hasMeals = MEAL_ORDER.some((m) => byMeal[m].length > 0);

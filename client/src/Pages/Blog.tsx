@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import api from "../configs/api";
 import { useTheme } from "../Context/Themecontext";
 
@@ -129,8 +130,9 @@ const Blog = () => {
       if (q) params.set("q", q);
       const res = await api.get(`/api/news/headlines?${params}`);
       setAllArticles(res.data.articles ?? []);
-    } catch (err: any) {
-      const rawMsg = err?.response?.data?.error;
+    } catch (err: unknown) {
+      const axiosErr = axios.isAxiosError(err) ? err : null;
+      const rawMsg = (axiosErr?.response?.data as { error?: string } | undefined)?.error;
       const msg = typeof rawMsg === "string" ? rawMsg : "";
       if (msg.includes("NEWS_API_KEY")) {
         setError("news_api_key_missing");

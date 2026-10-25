@@ -2,8 +2,17 @@ import { resolveDate } from "../utils/dates";
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+export interface CalendarHeatmapEntry {
+  date?: string;
+  createdAt?: string;
+  calories?: number | string;
+  duration?: number | string;
+  caloriesBurned?: number | string;
+  [key: string]: unknown;
+}
+
 export interface CalendarHeatmapProps {
-  logs: any[];
+  logs: CalendarHeatmapEntry[];
   selectedDate: string | null;
   onSelectDate: (dateStr: string) => void;
   colorTheme?: "emerald" | "orange" | "blue";

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import toast from "react-hot-toast";
@@ -121,13 +122,13 @@ export const LiveWorkoutTrackerModal = ({
   useEffect(() => {
     const unsubscribe = initOfflineSync((_mut, result) => {
       if (result) {
-        setAllActivityLogs?.((prev: ActivityEntry[]) => [result, ...(prev || [])]);
+        setAllActivityLogs?.((prev: ActivityEntry[]) => [result as ActivityEntry, ...(prev || [])]);
       }
     });
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [setAllActivityLogs]);
 
   // Phase 4: Hands-free voice set resolution
   const handleVoiceSetParsed = (parsed: ParsedVoiceSet) => {
@@ -262,11 +263,13 @@ export const LiveWorkoutTrackerModal = ({
       onClose();
     } catch (err: unknown) {
       // Phase 4: Offline Resilience - queue locally if offline or network drops in the gym
+      const isNetworkErr =
+        axios.isAxiosError(err) && (err.code === "ERR_NETWORK" || !err.response);
       const isOffline =
         typeof navigator !== "undefined" &&
         (!navigator.onLine ||
-          (err as any)?.code === "ERR_NETWORK" ||
-          (err as any)?.message?.toLowerCase().includes("network"));
+          isNetworkErr ||
+          (err instanceof Error && err.message.toLowerCase().includes("network")));
 
       if (isOffline) {
         const payloadData = {
@@ -274,8 +277,8 @@ export const LiveWorkoutTrackerModal = ({
           duration: Math.max(1, Math.round((Date.now() - startedAt) / 60000)),
           caloriesBurned: Math.max(15, Math.round(Math.max(1, Math.round((Date.now() - startedAt) / 60000)) * 6.5)),
           type: "strength",
-          intensity: "medium",
-          source: "live-session",
+          intensity: "medium" as const,
+          source: "live-session" as const,
           date: new Date().toISOString(),
           exercises: [
             {
@@ -298,10 +301,9 @@ export const LiveWorkoutTrackerModal = ({
         });
 
         // Optimistic UI update
-        const optimisticEntry: any = {
-          _id: `offline-${Date.now()}`,
+        const optimisticEntry: ActivityEntry = {
+          id: `offline-${Date.now()}`,
           ...payloadData,
-          createdAt: new Date().toISOString(),
         };
         setAllActivityLogs?.((prev: ActivityEntry[]) => [optimisticEntry, ...(prev || [])]);
 

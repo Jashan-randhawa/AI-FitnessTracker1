@@ -1,7 +1,30 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 import api from '../../configs/api';
+
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: { [index: number]: { [index: number]: { transcript: string } }; length: number };
+}
+
+interface SpeechRecognitionErrorLike {
+  error: string;
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((err: SpeechRecognitionErrorLike) => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
 export interface ParsedVoiceSet {
   exerciseName: string;
@@ -20,14 +43,14 @@ export const VoiceSetLogger = ({ onSetParsed, className = '' }: VoiceSetLoggerPr
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [interimText, setInterimText] = useState('');
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
   // Initialize SpeechRecognition if available
   useEffect(() => {
-    const SpeechRec =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const win = window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor };
+    const SpeechRec = win.SpeechRecognition || win.webkitSpeechRecognition;
 
     if (SpeechRec) {
       const recognition = new SpeechRec();
@@ -35,7 +58,7 @@ export const VoiceSetLogger = ({ onSetParsed, className = '' }: VoiceSetLoggerPr
       recognition.interimResults = true;
       recognition.lang = 'en-US';
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: SpeechRecognitionEventLike) => {
         let current = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           current += event.results[i][0].transcript;
@@ -47,7 +70,7 @@ export const VoiceSetLogger = ({ onSetParsed, className = '' }: VoiceSetLoggerPr
         setIsListening(false);
       };
 
-      recognition.onerror = (err: any) => {
+      recognition.onerror = (err: SpeechRecognitionErrorLike) => {
         setIsListening(false);
         if (err.error !== 'no-speech' && err.error !== 'aborted') {
           toast.error(`Speech error: ${err.error}`);
@@ -75,8 +98,9 @@ export const VoiceSetLogger = ({ onSetParsed, className = '' }: VoiceSetLoggerPr
         );
         onSetParsed(parsed);
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to parse voice set');
+    } catch (err: unknown) {
+      const msg = axios.isAxiosError(err) ? err.response?.data?.message : undefined;
+      toast.error(msg || 'Failed to parse voice set');
     } finally {
       setIsProcessing(false);
       setInterimText('');
@@ -128,8 +152,9 @@ export const VoiceSetLogger = ({ onSetParsed, className = '' }: VoiceSetLoggerPr
             );
             onSetParsed(parsed);
           }
-        } catch (err: any) {
-          toast.error(err.response?.data?.message || 'Failed to parse audio set');
+        } catch (err: unknown) {
+          const msg = axios.isAxiosError(err) ? err.response?.data?.message : undefined;
+          toast.error(msg || 'Failed to parse audio set');
         } finally {
           setIsProcessing(false);
           stream.getTracks().forEach((track) => track.stop());

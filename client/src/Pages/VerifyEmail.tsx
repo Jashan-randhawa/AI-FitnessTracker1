@@ -1,5 +1,6 @@
 import { useEffect, useState, useId } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import axios from "axios";
 import { CheckCircleIcon, XCircleIcon, MailIcon } from "lucide-react";
 import api from "../configs/api";
 import toast, { Toaster } from "react-hot-toast";
@@ -42,12 +43,14 @@ const VerifyEmail = () => {
             setUser({ ...user, emailVerified: true });
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (isMounted) {
           setState("error");
+          const axiosErr = axios.isAxiosError(err) ? err : null;
+          const resData = axiosErr?.response?.data as { message?: string; error?: { message?: string } } | undefined;
           setErrorMessage(
-            err.response?.data?.message ||
-              err.response?.data?.error?.message ||
+            resData?.message ||
+              resData?.error?.message ||
               "This verification link is invalid or has expired."
           );
         }
@@ -80,9 +83,11 @@ const VerifyEmail = () => {
       });
       toast.success(data.message || "Verification email sent! Check your inbox.");
       setCooldown(60);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const axiosErr = axios.isAxiosError(err) ? err : null;
+      const resData = axiosErr?.response?.data as { message?: string } | undefined;
       toast.error(
-        err.response?.data?.message || "Failed to send verification email. Try again later."
+        resData?.message || "Failed to send verification email. Try again later."
       );
     } finally {
       setResending(false);

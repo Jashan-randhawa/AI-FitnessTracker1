@@ -5,49 +5,54 @@ import { useappcontext } from "../Context/AppContext";
 
 const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "").replace(/\/$/, "");
 
+const parseOAuthParams = () => {
+  if (typeof window === "undefined") return { initialError: "", accessToken: null };
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+  const hashParams = new URLSearchParams(hash);
+  const queryParams = new URLSearchParams(window.location.search);
+
+  const errorParam = queryParams.get("error") || hashParams.get("error");
+  const accessToken = hashParams.get("access_token") || queryParams.get("access_token") || queryParams.get("id_token");
+
+  let initialError = "";
+  if (errorParam) {
+    if (errorParam === "access_denied") {
+      initialError = "Google sign-in was cancelled. Please try again.";
+    } else if (errorParam === "google_state_invalid") {
+      initialError = "Invalid OAuth session or security state expired. Please try signing in again.";
+    } else if (errorParam === "oauth_failed") {
+      initialError = "Failed to exchange authentication code with Google. Please try again.";
+    } else {
+      initialError = `Google sign-in failed (${errorParam}). Please try again.`;
+    }
+  } else if (!accessToken) {
+    initialError = "No access token received from Google. Please try again.";
+  }
+
+  return { initialError, accessToken };
+};
+
 const GoogleCallback = () => {
   const navigate = useNavigate();
   const { googleLogin } = useappcontext();
-  const [error, setError] = useState("");
+  const [oauthState] = useState(parseOAuthParams);
+  const [error, setError] = useState(oauthState.initialError);
   const handled = useRef(false);
 
   useEffect(() => {
     if (handled.current) return;
     handled.current = true;
 
-    // Extract token or error from URL fragment or query parameter
-    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
-    const hashParams = new URLSearchParams(hash);
-    const queryParams = new URLSearchParams(window.location.search);
-
-    const errorParam = queryParams.get("error") || hashParams.get("error");
-    const accessToken = hashParams.get("access_token") || queryParams.get("access_token") || queryParams.get("id_token");
-
     // Scrub sensitive tokens / parameters from URL bar after reading
     if (window.location.hash || window.location.search) {
       window.history.replaceState(null, "", window.location.pathname);
     }
 
-    // Handle known OAuth error query codes redirected from server or Google
-    if (errorParam) {
-      if (errorParam === "access_denied") {
-        setError("Google sign-in was cancelled. Please try again.");
-      } else if (errorParam === "google_state_invalid") {
-        setError("Invalid OAuth session or security state expired. Please try signing in again.");
-      } else if (errorParam === "oauth_failed") {
-        setError("Failed to exchange authentication code with Google. Please try again.");
-      } else {
-        setError(`Google sign-in failed (${errorParam}). Please try again.`);
-      }
+    if (oauthState.initialError || !oauthState.accessToken) {
       return;
     }
 
-    if (!accessToken) {
-      setError("No access token received from Google. Please try again.");
-      return;
-    }
-
-    googleLogin(accessToken)
+    googleLogin(oauthState.accessToken)
       .then(() => navigate("/", { replace: true }))
       .catch((err: unknown) => {
         if (axios.isAxiosError(err)) {
@@ -68,7 +73,7 @@ const GoogleCallback = () => {
           setError("Google login failed. Please check your Google account and try again.");
         }
       });
-  }, [googleLogin, navigate]);
+  }, [googleLogin, navigate, oauthState.accessToken, oauthState.initialError]);
 
   const handleRetry = () => {
     window.location.href = `${API_URL}/api/connect/google`;

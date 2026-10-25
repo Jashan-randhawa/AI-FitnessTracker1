@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
 import {
   Copy,
   Check,
@@ -23,16 +24,18 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useappcontext } from "../Context/AppContext";
+import type { WaterEntry } from "../assets/types";
 import api from "../configs/api";
 import toast from "react-hot-toast";
 import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
-import { buildWorkoutPlanActionPayload } from "../schemas/aiPlans.schema";
+import { buildWorkoutPlanActionPayload, type WorkoutPlanAction } from "../schemas/aiPlans.schema";
 import { chatAiAssistant } from "../services/aiAssistantClient";
 import type { ProposedChatAction } from "../schemas/chatAction.schema";
 import { FITBOT_CONFIG } from "../constants/fitbot";
 import {
   type FitBotMessage as Message,
+  type FitBotActionState,
   buildGeminiPayload,
   getRetryContext,
   getRegenerateContext,
@@ -47,12 +50,35 @@ import { localDayKey } from "../utils/localDay";
 import { getWeatherObservation } from "../data/weatherStore";
 import jsPDF from "jspdf";
 
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: { [index: number]: { [index: number]: { transcript: string } }; length: number };
+}
+
+interface SpeechRecognitionErrorLike {
+  error: string;
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((err: SpeechRecognitionErrorLike) => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+
 // ── Helpers ───────────────────────────────────────────────
 // ── Helper to parse workout routine markdown into structured days ─────────
 const parseMarkdownIntoWorkoutDays = (markdown: string) => {
   const lines = markdown.split("\n");
-  const days: Array<{ day: string; focus: string; duration: string; exercises: any[] }> = [];
-  let currentDay: { day: string; focus: string; duration: string; exercises: any[] } | null = null;
+  const days: Array<{ day: string; focus: string; duration: string; exercises: unknown[] }> = [];
+  let currentDay: { day: string; focus: string; duration: string; exercises: unknown[] } | null = null;
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -111,7 +137,8 @@ const formatTime = (date: Date) =>
 // ── Web Audio API Subtle Chime ─────────────────────────────
 const playCompletionChime = () => {
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const winAudio = window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
+    const AudioContextClass = winAudio.AudioContext || winAudio.webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
     const now = ctx.currentTime;
@@ -459,7 +486,7 @@ export default function AIAssistant() {
   const [planConfirmModal, setPlanConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
-    payload: any | null;
+    payload: WorkoutPlanAction | null;
     status: "idle" | "saving" | "saved" | "error";
     error?: string;
   }>({
@@ -503,8 +530,10 @@ export default function AIAssistant() {
         setPlanConfirmModal((prev) => ({ ...prev, status: "error", error: "Failed to save plan." }));
         toast.error("Failed to save workout plan.");
       }
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || "Failed to save plan.";
+    } catch (err: unknown) {
+      const axiosErr = axios.isAxiosError(err) ? err : null;
+      const resData = axiosErr?.response?.data as { message?: string } | undefined;
+      const msg = resData?.message || (err instanceof Error ? err.message : "Failed to save plan.");
       setPlanConfirmModal((prev) => ({ ...prev, status: "error", error: msg }));
       toast.error(msg);
     }
@@ -549,7 +578,7 @@ export default function AIAssistant() {
         const loggedId = created?._id || created?.id;
 
         if (loggedId && setAllWaterLogs) {
-          setAllWaterLogs((prev: any[]) => [
+          setAllWaterLogs((prev: WaterEntry[]) => [
             {
               id: String(loggedId),
               amount: action.amountMl,
@@ -606,7 +635,7 @@ export default function AIAssistant() {
     try {
       await api.delete(`/api/waterlogs/${loggedId}`);
       if (setAllWaterLogs) {
-        setAllWaterLogs((prev: any[]) => prev.filter((w) => String(w.id || w._id) !== String(loggedId)));
+        setAllWaterLogs((prev: WaterEntry[]) => prev.filter((w) => String(w.id) !== String(loggedId)));
       }
       toast("Water log removed.");
       setMessages((prev) =>
@@ -625,7 +654,7 @@ export default function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [pastSessions, setPastSessions] = useState<any[]>([]);
+  const [pastSessions, setPastSessions] = useState<Array<Record<string, unknown> & { sessionId?: string; _id?: string; summary?: string; createdAt?: string; updatedAt?: string; revision?: number; messages?: Array<{ role?: string; text?: string; proposedActions?: FitBotActionState[] }> }>>([]);
   const [memoryLoaded, setMemoryLoaded] = useState(false);
   const [showMemory, setShowMemory] = useState(false);
   const [memorySearch, setMemorySearch] = useState("");
@@ -717,7 +746,7 @@ export default function AIAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const speechRecognitionRef = useRef<any>(null);
+  const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "")?.replace(/\/$/, "");
@@ -742,7 +771,7 @@ export default function AIAssistant() {
   };
 
   // Active workout plan for plan-scheduled chip suggestions (Phase G / N7)
-  const [activePlan, setActivePlan] = useState<any>(null);
+  const [activePlan, setActivePlan] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -953,7 +982,7 @@ export default function AIAssistant() {
     }
   };
 
-  const deleteSingleSession = async (session: any, e?: React.MouseEvent) => {
+  const deleteSingleSession = async (session: { sessionId?: string; _id?: string }, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const targetId = session.sessionId || session._id;
     if (!targetId) return;
@@ -983,7 +1012,7 @@ export default function AIAssistant() {
     }
   };
 
-  const loadPastSessionIntoChat = (session: any) => {
+  const loadPastSessionIntoChat = (session: { sessionId?: string; _id?: string; messages?: Array<{ role?: string; text?: string; proposedActions?: FitBotActionState[] }>; updatedAt?: string; createdAt?: string; revision?: number }) => {
     // Invalidate any active generation
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -994,7 +1023,7 @@ export default function AIAssistant() {
     setIsLoading(false);
 
     if (Array.isArray(session.messages) && session.messages.length > 0) {
-      const formatted: Message[] = session.messages.map((m: any, i: number) => ({
+      const formatted: Message[] = session.messages.map((m: { role?: string; text?: string; proposedActions?: FitBotActionState[] }, i: number) => ({
         id: `${session.sessionId || session._id || Date.now()}-${i}`,
         role: m.role === "user" ? "user" : "assistant",
         text: m.text || "",
@@ -1026,9 +1055,9 @@ export default function AIAssistant() {
   const filteredSessions = useMemo(() => {
     if (!memorySearch.trim()) return pastSessions;
     const q = memorySearch.toLowerCase();
-    return pastSessions.filter((s: any) => {
+    return pastSessions.filter((s: { summary?: string; messages?: Array<{ text?: string }> }) => {
       const summaryMatch = (s.summary || "").toLowerCase().includes(q);
-      const msgMatch = Array.isArray(s.messages) && s.messages.some((m: any) => (m.text || "").toLowerCase().includes(q));
+      const msgMatch = Array.isArray(s.messages) && s.messages.some((m: { text?: string }) => (m.text || "").toLowerCase().includes(q));
       return summaryMatch || msgMatch;
     });
   }, [pastSessions, memorySearch]);
@@ -1133,8 +1162,12 @@ export default function AIAssistant() {
     }
 
     try {
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const win = window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor };
+      const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        toast.error("Speech recognition is not supported in this browser.");
+        return;
+      }
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
@@ -1145,7 +1178,7 @@ export default function AIAssistant() {
         toast("Listening to your voice...", { icon: "🎙️", duration: 1800 });
       };
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: { results: { [idx: number]: { [idx: number]: { transcript: string } } } }) => {
         const transcript = event.results[0]?.[0]?.transcript;
         if (transcript) {
           setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
@@ -1301,11 +1334,14 @@ export default function AIAssistant() {
     }
   };
 
+  const sendMessageRef = useRef(sendMessage);
+  sendMessageRef.current = sendMessage;
+
   const retryLastMessage = useCallback(() => {
     if (isSendingRef.current || isLoading) return;
     const retryCtx = getRetryContext(messages);
     if (!retryCtx) return;
-    sendMessage(retryCtx.prompt, retryCtx.precedingHistory);
+    sendMessageRef.current(retryCtx.prompt, retryCtx.precedingHistory);
   }, [messages, isLoading]);
 
   const regenerateLastMessage = useCallback(() => {
@@ -1313,7 +1349,7 @@ export default function AIAssistant() {
     const regenCtx = getRegenerateContext(messages);
     if (!regenCtx) return;
     setMessages(regenCtx.trimmedMessages);
-    sendMessage(regenCtx.prompt, regenCtx.precedingHistory, { regenerate: true });
+    sendMessageRef.current(regenCtx.prompt, regenCtx.precedingHistory, { regenerate: true });
   }, [isLoading, messages]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1756,7 +1792,7 @@ export default function AIAssistant() {
                     </p>
                   </div>
                 ) : (
-                  filteredSessions.map((s: any, i: number) => {
+                  filteredSessions.map((s: { sessionId?: string; _id?: string; summary?: string; createdAt?: string; messages?: Array<{ text?: string }> }, i: number) => {
                     const sessionDate = s.createdAt
                       ? new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
                       : `Session ${i + 1}`;
@@ -2100,7 +2136,7 @@ export default function AIAssistant() {
                   <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Routine Breakdown:
                   </div>
-                  {planConfirmModal.payload.days?.map((d: any, idx: number) => (
+                  {planConfirmModal.payload?.days?.map((d: { day: string; focus: string; duration: string; exercises?: unknown[] }, idx: number) => (
                     <div
                       key={idx}
                       className="border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 bg-slate-50/50 dark:bg-slate-800/40 text-xs"
@@ -2109,9 +2145,9 @@ export default function AIAssistant() {
                         <span>{d.day} — {d.focus}</span>
                         <span className="text-slate-400 text-[11px]">{d.duration}</span>
                       </div>
-                      {d.exercises?.length > 0 && (
+                      {Boolean(d.exercises && d.exercises.length > 0) && (
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                          {d.exercises.length} exercise{d.exercises.length > 1 ? "s" : ""} included
+                          {d.exercises!.length} exercise{d.exercises!.length > 1 ? "s" : ""} included
                         </div>
                       )}
                     </div>

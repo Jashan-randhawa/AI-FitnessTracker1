@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check, Copy } from "lucide-react";
 import { CollapsiblePlanCard } from "./animations/CollapsiblePlanCard";
@@ -13,6 +13,7 @@ export interface MarkdownMessageProps {
 }
 
 // Helper to identify if a heading represents a structured multi-day/week plan or workout routine
+// eslint-disable-next-line react-refresh/only-export-components
 export const isPlanHeader = (title: string): boolean => {
   const clean = title.replace(/[:*#]/g, "").trim();
   return /^\s*(?:\d+[- ]*(?:day|week|month)|weekly|daily|full|custom)?\s*(?:workout|meal|exercise|training|nutrition)\s*(?:plan|routine|schedule|breakdown|program)/i.test(
@@ -68,60 +69,60 @@ const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, cod
 /**
  * Custom Markdown Components adhering to Section 5.2/5.3 Design System
  */
-const markdownComponents = {
-  h1({ children }: any) {
+const markdownComponents: Components = {
+  h1({ children }) {
     return (
       <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mt-4 mb-2 pb-1 border-b border-slate-200 dark:border-slate-800">
         {children}
       </h1>
     );
   },
-  h2({ children }: any) {
+  h2({ children }) {
     return (
       <h2 className="text-[17px] font-bold text-gray-900 dark:text-white mt-4 mb-1.5 leading-snug">
         {children}
       </h2>
     );
   },
-  h3({ children }: any) {
+  h3({ children }) {
     return (
       <h3 className="text-[15px] font-bold text-gray-900 dark:text-white mt-3.5 mb-1 leading-snug">
         {children}
       </h3>
     );
   },
-  h4({ children }: any) {
+  h4({ children }) {
     return (
       <h4 className="text-[14px] font-bold text-gray-900 dark:text-white mt-2.5 mb-1 leading-snug">
         {children}
       </h4>
     );
   },
-  p({ children }: any) {
+  p({ children }) {
     return (
       <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 my-1.5 leading-relaxed font-normal">
         {children}
       </p>
     );
   },
-  ul({ children }: any) {
+  ul({ children }) {
     return (
       <ul className="my-2 space-y-1 pl-4 list-disc marker:text-emerald-500 text-xs sm:text-sm text-slate-700 dark:text-slate-200">
         {children}
       </ul>
     );
   },
-  ol({ children }: any) {
+  ol({ children }) {
     return (
       <ol className="my-2 space-y-1 pl-4 list-decimal marker:text-emerald-500 text-xs sm:text-sm text-slate-700 dark:text-slate-200">
         {children}
       </ol>
     );
   },
-  li({ children }: any) {
+  li({ children }) {
     return <li className="leading-relaxed pl-1">{children}</li>;
   },
-  table({ children }: any) {
+  table({ children }) {
     return (
       <div className="my-3 w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-xs touch-pan-x [webkit-overflow-scrolling:touch]">
         <table className="w-full text-left text-xs border-collapse divide-y divide-slate-200 dark:divide-slate-700/80">
@@ -130,37 +131,37 @@ const markdownComponents = {
       </div>
     );
   },
-  thead({ children }: any) {
+  thead({ children }) {
     return <thead className="bg-slate-100/80 dark:bg-slate-800/80 font-bold">{children}</thead>;
   },
-  tbody({ children }: any) {
+  tbody({ children }) {
     return <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white/50 dark:bg-slate-900/40">{children}</tbody>;
   },
-  tr({ children }: any) {
+  tr({ children }) {
     return <tr className="hover:bg-emerald-500/5 transition-colors">{children}</tr>;
   },
-  th({ children }: any) {
+  th({ children }) {
     return (
       <th className="px-3 py-2 text-gray-900 dark:text-white font-semibold text-[11px] sm:text-xs tracking-wider uppercase">
         {children}
       </th>
     );
   },
-  td({ children }: any) {
+  td({ children }) {
     return (
       <td className="px-3 py-2 text-slate-600 dark:text-slate-300 text-xs">
         {children}
       </td>
     );
   },
-  blockquote({ children }: any) {
+  blockquote({ children }) {
     return (
       <blockquote className="my-2 border-l-4 border-emerald-500/80 pl-3.5 py-1 text-slate-600 dark:text-slate-300 italic text-xs sm:text-sm bg-emerald-50/40 dark:bg-emerald-950/20 rounded-r-lg">
         {children}
       </blockquote>
     );
   },
-  a({ href, children }: any) {
+  a({ href, children }) {
     return (
       <a
         href={href}
@@ -172,16 +173,16 @@ const markdownComponents = {
       </a>
     );
   },
-  strong({ children }: any) {
+  strong({ children }) {
     return <strong className="font-bold text-gray-900 dark:text-white">{children}</strong>;
   },
-  em({ children }: any) {
+  em({ children }) {
     return <em className="italic text-slate-700 dark:text-slate-300">{children}</em>;
   },
   hr() {
     return <hr className="my-4 border-t border-slate-200 dark:border-slate-800" />;
   },
-  code({ className, children, ...props }: any) {
+  code({ className, children, ...props }) {
     const match = /language-(\w+)/.exec(className || "");
     const codeContent = String(children).replace(/\n$/, "");
 

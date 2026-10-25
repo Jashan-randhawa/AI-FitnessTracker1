@@ -420,8 +420,8 @@ const Weather = () => {
       const data = await fetchAllWeather(lat, lon);
       setWeather(data);
       saveWeatherObservation(toEnvironmentPayload(data));
-    } catch (e: any) {
-      setError(e?.message || "Failed to load weather data.");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load weather data.");
     } finally {
       setLoading(false);
     }
