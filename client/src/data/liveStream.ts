@@ -6,7 +6,14 @@ import api, { API_BASE_URL } from "../configs/api";
  * every change event. On connection loss it reconnects with backoff and asks
  * for a fresh ticket each time. Returns a function that stops everything.
  */
-export const startLiveUpdates = (onChange: () => void): (() => void) => {
+export interface LiveChangeEvent {
+  kind?: string;
+  date?: string;
+  at?: number;
+  [key: string]: unknown;
+}
+
+export const startLiveUpdates = (onChange: (event?: LiveChangeEvent) => void): (() => void) => {
   let source: EventSource | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
@@ -34,7 +41,17 @@ export const startLiveUpdates = (onChange: () => void): (() => void) => {
         if (hadConnection) onChange();
         hadConnection = true;
       });
-      source.addEventListener("change", () => onChange());
+      source.addEventListener("change", (e: MessageEvent) => {
+        let payload: LiveChangeEvent | undefined;
+        try {
+          if (e.data) {
+            payload = JSON.parse(e.data);
+          }
+        } catch {
+          // ignore malformed payloads
+        }
+        onChange(payload);
+      });
       source.onerror = () => {
         source?.close();
         source = null;

@@ -878,6 +878,17 @@ export default function Profile() {
     fetchWeightLogs();
   }, [user?.weight, fetchWeightLogs]);
 
+  // React to live weight updates from server SSE or background changes (N3)
+  useEffect(() => {
+    const handleLiveWeight = () => {
+      fetchWeightLogs();
+    };
+    window.addEventListener("fittrack:weight-change", handleLiveWeight);
+    return () => {
+      window.removeEventListener("fittrack:weight-change", handleLiveWeight);
+    };
+  }, [fetchWeightLogs]);
+
   const sortedWeightLogs = useMemo(() => {
     return [...weightLogs].sort((a, b) => {
       const timeA = new Date(a.date).getTime();

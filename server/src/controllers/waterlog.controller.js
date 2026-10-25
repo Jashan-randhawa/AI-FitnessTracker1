@@ -4,6 +4,7 @@ const { publishChange } = require('../services/eventBus');
 const WaterLog = require('../models/WaterLog');
 const IdempotencyKey = require('../models/IdempotencyKey');
 const sendError = require('../utils/sendError');
+const logger = require('../utils/logger');
 
 const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
 const idempotencyMap = new Map();
@@ -40,8 +41,12 @@ const create = asyncHandler(async (req, res) => {
         if (persisted && persisted.response) {
           return res.status(200).json(persisted.response);
         }
-      } catch {
-        // Fall through to in-memory fallback
+      } catch (err) {
+        logger.warn('[Idempotency] Failed to read persistent key from database', {
+          error: err.message,
+          userId: req.user._id,
+          key: trimmedKey,
+        });
       }
     }
 
@@ -69,13 +74,19 @@ const create = asyncHandler(async (req, res) => {
 
     // Persist to 5-minute TTL database store when connected (Phase G / N6)
     if (isDbConnected()) {
-      await IdempotencyKey.findOneAndUpdate(
-        { user: req.user._id, key: trimmedKey },
-        { user: req.user._id, key: trimmedKey, response: responseJson, createdAt: new Date() },
-        { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
-      ).catch(() => {
-        // In-memory fallback already recorded
-      });
+      try {
+        await IdempotencyKey.findOneAndUpdate(
+          { user: req.user._id, key: trimmedKey },
+          { user: req.user._id, key: trimmedKey, response: responseJson, createdAt: new Date() },
+          { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+        );
+      } catch (err) {
+        logger.warn('[Idempotency] Failed to persist durable idempotency key to database', {
+          error: err.message,
+          userId: req.user._id,
+          key: trimmedKey,
+        });
+      }
     }
   }
 

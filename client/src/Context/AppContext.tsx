@@ -201,7 +201,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const liveToken = user?.token;
   useEffect(() => {
     if (!liveToken) return;
-    return startLiveUpdates(invalidateSummaries);
+    return startLiveUpdates((evt) => {
+      invalidateSummaries();
+      if (evt?.kind === "weight") {
+        window.dispatchEvent(new CustomEvent("fittrack:weight-change", { detail: evt }));
+        const token = localStorage.getItem("token");
+        if (token) fetchUser(token);
+      }
+    });
   }, [liveToken]);
 
   useEffect(() => {

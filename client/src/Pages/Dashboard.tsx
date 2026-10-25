@@ -603,15 +603,50 @@ export default function Dashboard() {
     fetchTip(false);
   }, [isUserFetched, today, daySummary.data, fetchTip]);
 
-  // Periodic tip freshness re-check (Phase G / N5)
-  // Re-checks tip every 30 minutes in case user activity changed the signature while the tab remained open.
+  // Dynamic tip freshness re-check (Phase G / N5)
+  // Schedules a wake-up as soon as the throttle window expires based on stored tip timestamp,
+  // with a 1-minute heartbeat and visibility-change re-check so tips never wait past throttle.
   useEffect(() => {
     if (!isUserFetched) return;
-    const interval = setInterval(() => {
-      fetchTip(false);
-    }, TIP_THROTTLE_MS);
-    return () => clearInterval(interval);
-  }, [isUserFetched, fetchTip]);
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const checkFreshness = () => {
+      const cacheKey = `fittrack_daily_tip_${today}`;
+      try {
+        const stored = parseStoredTip(sessionStorage.getItem(cacheKey));
+        if (stored?.timestamp) {
+          const elapsed = Date.now() - stored.timestamp;
+          if (elapsed >= TIP_THROTTLE_MS) {
+            fetchTip(false);
+          } else {
+            const remaining = Math.max(1000, TIP_THROTTLE_MS - elapsed);
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => fetchTip(false), remaining);
+          }
+        } else {
+          fetchTip(false);
+        }
+      } catch {
+        fetchTip(false);
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        checkFreshness();
+      }
+    };
+
+    const interval = setInterval(checkFreshness, 60 * 1000);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeoutId);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [isUserFetched, today, fetchTip]);
 
   const cardCls = `bg-white dark:bg-slate-800/90 dark:backdrop-blur border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5`;
   const softCardCls = `bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5`;

@@ -46,7 +46,10 @@ const weightLogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-weightLogSchema.index({ user: 1, localDay: 1 }, { unique: true });
+weightLogSchema.index(
+  { user: 1, localDay: 1 },
+  { unique: true, partialFilterExpression: { localDay: { $type: 'string' } } }
+);
 weightLogSchema.index({ user: 1, date: -1 });
 
 toJSONPlugin(weightLogSchema);
