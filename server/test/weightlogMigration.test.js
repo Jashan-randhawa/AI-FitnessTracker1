@@ -1,5 +1,8 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const mongoose = require('mongoose');
 const WeightLog = require('../src/models/WeightLog');
 const { backfillWeightLogs, deriveLocalDay } = require('../scripts/backfill-weightlog-localday');
@@ -16,6 +19,17 @@ describe('WeightLog Migration & Backfill (Existing Data Safeguards)', () => {
     assert.match(deriveLocalDay(invalid), /^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it('deriveLocalDay correctly accounts for timezone day boundaries', () => {
+    // 23:30 UTC on 2026-10-25
+    const lateUtc = new Date('2026-10-25T23:30:00.000Z');
+
+    // In New York (UTC-4/EDT), this is still October 25 (19:30)
+    assert.equal(deriveLocalDay(lateUtc, 'America/New_York'), '2026-10-25');
+
+    // In Tokyo (UTC+9), this is already October 26 (08:30)
+    assert.equal(deriveLocalDay(lateUtc, 'Asia/Tokyo'), '2026-10-26');
+  });
+
   it('schema index definition contains partialFilterExpression for string localDay', () => {
     const indexes = WeightLog.schema.indexes();
     const compoundIndex = indexes.find(([fields]) => fields.user === 1 && fields.localDay === 1);
@@ -30,7 +44,8 @@ describe('WeightLog Migration & Backfill (Existing Data Safeguards)', () => {
     );
   });
 
-  it('backfill simulation correctly groups and de-duplicates same-day entries', async () => {
+  it('backfill simulation creates a safety backup and de-duplicates same-day entries', async () => {
+    const tmpBackup = path.join(os.tmpdir(), `test-weightlogs-backup-${Date.now()}.json`);
     const userA = new mongoose.Types.ObjectId();
     const userB = new mongoose.Types.ObjectId();
 
@@ -68,7 +83,6 @@ describe('WeightLog Migration & Backfill (Existing Data Safeguards)', () => {
       },
     ];
 
-    // Stub WeightLog.find
     const origFind = WeightLog.find;
     const deletedIds = [];
     const updatedDocs = [];
@@ -86,20 +100,31 @@ describe('WeightLog Migration & Backfill (Existing Data Safeguards)', () => {
     };
 
     try {
-      const result = await backfillWeightLogs({ dryRun: false });
+      const result = await backfillWeightLogs({
+        dryRun: false,
+        backupFile: tmpBackup,
+      });
 
       assert.equal(result.scanned, 4);
       assert.equal(result.duplicatesRemoved, 1, 'One duplicate for userA on 2026-04-10 should be removed');
       assert.equal(deletedIds.length, 1);
       assert.ok(updatedDocs.length >= 3, 'Canonical documents must receive their localDay');
+      assert.equal(fs.existsSync(tmpBackup), true, 'Backup file must exist on disk before deletion');
     } finally {
       WeightLog.find = origFind;
       delete WeightLog.deleteMany;
       delete WeightLog.updateOne;
+      if (fs.existsSync(tmpBackup)) {
+        try {
+          fs.unlinkSync(tmpBackup);
+        } catch {
+          /* silent */
+        }
+      }
     }
   });
 
-  it('dryRun does not execute writes or deletes', async () => {
+  it('dryRun does not execute writes, deletes, or backups', async () => {
     const userA = new mongoose.Types.ObjectId();
     const mockDocs = [
       {

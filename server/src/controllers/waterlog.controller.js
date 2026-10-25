@@ -44,8 +44,6 @@ const create = asyncHandler(async (req, res) => {
       } catch (err) {
         logger.warn('[Idempotency] Failed to read persistent key from database', {
           error: err.message,
-          userId: req.user._id,
-          key: trimmedKey,
         });
       }
     }
@@ -83,8 +81,6 @@ const create = asyncHandler(async (req, res) => {
       } catch (err) {
         logger.warn('[Idempotency] Failed to persist durable idempotency key to database', {
           error: err.message,
-          userId: req.user._id,
-          key: trimmedKey,
         });
       }
     }

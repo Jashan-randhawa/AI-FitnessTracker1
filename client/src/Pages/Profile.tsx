@@ -13,7 +13,7 @@ import { withBadgeState } from "../utils/badges";
 import { useDaySummary } from "../data/summaryStore";
 import { localDayKey } from "../utils/localDay";
 import { resolveDate } from "../utils/dates";
-import type { WeightEntry } from "../assets/types";
+import type { User, WeightEntry } from "../assets/types";
 
 const GOAL_LABELS: Record<string, string> = {
   lose: "Lose Weight",
@@ -964,10 +964,14 @@ export default function Profile() {
       );
       setNewWeightInput("");
       setWeightNotesInput("");
-      setUser((prev: any) => ({ ...prev, weight: weightKg }));
+      setUser((prev: User) => (prev ? { ...prev, weight: weightKg } : null));
       fetchWeightLogs();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to log weight");
+    } catch (err: unknown) {
+      const errorMsg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+          : undefined;
+      toast.error(errorMsg || "Failed to log weight");
     } finally {
       setSavingWeight(false);
     }
@@ -980,9 +984,13 @@ export default function Profile() {
       toast.success("Weight log removed");
       fetchWeightLogs();
       const meRes = await api.get("/api/auth/me").catch(() => null);
-      if (meRes?.data) setUser((prev: any) => ({ ...prev, ...meRes.data }));
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to remove entry");
+      if (meRes?.data) setUser((prev: User) => (prev ? { ...prev, ...meRes.data } : null));
+    } catch (err: unknown) {
+      const errorMsg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+          : undefined;
+      toast.error(errorMsg || "Failed to remove entry");
     } finally {
       setDeletingWeightId(null);
     }
