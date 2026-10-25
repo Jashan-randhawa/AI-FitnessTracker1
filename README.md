@@ -14,7 +14,7 @@
 [![Express](https://img.shields.io/badge/Express-4.19-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E=20.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tests](https://img.shields.io/badge/Unit_Tests-459_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
+[![Tests](https://img.shields.io/badge/Unit_Tests-552_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
 [![Audit](https://img.shields.io/badge/Vulnerabilities-0-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://ai-fitness-tracker1.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
@@ -266,7 +266,7 @@ cd server
 npm test
 ```
 
-Test coverage includes **459 unit tests** across **119 suites** (100% passing, 0 external runner overhead):
+Test coverage includes **552 unit tests** across **138 suites** (100% passing, 0 external runner overhead):
 - **User Macro & Water Goals (`test/userGoals.test.js`):** Numeric validation, non-negative constraints (`min: 0`), and non-numeric casting guards for `dailyproteingoal`, `dailycarbsgoal`, `dailyfatgoal`, and `dailywatergoal`.
 - **AI Structured Plans & Schemas (`test/aiPlans.test.js`):** Zod validation contracts for meal and workout plan JSON payloads, rejecting negative macros or unrealistic durations.
 - **FitBot Reliability & Cancellation (`test/fitbotReliability.test.js`):** Idempotent persistence, request deduplication, and client abort handling.
@@ -357,7 +357,7 @@ AI-FitnessTracker1/
 │
 ├── server/                              # Express + MongoDB API
 │   ├── server.js                        # Server entry point
-│   ├── test/                            # Unit tests (node --test - 119 suites / 459 tests)
+│   ├── test/                            # Unit tests (node --test - 138 suites / 552 tests)
 │   │   ├── aiAssistant.test.js          # AI payload caps & truncation tests
 │   │   ├── aiPlans.test.js              # Zod schema validation for structured plans
 │   │   ├── auth.test.js                 # Auth & JWT unit tests

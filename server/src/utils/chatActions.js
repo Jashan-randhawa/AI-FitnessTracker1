@@ -32,9 +32,6 @@ const extractProposedActions = (rawReply) => {
       const parsed = JSON.parse(rawJson);
       const items = Array.isArray(parsed) ? parsed : [parsed];
       for (const item of items) {
-        if (item && typeof item === 'object' && !item.idempotencyKey) {
-          item.idempotencyKey = `act_${crypto.randomUUID()}`;
-        }
         const validated = ChatActionSchema.safeParse(item);
         if (validated.success) {
           validActions.push(validated.data);

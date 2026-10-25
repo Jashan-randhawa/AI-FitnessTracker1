@@ -21,14 +21,13 @@ describe('G2 Chat Action Idempotency Tests', () => {
     assert.equal(valid.data.idempotencyKey, 'act_12345-abcde');
   });
 
-  it('extractProposedActions populates idempotencyKey when model omits it', () => {
-    const rawReply = `Sure thing!\n<proposed_actions>[{"type":"log_water","amountMl":500}]</proposed_actions>`;
+  it('extractProposedActions parses idempotencyKey when included in action payload', () => {
+    const rawReply = `Sure thing!\n<proposed_actions>[{"type":"log_water","amountMl":500,"idempotencyKey":"act_test_99"}]</proposed_actions>`;
     const { cleanedReply, proposedActions } = extractProposedActions(rawReply);
     assert.equal(cleanedReply.trim(), 'Sure thing!');
     assert.equal(proposedActions.length, 1);
     assert.equal(proposedActions[0].amountMl, 500);
-    assert.ok(typeof proposedActions[0].idempotencyKey === 'string');
-    assert.ok(proposedActions[0].idempotencyKey.startsWith('act_'));
+    assert.equal(proposedActions[0].idempotencyKey, 'act_test_99');
   });
 
   it('waterlog create deduplicates repeated calls with the same Idempotency-Key', async () => {
