@@ -217,9 +217,9 @@ describe('context fixtures: stored text stays data', () => {
 
 // ── 2. Prompt contract ────────────────────────────────────────────────
 
-describe('prompt contract v1.5.0', () => {
+describe('prompt contract v1.6.0', () => {
   it('reports the version that matches the changelog', () => {
-    assert.equal(PROMPT_VERSION, '1.5.0');
+    assert.equal(PROMPT_VERSION, '1.6.0');
     // The changelog lives in the file header, not in the prompt string.
     const source = require('fs').readFileSync(require.resolve('../src/prompts/fitbot.prompt'), 'utf8');
     assert.match(source, /v1\.5\.0 \(2026-10-25\)/);

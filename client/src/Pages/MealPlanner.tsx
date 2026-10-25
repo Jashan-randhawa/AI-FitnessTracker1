@@ -164,11 +164,9 @@ export default function MealPlanner() {
           : "";
 
       const prompt = `Generate a comprehensive ${days === 1 ? "single-day" : `${days}-day`} structured meal plan tailored for:
-- User Goal: ${user?.goal || "maintain"} weight
-- Target Calories: ${targetCalories} kcal/day
+- Requested daily target: ${targetCalories} kcal. The server caps this at the user's goal and plans Day 1 only for calories left today.
 - Dietary Focus: ${dietStyle}
-- Preferred Cuisine: ${cuisine}
-- Body Weight: ${user?.weight || 70}kg${restrictionsText}
+- Preferred Cuisine: ${cuisine}${restrictionsText}
 
 Return ONLY a valid JSON array of ${days} day object${days > 1 ? "s" : ""} (no markdown, no extra commentary):
 [
@@ -186,12 +184,12 @@ Return ONLY a valid JSON array of ${days} day object${days > 1 ? "s" : ""} (no m
 
 Requirements:
 - Each day must include 4 distinct meals: breakfast, lunch, dinner, snack.
-- Total daily calories must be close to ${targetCalories} kcal (±10%).
+- Keep each day's calories within the calorie budget in the planning context. Day 1 covers only what is left today.
 - Ensure realistic, high-quality macro balances (protein, carbs, fat).
 ${days > 1 ? "- Never duplicate identical dishes across consecutive days." : "- Ensure vibrant variety across all 4 meals."}
 - Respect the ${dietStyle} lifestyle and ${cuisine} cuisine preferences.`;
 
-      const parsedPlan = await generateStructuredMealPlan(prompt);
+      const parsedPlan = await generateStructuredMealPlan(prompt, { targetCalories });
       setPlan(parsedPlan);
       setActiveDay(0);
       toast.success(
@@ -596,7 +594,7 @@ ${days > 1 ? "- Never duplicate identical dishes across consecutive days." : "- 
                   </span>
                 </div>
                 <p className="text-xs text-emerald-700 dark:text-emerald-300/90 mt-1">
-                  Each day includes 4 tailored meals meeting your ~{targetCalories} kcal goal.
+                  Each day includes 4 tailored meals within your calorie budget. Day 1 covers what is left today.
                 </p>
               </div>
 

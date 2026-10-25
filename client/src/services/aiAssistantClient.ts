@@ -33,6 +33,8 @@ export interface AiChatOptions {
   regenerate?: boolean;
   model?: string;
   maxTokens?: number;
+  /** Requested daily calorie target for meal plans. The server caps it at the user's goal. */
+  targetCalories?: number;
 }
 
 export interface AiChatRequest {
@@ -129,7 +131,7 @@ export async function chatAiAssistant(req: AiChatRequest): Promise<AiChatRespons
  */
 export async function generateStructuredMealPlan(
   prompt: string,
-  options: { signal?: AbortSignal; skipCache?: boolean } = {}
+  options: { signal?: AbortSignal; skipCache?: boolean; targetCalories?: number } = {}
 ): Promise<DayPlan[]> {
   const res = await chatAiAssistant({
     messages: [{ role: "user", parts: [{ text: prompt }] }],
@@ -137,6 +139,7 @@ export async function generateStructuredMealPlan(
       expectJson: true,
       planType: "mealPlan",
       skipCache: options.skipCache,
+      targetCalories: options.targetCalories,
     },
     signal: options.signal,
   });

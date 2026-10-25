@@ -6,6 +6,7 @@ const {
   safeParseActivityPlan,
   extractRawJson,
 } = require('../schemas/aiPlans.schema');
+const { checkPlannerLimits } = require('../utils/plannerLimits');
 const logger = require('../utils/logger');
 
 // In-memory configurable TTL and capacity bounded LRU cache (FitBot Phase 4)
@@ -110,6 +111,24 @@ const validateStructuredOutput = (content, planType) => {
     return { success: false, error: 'Output could not be parsed as valid JSON.' };
   }
   return { success: true, data: parsed };
+};
+
+/**
+ * Schema validation plus, for planner requests, the deterministic limits from
+ * plannerContext (calorie budgets, streak rule). Without limits this is the same check
+ * as validateStructuredOutput. `kind` says which check failed, so the repair prompt can
+ * name the right problem.
+ */
+const validatePlannerOutput = (content, planType, limits) => {
+  const schema = validateStructuredOutput(content, planType);
+  if (!schema.success) return { success: false, kind: 'schema', error: schema.error };
+  if (!limits) return { success: true, data: schema.data };
+  if (!Array.isArray(schema.data)) {
+    return { success: false, kind: 'schema', error: 'Plan must be a list of days.' };
+  }
+  const constraint = checkPlannerLimits(schema.data, limits);
+  if (!constraint.success) return { success: false, kind: 'constraint', error: constraint.error };
+  return { success: true, data: schema.data };
 };
 
 /**
@@ -228,15 +247,20 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
     fetchFn: options.fetchFn,
   });
 
+  const plannerLimits = options.plannerLimits;
+
   // Structured JSON & Zod schema validation guard with 1 repair retry if invalid
   if (isJsonRequest) {
-    const initialValidation = validateStructuredOutput(result.content, effectivePlanType);
+    const initialValidation = validatePlannerOutput(result.content, effectivePlanType, plannerLimits);
     if (!initialValidation.success) {
-      logger.warn(`[AI Assistant] Model returned invalid structured output (${effectivePlanType || 'json'}): ${initialValidation.error}; attempting repair retry...`);
+      logger.warn(`[AI Assistant] Model returned invalid structured output (${effectivePlanType || 'json'}, ${initialValidation.kind}): ${initialValidation.error}; attempting repair retry...`);
 
-      const repairFeedback = effectivePlanType
+      let repairFeedback = effectivePlanType
         ? `Your previous response did not match the required ${effectivePlanType} JSON schema: ${initialValidation.error}. Return ONLY valid, well-formed JSON matching the requested structure without markdown formatting or commentary.`
         : 'Your previous response could not be parsed as valid JSON. Return ONLY valid, well-formed JSON matching the requested structure. Do not include markdown formatting or explanation.';
+      if (initialValidation.kind === 'constraint') {
+        repairFeedback = `Your previous response broke a planning limit: ${initialValidation.error} Return ONLY valid, well-formed JSON for the full plan that keeps every day within the calorie budget and the other limits given in the server context, without markdown formatting or commentary.`;
+      }
 
       const repairMessages = [
         ...openRouterMessages,
@@ -258,7 +282,7 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
           fetchFn: options.fetchFn,
         });
 
-        const repairedValidation = validateStructuredOutput(repairedResult.content, effectivePlanType);
+        const repairedValidation = validatePlannerOutput(repairedResult.content, effectivePlanType, plannerLimits);
         if (repairedValidation.success) {
           logger.info('[AI Assistant] Structured plan repair succeeded against schema.');
           result = repairedResult;
@@ -271,6 +295,18 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
       } catch (repairErr) {
         logger.warn(`[AI Assistant] JSON repair attempt failed: ${repairErr.message}`);
       }
+    }
+  }
+
+  // Planner output with limits must pass in full before it is returned or cached.
+  // A plan over budget or breaking the streak rule is refused, not passed on.
+  if (isJsonRequest && plannerLimits) {
+    const finalCheck = validatePlannerOutput(result.content, effectivePlanType, plannerLimits);
+    if (!finalCheck.success) {
+      logger.warn(`[AI Assistant] Planner output refused after repair (${finalCheck.kind}): ${finalCheck.error}`);
+      const refused = new Error('The plan could not be generated within your limits. Please try again.');
+      refused.status = 422;
+      throw refused;
     }
   }
 
@@ -305,6 +341,7 @@ module.exports = {
   chatWithAssistant,
   extractCleanJson,
   validateStructuredOutput,
+  validatePlannerOutput,
   safeParseMealPlan,
   safeParseActivityPlan,
   computeCacheKey,

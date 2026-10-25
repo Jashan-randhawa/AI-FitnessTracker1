@@ -210,12 +210,10 @@ export default function ActivityPlanner() {
 
     try {
       const prompt = `Create a comprehensive, structured ${days === 1 ? "single-day" : `${days}-day`} workout and activity plan tailored for:
-- User Goal: ${user?.goal || "maintain"} weight
-- Target Calorie Burn: ${calorieBurnTarget} kcal/day
+- Requested calorie burn: ${calorieBurnTarget} kcal/day
 - Fitness Level: ${level}
 - Primary Focus: ${focus}
 - Equipment Access: ${equipment}
-- Body Weight: ${user?.weight || 70}kg
 
 Return ONLY a valid JSON array of ${days} day object${days > 1 ? "s" : ""} (no markdown, no extra commentary):
 [
@@ -223,13 +221,13 @@ Return ONLY a valid JSON array of ${days} day object${days > 1 ? "s" : ""} (no m
     "day": "Day 1",
     "activities": [
       {
-        "name": "Brisk Walk & Mobility Warm-Up",
-        "type": "walking",
+        "name": "Dynamic Mobility Warm-Up",
+        "type": "mobility",
         "duration": 20,
         "caloriesBurned": 90,
         "intensity": "low",
-        "targetMuscles": ["legs", "core"],
-        "notes": "Light conversational pace to prime the cardiovascular system",
+        "targetMuscles": ["hips", "core"],
+        "notes": "Controlled range-of-motion flow to prime hips, shoulders, and spine",
         "warmup": "3 min ankle circles & arm swings",
         "cooldown": "2 min hamstring stretch"
       },
@@ -255,7 +253,8 @@ Requirements:
 - Each day must include 2 to 4 structured activities.
 - Realistic duration (15 to 75 min total) and calorie burn estimates.
 ${days > 1 ? `- Progressive variation across days matching ${focus} and ${level}.` : `- Balanced single-day workout flow matching ${focus} and ${level}.`}
-- Strictly adhere to equipment constraints: ${equipment}.
+- Strictly adhere to equipment constraints: ${equipment}. Plan outdoor sessions only if the planning context shows suitable conditions; otherwise use indoor options.
+- Follow the active workout plan's split from the planning context unless the primary focus says otherwise.
 - Total daily calories burned should approximate ~${calorieBurnTarget} kcal.`;
 
       const parsedPlan = await generateStructuredActivityPlan(prompt);

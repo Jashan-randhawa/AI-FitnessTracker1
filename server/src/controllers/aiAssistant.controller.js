@@ -2,11 +2,16 @@ const asyncHandler = require('express-async-handler');
 const { chatWithAssistant } = require('../services/aiAssistant.service');
 const { buildEnvironmentContext } = require('../services/environment.service');
 const { buildFitnessPromptContext } = require('../services/fitnessContext.service');
+const { buildPlannerContext, PLANNER_KINDS } = require('../services/plannerContext.service');
 
-// Test seam: lets tests replace the context loader without a database. Production never changes it.
+// Test seams: let tests replace the context loaders without a database. Production never changes them.
 let fitnessPromptBuilder = buildFitnessPromptContext;
 const setFitnessPromptBuilderForTests = (fn) => {
   fitnessPromptBuilder = fn || buildFitnessPromptContext;
+};
+let plannerContextBuilder = buildPlannerContext;
+const setPlannerContextBuilderForTests = (fn) => {
+  plannerContextBuilder = fn || buildPlannerContext;
 };
 const logger = require('../utils/logger');
 
@@ -184,10 +189,32 @@ const chat = asyncHandler(async (req, res) => {
   activeRequestsPerUser.set(userKey, userInFlight + 1);
 
   try {
-    // Conversational requests get server-built fitness context. Planner requests
-    // (expectJson) stay as they were, so their JSON contract is unchanged.
-    if (!chatOptions.expectJson) {
-      const tzHeader = typeof req.get === 'function' ? req.get('X-Timezone') : undefined;
+    const tzHeader = typeof req.get === 'function' ? req.get('X-Timezone') : undefined;
+    const isPlannerRequest = Boolean(chatOptions.expectJson) && Object.prototype.hasOwnProperty.call(PLANNER_KINDS, chatOptions.planType);
+
+    if (isPlannerRequest) {
+      // Planners get server-built planning context: remaining calories, today's food names,
+      // the active plan, and the streak rule. It is required. If it cannot be loaded, the
+      // request is refused rather than planned without the user's data.
+      const planner = await plannerContextBuilder({
+        user: req.user,
+        timeZone: tzHeader,
+        planType: chatOptions.planType,
+        requestedCalories: options?.targetCalories,
+      });
+      if (!planner.ok) {
+        if (typeof req.removeListener === 'function') {
+          req.removeListener('close', onClientClose);
+        }
+        return res.status(503).json({
+          error: 'Your fitness data could not be loaded, so the plan was not generated. Please try again.',
+        });
+      }
+      chatOptions.fitnessContext = planner.text;
+      chatOptions.plannerLimits = planner.limits;
+    } else if (!chatOptions.expectJson) {
+      // Conversational requests get the coaching context. Other JSON requests keep their
+      // existing shape and get no fitness context.
       chatOptions.fitnessContext = await fitnessPromptBuilder({ user: req.user, timeZone: tzHeader });
     }
     chatOptions.cacheScope = userId ? `user:${String(userId)}` : `anon:${userKey}`;
@@ -272,6 +299,7 @@ const chat = asyncHandler(async (req, res) => {
 module.exports = {
   chat,
   setFitnessPromptBuilderForTests,
+  setPlannerContextBuilderForTests,
   prepareMessages,
   getActiveConcurrencyStats,
   resetConcurrencyStats,
