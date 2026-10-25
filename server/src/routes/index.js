@@ -30,6 +30,7 @@ router.use('/weightlogs', require('./weightlog.routes'));
 router.use('/chathistories', require('./chathistory.routes'));
 router.use('/blogs', require('./blog.routes'));
 router.use('/workout-plans', require('./workoutPlan.routes'));
+router.use('/workouts', require('./workout.routes'));
 router.use('/summary', require('./summary.routes'));
 router.use('/events', require('./events.routes'));
 

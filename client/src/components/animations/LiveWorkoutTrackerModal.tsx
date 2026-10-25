@@ -7,6 +7,10 @@ import RestCountdownTimer from "./RestCountdownTimer";
 import api from "../../configs/api";
 import { useappcontext } from "../../Context/AppContext";
 import type { ActivityEntry } from "../../assets/types";
+import {
+  fetchWorkoutRecommendations,
+  type ExerciseRecommendation,
+} from "../../services/workoutRecommendationClient";
 
 const DRAFT_STORAGE_KEY = "fittrack_live_workout_draft";
 
@@ -38,6 +42,49 @@ export const LiveWorkoutTrackerModal = ({
   const [restTimerKey, setRestTimerKey] = useState(0);
   const [startedAt, setStartedAt] = useState<number>(Date.now());
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rec, setRec] = useState<ExerciseRecommendation | null>(null);
+
+  // Fetch Progressive Overload & Recovery recommendation when exercise changes
+  useEffect(() => {
+    if (!exercise || exercise.trim().length < 3) {
+      setRec(null);
+      return;
+    }
+    let active = true;
+    const timer = setTimeout(() => {
+      fetchWorkoutRecommendations(exercise.trim())
+        .then((res) => {
+          if (!active) return;
+          if (res?.recommendations?.[0]) {
+            setRec(res.recommendations[0]);
+          } else {
+            setRec(null);
+          }
+        })
+        .catch(() => {
+          if (active) setRec(null);
+        });
+    }, 400);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [exercise]);
+
+  const handleApplyRecommendation = () => {
+    if (!rec?.recommendation) return;
+    const targetW = rec.recommendation.targetWeight;
+    const targetR = rec.recommendation.targetReps;
+    setSets((prev) =>
+      prev.map((s) => ({
+        ...s,
+        weight: targetW,
+        reps: targetR,
+      }))
+    );
+    toast.success(`Applied target: ${targetW}kg x ${targetR} reps`);
+  };
 
   // Restore draft from localStorage on mount
   useEffect(() => {
@@ -234,6 +281,41 @@ export const LiveWorkoutTrackerModal = ({
               className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-gray-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-colors"
               placeholder="e.g. Barbell Squats"
             />
+
+            {/* Dynamic Target Chip (Phase 3: Progressive Overload & Recovery Engine) */}
+            {rec && (
+              <div
+                className={`mt-2.5 p-3 rounded-2xl border transition-all ${
+                  rec.recommendation.status === 'overload'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-100'
+                    : rec.recommendation.status === 'deload'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-100'
+                    : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-950 dark:text-cyan-100'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">
+                      {rec.recommendation.status === 'deload' ? '⚠️' : '⚡'}
+                    </span>
+                    <span className="text-xs font-bold tracking-tight">
+                      {rec.recommendation.chip}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleApplyRecommendation}
+                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm cursor-pointer"
+                  >
+                    Apply Target
+                  </button>
+                </div>
+                <p className="text-[11px] opacity-80 mt-1 leading-relaxed">
+                  {rec.recommendation.reason}
+                  {rec.estimated1RM > 0 && ` · Est 1RM: ${rec.estimated1RM}kg`}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Sets Progress Status */}

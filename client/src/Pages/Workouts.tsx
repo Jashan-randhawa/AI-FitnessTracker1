@@ -15,6 +15,10 @@ import {
   FEATURED_IMAGES,
 } from "../features/workouts/data/playlists";
 import type { Category, Playlist, PunjabiPlaylist, WorkoutPlan } from "../features/workouts/types";
+import {
+  fetchWorkoutRecommendations,
+  type ExerciseRecommendation,
+} from "../services/workoutRecommendationClient";
 
 // ── Lightweight Background ─────────────────────────────────
 const AmbientBackground = () => (
@@ -389,6 +393,28 @@ export default function Workouts() {
     };
   }, []);
 
+  // Progressive Overload & Recovery Engine recommendations
+  const [recommendations, setRecommendations] = useState<Record<string, ExerciseRecommendation>>({});
+
+  useEffect(() => {
+    let isSubscribed = true;
+    fetchWorkoutRecommendations()
+      .then((res) => {
+        if (!isSubscribed) return;
+        if (res?.recommendations) {
+          const map: Record<string, ExerciseRecommendation> = {};
+          for (const r of res.recommendations) {
+            map[r.exercise.toLowerCase()] = r;
+          }
+          setRecommendations(map);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isSubscribed = false;
+    };
+  }, [activePlan]);
+
   const filteredPlaylists = PLAYLISTS.filter((p) => {
     const matchCat = activeCategory === "all" || p.category === activeCategory;
     const matchLevel = activeLevel === "all levels" || p.level === activeLevel || p.level === "all levels";
@@ -663,30 +689,57 @@ export default function Workouts() {
                     const exName = typeof ex === "string" ? ex : ex.name;
                     const exSets = typeof ex === "object" && ex.sets ? `${ex.sets} sets` : "";
                     const exReps = typeof ex === "object" && ex.reps ? `· ${ex.reps} reps` : "";
+                    const rec = recommendations[exName.toLowerCase()];
                     return (
                       <div
                         key={idx}
-                        className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shadow-sm"
+                        className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-2.5 shadow-sm"
                       >
-                        <div>
-                          <p className="text-sm font-bold text-gray-900 dark:text-white">{exName}</p>
-                          {(exSets || exReps) && (
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                              {exSets} {exReps}
-                            </p>
-                          )}
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">{exName}</p>
+                            {(exSets || exReps) && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                {exSets} {exReps}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTrackerExercise(exName);
+                              setShowLiveTracker(true);
+                            }}
+                            className="min-w-[44px] min-h-[44px] px-2.5 py-1 rounded-xl text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                            title="Track sets"
+                          >
+                            Log Sets
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTrackerExercise(exName);
-                            setShowLiveTracker(true);
-                          }}
-                          className="min-w-[44px] min-h-[44px] px-2.5 py-1 rounded-xl text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer flex items-center justify-center shrink-0"
-                          title="Track sets"
-                        >
-                          Log Sets
-                        </button>
+
+                        {/* Progressive Overload & Recovery Target Chip */}
+                        {rec && (
+                          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg ${
+                                rec.recommendation.status === 'overload'
+                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                  : rec.recommendation.status === 'deload'
+                                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                                  : 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30'
+                              }`}
+                              title={rec.recommendation.reason}
+                            >
+                              <span>{rec.recommendation.status === 'deload' ? '⚠️' : '⚡'}</span>
+                              <span>{rec.recommendation.chip}</span>
+                            </span>
+                            {rec.estimated1RM > 0 && (
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                1RM: {rec.estimated1RM}kg
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
