@@ -11,6 +11,8 @@ import {
   fetchWorkoutRecommendations,
   type ExerciseRecommendation,
 } from "../../services/workoutRecommendationClient";
+import { VoiceSetLogger, type ParsedVoiceSet } from "./VoiceSetLogger";
+import { enqueueOfflineMutation, initOfflineSync } from "../../utils/offlineSyncQueue";
 
 const DRAFT_STORAGE_KEY = "fittrack_live_workout_draft";
 
@@ -115,6 +117,53 @@ export const LiveWorkoutTrackerModal = ({
     }
   }, [exercise, sets, startedAt]);
 
+  // Phase 4: Offline synchronization queue listener
+  useEffect(() => {
+    const unsubscribe = initOfflineSync((_mut, result) => {
+      if (result) {
+        setAllActivityLogs?.((prev: ActivityEntry[]) => [result, ...(prev || [])]);
+      }
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Phase 4: Hands-free voice set resolution
+  const handleVoiceSetParsed = (parsed: ParsedVoiceSet) => {
+    if (parsed.exerciseName) {
+      setExercise(parsed.exerciseName);
+    }
+
+    setSets((prev) => {
+      const incompleteIdx = prev.findIndex((s) => !s.completed);
+      if (incompleteIdx !== -1) {
+        const nextSets = [...prev];
+        nextSets[incompleteIdx] = {
+          ...nextSets[incompleteIdx],
+          weight: parsed.weightKg,
+          reps: parsed.reps,
+          completed: true,
+        };
+        return nextSets;
+      } else {
+        const newSet: SetData = {
+          id: `set-${Date.now()}`,
+          setNumber: prev.length + 1,
+          weight: parsed.weightKg,
+          reps: parsed.reps,
+          completed: true,
+        };
+        return [...prev, newSet];
+      }
+    });
+
+    if (parsed.startRestTimer) {
+      setShowRestTimer(true);
+      setRestTimerKey((k) => k + 1);
+    }
+  };
+
   const completedCount = sets.filter((s) => s.completed).length;
   const isAllComplete = sets.length > 0 && completedCount === sets.length;
 
@@ -212,6 +261,56 @@ export const LiveWorkoutTrackerModal = ({
       toast.success("Workout session logged successfully!");
       onClose();
     } catch (err: unknown) {
+      // Phase 4: Offline Resilience - queue locally if offline or network drops in the gym
+      const isOffline =
+        typeof navigator !== "undefined" &&
+        (!navigator.onLine ||
+          (err as any)?.code === "ERR_NETWORK" ||
+          (err as any)?.message?.toLowerCase().includes("network"));
+
+      if (isOffline) {
+        const payloadData = {
+          name: exercise.trim() || "Strength Workout",
+          duration: Math.max(1, Math.round((Date.now() - startedAt) / 60000)),
+          caloriesBurned: Math.max(15, Math.round(Math.max(1, Math.round((Date.now() - startedAt) / 60000)) * 6.5)),
+          type: "strength",
+          intensity: "medium",
+          source: "live-session",
+          date: new Date().toISOString(),
+          exercises: [
+            {
+              name: exercise.trim() || "Strength Workout",
+              sets: sets.map((s) => ({
+                setNumber: s.setNumber,
+                weight: s.weight,
+                reps: s.reps,
+                completed: s.completed,
+              })),
+            },
+          ],
+        };
+
+        await enqueueOfflineMutation({
+          endpoint: "/api/activitylogs",
+          method: "POST",
+          data: { data: payloadData },
+          description: `${payloadData.name} (${payloadData.duration}m)`,
+        });
+
+        // Optimistic UI update
+        const optimisticEntry: any = {
+          _id: `offline-${Date.now()}`,
+          ...payloadData,
+          createdAt: new Date().toISOString(),
+        };
+        setAllActivityLogs?.((prev: ActivityEntry[]) => [optimisticEntry, ...(prev || [])]);
+
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+        toast.success("Saved offline. Will sync automatically when back online 📶");
+        onClose();
+        return;
+      }
+
       const msg = err instanceof Error ? err.message : "Failed to save workout session";
       toast.error(msg);
     } finally {
@@ -255,16 +354,19 @@ export const LiveWorkoutTrackerModal = ({
               </h3>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Draft auto-saved · Real-time rest intervals
+              Hands-free voice logging · Auto rest intervals
             </p>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2.5">
+            <VoiceSetLogger onSetParsed={handleVoiceSetParsed} />
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Body */}

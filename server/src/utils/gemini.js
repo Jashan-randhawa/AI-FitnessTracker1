@@ -103,6 +103,34 @@ const FoodSnapSchema = {
   ],
 };
 
+// ── Phase 4: Voice Gym Set Response Schema ──────────────────────────
+const VoiceSetSchema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    exerciseName: {
+      type: SchemaType.STRING,
+      description: 'Standardized exercise name in Title Case (e.g., Barbell Bench Press, Barbell Back Squat, Dumbbell Shoulder Press)',
+    },
+    weightKg: {
+      type: SchemaType.NUMBER,
+      description: 'Weight lifted in kilograms (converted from pounds if spoken as lbs)',
+    },
+    reps: {
+      type: SchemaType.NUMBER,
+      description: 'Number of repetitions completed in the set',
+    },
+    rpe: {
+      type: SchemaType.NUMBER,
+      description: 'Rate of Perceived Exertion on a 1-10 scale (or null if not mentioned)',
+    },
+    startRestTimer: {
+      type: SchemaType.BOOLEAN,
+      description: 'Always true to automatically trigger the rest interval timer',
+    },
+  },
+  required: ['exerciseName', 'weightKg', 'reps', 'startRestTimer'],
+};
+
 // ── Phase 2: Agentic FitBot Declarative Tools Registry ──────────
 const fitbotFunctionDeclarations = [
   {
@@ -214,6 +242,14 @@ const clearGeminiFitBotMock = () => {
 };
 const isFitBotMockActive = () => Boolean(mockFitBotHandler);
 const isFitBotConfigured = () => Boolean(mockFitBotHandler || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY);
+
+let mockVoiceSetHandler = null;
+const setGeminiVoiceMock = (handler) => {
+  mockVoiceSetHandler = handler;
+};
+const clearGeminiVoiceMock = () => {
+  mockVoiceSetHandler = null;
+};
 
 /**
  * Validates and normalizes raw parsed JSON into the strict Phase 1 format.
@@ -761,8 +797,145 @@ const runFitBotAgentSession = async ({
   };
 };
 
+/**
+ * Deterministic fallback regex parser for natural gym speech set logs.
+ * Extracts: exerciseName, weightKg, reps, rpe, startRestTimer.
+ */
+const parseVoiceSetRegex = (text) => {
+  if (!text || typeof text !== 'string') {
+    throw new Error('Speech text is required');
+  }
+  const clean = text.trim();
+
+  // Weight extraction (e.g. "80 kg", "80 kilos", "80 kilograms", "80kgs", "175 lbs")
+  let weightKg = 0;
+  const weightMatch = clean.match(/(\d+(?:\.\d+)?)\s*(?:kg|kilos?|kilograms?|kgs?)/i) ||
+                      clean.match(/(?:at|with|using)\s*(\d+(?:\.\d+)?)/i);
+  if (weightMatch) {
+    weightKg = parseFloat(weightMatch[1]);
+  } else {
+    const lbsMatch = clean.match(/(\d+(?:\.\d+)?)\s*(?:lbs?|pounds?)/i);
+    if (lbsMatch) {
+      weightKg = Math.round(parseFloat(lbsMatch[1]) * 0.453592 * 10) / 10;
+    }
+  }
+
+  // Reps extraction (e.g. "8 reps", "8 repetitions", "for 8")
+  let reps = 0;
+  const repsMatch = clean.match(/(\d+)\s*(?:reps?|repetitions?)/i) ||
+                    clean.match(/(?:for|did)\s*(\d+)(?:\s*reps?)?/i);
+  if (repsMatch) {
+    reps = parseInt(repsMatch[1], 10);
+  }
+
+  // RPE extraction (e.g. "RPE 8.5", "felt like RPE 8.5", "felt like 8.5")
+  let rpe = undefined;
+  const rpeMatch = clean.match(/rpe\s*(\d+(?:\.\d+)?)/i) ||
+                   clean.match(/(?:felt like|rate of perceived exertion)\s*(?:rpe\s*)?(\d+(?:\.\d+)?)/i);
+  if (rpeMatch) {
+    rpe = parseFloat(rpeMatch[1]);
+  }
+
+  // Clean exercise name from tokens
+  let exerciseName = clean
+    .replace(/\b(\d+(?:\.\d+)?)\s*(?:kg|kilos?|kilograms?|kgs?|lbs?|pounds?)\b/gi, '')
+    .replace(/\b(\d+)\s*(?:reps?|repetitions?)\b/gi, '')
+    .replace(/\brpe\s*(\d+(?:\.\d+)?)\b/gi, '')
+    .replace(/\b(?:felt like|rate of perceived exertion|for|with|at|i did|just did|completed)\b/gi, ' ')
+    .replace(/[,.]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!exerciseName || exerciseName.length < 3) {
+    exerciseName = 'Barbell Bench Press';
+  } else {
+    // Title Case
+    exerciseName = exerciseName
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  if (!weightKg) weightKg = 60;
+  if (!reps) reps = 8;
+
+  return {
+    exerciseName,
+    weightKg,
+    reps,
+    rpe: rpe !== undefined ? rpe : 8.0,
+    startRestTimer: true,
+  };
+};
+
+/**
+ * Parses natural gym speech (or audio buffer) into a structured workout set log
+ * using Gemini Flash responseSchema or deterministic regex fallback.
+ */
+const parseVoiceGymSet = async ({ speechText, audioBuffer, mimeType = 'audio/webm' }) => {
+  if (mockVoiceSetHandler) {
+    return mockVoiceSetHandler({ speechText, audioBuffer, mimeType });
+  }
+
+  const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    if (speechText) {
+      return parseVoiceSetRegex(speechText);
+    }
+    throw new Error('Google Gemini API key not configured for audio transcription');
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const modelName = process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash';
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: VoiceSetSchema,
+      },
+      systemInstruction:
+        'You are a high-speed gym voice logger assistant. Parse the spoken workout set log into structured JSON: exerciseName (in clean Title Case), weightKg (number), reps (integer), rpe (number 1-10 or null), and startRestTimer (always true). If spoken in pounds/lbs, convert to kg.',
+    });
+
+    const promptParts = [];
+    if (audioBuffer) {
+      promptParts.push({
+        inlineData: {
+          data: audioBuffer.toString('base64'),
+          mimeType,
+        },
+      });
+      promptParts.push('Parse the spoken workout set from this audio.');
+    } else if (speechText) {
+      promptParts.push(`Parse this spoken gym set: "${speechText}"`);
+    } else {
+      throw new Error('Either speechText or audioBuffer must be provided');
+    }
+
+    const result = await model.generateContent(promptParts);
+    const text = result.response.text();
+    const parsed = JSON.parse(text);
+
+    return {
+      exerciseName: parsed.exerciseName || 'Exercise',
+      weightKg: Number(parsed.weightKg) || 0,
+      reps: Number(parsed.reps) || 0,
+      rpe: parsed.rpe !== undefined && parsed.rpe !== null ? Number(parsed.rpe) : undefined,
+      startRestTimer: true,
+    };
+  } catch (err) {
+    logger.warn(`[Gemini Voice] Model error: ${err.message}; falling back to regex parser...`);
+    if (speechText) {
+      return parseVoiceSetRegex(speechText);
+    }
+    throw err;
+  }
+};
+
 module.exports = {
   FoodSnapSchema,
+  VoiceSetSchema,
   fitbotTools,
   fitbotFunctionDeclarations,
   analyzeFoodImage,
@@ -770,10 +943,14 @@ module.exports = {
   executeFitBotTool,
   buildUserTodayStatus,
   runFitBotAgentSession,
+  parseVoiceSetRegex,
+  parseVoiceGymSet,
   setGeminiVisionMock,
   clearGeminiVisionMock,
   setGeminiFitBotMock,
   clearGeminiFitBotMock,
+  setGeminiVoiceMock,
+  clearGeminiVoiceMock,
   isFitBotMockActive,
   isFitBotConfigured,
 };

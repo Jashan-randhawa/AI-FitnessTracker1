@@ -10,6 +10,7 @@ import CalendarHeatmap from "../components/CalendarHeatmap";
 import { StaggerContainer, StaggerItem } from "../components/animations/StaggerList";
 import AnimatedNumber from "../components/AnimatedNumber";
 import { deriveGoals } from "../utils/deriveGoals";
+import { enqueueOfflineMutation } from "../utils/offlineSyncQueue";
 
 type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
@@ -462,28 +463,45 @@ const AddFoodModal = ({
     e.preventDefault();
     if (!name.trim() || !calories)
       return toast.error("Please provide both name and calories");
+    const payloadData = {
+      name: name.trim(),
+      calories: Number(calories),
+      protein: Number(protein) || null,
+      carbs: Number(carbs) || null,
+      fat: Number(fat) || null,
+      mealtype: mealType,
+      date: new Date().toISOString(),
+    };
+
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
       const { data: raw } = await api.post(
         "/api/foodlogs",
-        {
-          data: {
-            name: name.trim(),
-            calories: Number(calories),
-            protein: Number(protein) || null,
-            carbs: Number(carbs) || null,
-            fat: Number(fat) || null,
-            mealtype: mealType,
-            date: new Date().toISOString(),
-          },
-        },
+        { data: payloadData },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       onAdd(normalizeFoodEntry(raw));
       setShowForm(false);
       toast.success("Entry added!");
     } catch (error: any) {
+      if (!navigator.onLine || error?.code === "ERR_NETWORK" || error?.message?.toLowerCase().includes("network")) {
+        await enqueueOfflineMutation({
+          endpoint: "/api/foodlogs",
+          method: "POST",
+          data: { data: payloadData },
+          description: `${payloadData.name} (${payloadData.calories} kcal)`,
+        });
+        const optimisticEntry = {
+          id: `offline-${Date.now()}`,
+          ...payloadData,
+          createdAt: new Date().toISOString(),
+        };
+        onAdd(normalizeFoodEntry(optimisticEntry));
+        setShowForm(false);
+        toast.success("Saved offline. Will sync automatically when back online 📶");
+        return;
+      }
       toast.error(error?.response?.data?.error?.message || "Failed to add food log");
     } finally {
       setLoading(false);
