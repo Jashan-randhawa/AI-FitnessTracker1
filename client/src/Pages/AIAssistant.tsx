@@ -512,12 +512,24 @@ export default function AIAssistant() {
 
     try {
       if (action.type === "log_water") {
-        const { data } = await api.post("/api/waterlogs", {
-          data: {
-            amount: action.amountMl,
-            date: new Date().toISOString(),
+        const actionIdempotencyKey =
+          action.idempotencyKey || `water_${msgId}_${actionIndex}_${Date.now()}`;
+
+        const { data } = await api.post(
+          "/api/waterlogs",
+          {
+            data: {
+              amount: action.amountMl,
+              date: new Date().toISOString(),
+              idempotencyKey: actionIdempotencyKey,
+            },
           },
-        });
+          {
+            headers: {
+              "Idempotency-Key": actionIdempotencyKey,
+            },
+          }
+        );
 
         const created = data;
         const loggedId = created?._id || created?.id;

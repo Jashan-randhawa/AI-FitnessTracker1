@@ -3,16 +3,49 @@ const { publishChange } = require('../services/eventBus');
 const WaterLog = require('../models/WaterLog');
 const sendError = require('../utils/sendError');
 
+const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
+const idempotencyMap = new Map();
+
+const cleanExpiredIdempotency = (now = Date.now()) => {
+  for (const [key, item] of idempotencyMap.entries()) {
+    if (now - item.timestamp > IDEMPOTENCY_TTL_MS) {
+      idempotencyMap.delete(key);
+    }
+  }
+};
+
 // POST /api/waterlogs — body: { data: { amount, date } }
 const create = asyncHandler(async (req, res) => {
-  const body = req.body.data || {};
+  const body = req.body.data || req.body || {};
+  const idempotencyKey =
+    req.headers['idempotency-key'] ||
+    req.headers['x-idempotency-key'] ||
+    body.idempotencyKey;
+
+  if (idempotencyKey && typeof idempotencyKey === 'string') {
+    cleanExpiredIdempotency();
+    const cacheKey = `${String(req.user._id)}:${idempotencyKey.trim()}`;
+    const cached = idempotencyMap.get(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached.response);
+    }
+  }
+
   const entry = await WaterLog.create({
     ...body,
     date: body.date || new Date(),
     user: req.user._id,
   });
+
+  const responseJson = entry.toJSON();
+
+  if (idempotencyKey && typeof idempotencyKey === 'string') {
+    const cacheKey = `${String(req.user._id)}:${idempotencyKey.trim()}`;
+    idempotencyMap.set(cacheKey, { timestamp: Date.now(), response: responseJson });
+  }
+
   publishChange(String(req.user._id), 'water', entry.date);
-  res.json(entry.toJSON());
+  res.json(responseJson);
 });
 
 // GET /api/waterlogs

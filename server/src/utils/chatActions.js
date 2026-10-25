@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { ChatActionSchema } = require('../schemas/chatAction.schema');
 const logger = require('./logger');
 
@@ -31,6 +32,9 @@ const extractProposedActions = (rawReply) => {
       const parsed = JSON.parse(rawJson);
       const items = Array.isArray(parsed) ? parsed : [parsed];
       for (const item of items) {
+        if (item && typeof item === 'object' && !item.idempotencyKey) {
+          item.idempotencyKey = `act_${crypto.randomUUID()}`;
+        }
         const validated = ChatActionSchema.safeParse(item);
         if (validated.success) {
           validActions.push(validated.data);
@@ -60,6 +64,7 @@ const extractProposedActions = (rawReply) => {
           type: typeMatch[1],
           amountMl: parseInt(amountMatch[1], 10),
           label: labelMatch ? labelMatch[1] : undefined,
+          idempotencyKey: `act_${crypto.randomUUID()}`,
         };
         const validated = ChatActionSchema.safeParse(candidate);
         if (validated.success) {
