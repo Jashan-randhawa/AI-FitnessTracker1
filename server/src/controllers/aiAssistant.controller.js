@@ -167,9 +167,9 @@ const chat = asyncHandler(async (req, res) => {
   // Weather and local time are added only when the request includes `environment`.
   // Requests without it keep their existing prompt. The time comes from the validated
   // X-Timezone header, never from client text.
+  const tzHeader = typeof req.get === 'function' ? req.get('X-Timezone') : undefined;
   let environmentContext;
   if (rawEnvironment !== undefined && rawEnvironment !== null) {
-    const tzHeader = typeof req.get === 'function' ? req.get('X-Timezone') : undefined;
     environmentContext = buildEnvironmentContext({ raw: rawEnvironment, timeZone: tzHeader }).text;
   }
 
@@ -183,6 +183,8 @@ const chat = asyncHandler(async (req, res) => {
     maxTokens: options?.maxTokens,
     fetchFn: options?.fetchFn,
     environmentContext,
+    user: req.user,
+    timeZone: tzHeader,
   };
 
   // Track concurrency in flight
@@ -249,6 +251,7 @@ const chat = asyncHandler(async (req, res) => {
     res.json({
       success: true,
       reply: cleanedReply,
+      executedActions: result.executedActions || [],
       proposedActions,
       usage: result.usage,
       model: result.model,

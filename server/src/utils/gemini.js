@@ -1,4 +1,9 @@
 const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
+const FoodLog = require('../models/FoodLog');
+const ActivityLog = require('../models/ActivityLog');
+const WorkoutPlan = require('../models/WorkoutPlan');
+const { publishChange } = require('../services/eventBus');
+const { dayKey } = require('./localDay');
 
 /**
  * Native Gemini responseSchema for deterministic JSON food analysis output.
@@ -98,16 +103,117 @@ const FoodSnapSchema = {
   ],
 };
 
-// Mock handler for testing without network/API keys
+// ── Phase 2: Agentic FitBot Declarative Tools Registry ──────────
+const fitbotFunctionDeclarations = [
+  {
+    name: 'logMealItem',
+    description: "Log a meal or food item with calories and macronutrients directly to the user's food log database.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        foodName: {
+          type: SchemaType.STRING,
+          description: 'Name of the food, ingredient, or meal item (e.g. "200g Greek yogurt")',
+        },
+        calories: {
+          type: SchemaType.NUMBER,
+          description: 'Estimated energy content in kcal',
+        },
+        protein: {
+          type: SchemaType.NUMBER,
+          description: 'Protein content in grams',
+        },
+        carbs: {
+          type: SchemaType.NUMBER,
+          description: 'Carbohydrate content in grams',
+        },
+        fats: {
+          type: SchemaType.NUMBER,
+          description: 'Fat content in grams',
+        },
+        mealType: {
+          type: SchemaType.STRING,
+          description: 'Category of meal: "breakfast", "lunch", "dinner", or "snack"',
+        },
+      },
+      required: ['foodName', 'calories'],
+    },
+  },
+  {
+    name: 'logWorkoutSession',
+    description: "Log a workout exercise set or session with sets, reps, weight in kg, and RPE to the user's activity log.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        exerciseName: {
+          type: SchemaType.STRING,
+          description: 'Name of the exercise performed (e.g. "Barbell Bench Press")',
+        },
+        sets: {
+          type: SchemaType.NUMBER,
+          description: 'Number of sets completed',
+        },
+        reps: {
+          type: SchemaType.NUMBER,
+          description: 'Number of repetitions per set',
+        },
+        weightKg: {
+          type: SchemaType.NUMBER,
+          description: 'Load or weight used in kilograms (0 for bodyweight)',
+        },
+        rpe: {
+          type: SchemaType.NUMBER,
+          description: 'Rate of Perceived Exertion on a 1-10 scale (optional)',
+        },
+      },
+      required: ['exerciseName', 'sets', 'reps'],
+    },
+  },
+  {
+    name: 'swapExerciseInPlan',
+    description: "Swap or replace an exercise in the user's active workout routine with a suitable alternative.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        targetExercise: {
+          type: SchemaType.STRING,
+          description: 'The current exercise in the routine to replace (e.g. "Barbell Back Squat")',
+        },
+        replacementExercise: {
+          type: SchemaType.STRING,
+          description: 'The new substitute exercise (e.g. "Leg Press")',
+        },
+        equipmentAvailable: {
+          type: SchemaType.STRING,
+          description: 'Available gym equipment or reason for the substitution (optional)',
+        },
+      },
+      required: ['targetExercise', 'replacementExercise'],
+    },
+  },
+];
+
+const fitbotTools = [{ functionDeclarations: fitbotFunctionDeclarations }];
+
+// Mock handlers for testing without live network
 let mockVisionHandler = null;
+let mockFitBotHandler = null;
 
 const setGeminiVisionMock = (handler) => {
   mockVisionHandler = handler;
 };
-
 const clearGeminiVisionMock = () => {
   mockVisionHandler = null;
 };
+
+const setGeminiFitBotMock = (handler) => {
+  mockFitBotHandler = handler;
+};
+const clearGeminiFitBotMock = () => {
+  mockFitBotHandler = null;
+};
+const isFitBotMockActive = () => Boolean(mockFitBotHandler);
+const isFitBotConfigured = () => Boolean(mockFitBotHandler || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY);
 
 /**
  * Validates and normalizes raw parsed JSON into the strict Phase 1 format.
@@ -227,8 +333,6 @@ const normalizeVisionOutput = (raw) => {
 
 /**
  * Analyzes a food image buffer using Gemini Vision with deterministic responseSchema.
- * @param {Buffer} buffer - In-memory image buffer
- * @param {string} mimeType - e.g. "image/jpeg", "image/png"
  */
 const analyzeFoodImage = async (buffer, mimeType = 'image/jpeg') => {
   if (mockVisionHandler) {
@@ -278,10 +382,398 @@ const analyzeFoodImage = async (buffer, mimeType = 'image/jpeg') => {
   return normalizeVisionOutput(parsed);
 };
 
+// ── Server-Side Tool Execution Engine ───────────────────────────
+/**
+ * Executes a tool called by Gemini against authenticated user records.
+ * @param {string} name - tool name
+ * @param {object} args - function arguments
+ * @param {object} user - authenticated mongoose user object
+ */
+const executeFitBotTool = async (name, args = {}, user) => {
+  if (!user || !user._id) {
+    return {
+      action: name,
+      status: 'error',
+      message: 'User authentication required to execute database mutations.',
+    };
+  }
+
+  const userId = user._id;
+
+  try {
+    if (name === 'logMealItem') {
+      const hour = new Date().getHours();
+      let defaultMealType = 'snack';
+      if (hour >= 0 && hour < 12) defaultMealType = 'breakfast';
+      else if (hour >= 12 && hour < 16) defaultMealType = 'lunch';
+      else if (hour >= 16 && hour < 21) defaultMealType = 'dinner';
+
+      const mealType = String(args.mealType || defaultMealType).toLowerCase().trim();
+      const calories = Number(args.calories) || 0;
+      const protein = Number(args.protein) || 0;
+      const carbs = Number(args.carbs) || 0;
+      const fat = Number(args.fats ?? args.fat) || 0;
+
+      const foodLog = await FoodLog.create({
+        name: String(args.foodName).trim(),
+        calories,
+        protein,
+        carbs,
+        fat,
+        mealtype: mealType,
+        mealType: mealType,
+        date: new Date(),
+        user: userId,
+        aiGenerated: true,
+      });
+
+      publishChange(String(userId), 'food', foodLog.date);
+
+      return {
+        action: 'logMealItem',
+        status: 'success',
+        foodName: foodLog.name,
+        calories: foodLog.calories,
+        protein,
+        carbs,
+        fat,
+        mealType: foodLog.mealType,
+        recordId: String(foodLog._id),
+        message: `Logged ${foodLog.name} (${foodLog.calories} kcal, ${protein}g P, ${carbs}g C, ${fat}g F) for ${foodLog.mealType}.`,
+      };
+    }
+
+    if (name === 'logWorkoutSession') {
+      const setsCount = Math.max(1, Math.round(Number(args.sets) || 1));
+      const repsCount = Math.max(1, Math.round(Number(args.reps) || 10));
+      const weightKg = Number(args.weightKg) || 0;
+      const rpe = Number(args.rpe) || null;
+
+      const setsArray = [];
+      for (let i = 1; i <= setsCount; i++) {
+        setsArray.push({
+          setNumber: i,
+          weight: weightKg,
+          reps: repsCount,
+          completed: true,
+          rpe: rpe || undefined,
+        });
+      }
+
+      const estimatedDuration = Math.round(setsCount * 3);
+      const estimatedCalories = Math.round(setsCount * repsCount * (weightKg > 0 ? 0.35 : 0.2) + 20);
+
+      const activityLog = await ActivityLog.create({
+        name: `Workout: ${args.exerciseName}`,
+        duration: estimatedDuration,
+        calories: estimatedCalories,
+        date: new Date(),
+        user: userId,
+        type: 'weight training',
+        intensity: rpe && rpe >= 8.5 ? 'high' : 'medium',
+        source: 'fitbot',
+        exercises: [
+          {
+            name: String(args.exerciseName).trim(),
+            sets: setsArray,
+          },
+        ],
+      });
+
+      publishChange(String(userId), 'activity', activityLog.date);
+
+      return {
+        action: 'logWorkoutSession',
+        status: 'success',
+        exerciseName: args.exerciseName,
+        sets: setsCount,
+        reps: repsCount,
+        weightKg,
+        rpe,
+        recordId: String(activityLog._id),
+        message: `Logged ${args.exerciseName} (${setsCount} sets × ${repsCount} reps @ ${weightKg}kg, RPE ${rpe ?? 'N/A'}).`,
+      };
+    }
+
+    if (name === 'swapExerciseInPlan') {
+      const plan = await WorkoutPlan.findOne({ user: userId, isActive: true });
+      let swapped = false;
+      let foundDay = null;
+
+      if (plan && Array.isArray(plan.days)) {
+        const targetLower = String(args.targetExercise).toLowerCase().trim();
+        for (const day of plan.days) {
+          if (Array.isArray(day.exercises)) {
+            for (let i = 0; i < day.exercises.length; i++) {
+              const ex = day.exercises[i];
+              const exName = typeof ex === 'string' ? ex : (ex?.name || '');
+              if (
+                exName.toLowerCase().includes(targetLower) ||
+                targetLower.includes(exName.toLowerCase())
+              ) {
+                if (typeof ex === 'string') {
+                  day.exercises[i] = args.replacementExercise;
+                } else {
+                  day.exercises[i] = {
+                    ...ex,
+                    name: args.replacementExercise,
+                  };
+                }
+                swapped = true;
+                foundDay = day.day;
+                break;
+              }
+            }
+          }
+          if (swapped) break;
+        }
+
+        if (swapped) {
+          plan.markModified('days');
+          await plan.save();
+          publishChange(String(userId), 'plan');
+        }
+      }
+
+      return {
+        action: 'swapExerciseInPlan',
+        status: swapped ? 'success' : 'not_found',
+        targetExercise: args.targetExercise,
+        replacementExercise: args.replacementExercise,
+        day: foundDay,
+        message: swapped
+          ? `Swapped "${args.targetExercise}" with "${args.replacementExercise}" on ${foundDay}.`
+          : `Exercise "${args.targetExercise}" not found in current active routine, but recommended "${args.replacementExercise}".`,
+      };
+    }
+
+    return {
+      action: name,
+      status: 'error',
+      message: `Unknown tool function "${name}".`,
+    };
+  } catch (err) {
+    return {
+      action: name,
+      status: 'error',
+      message: `Failed to execute ${name}: ${err.message}`,
+    };
+  }
+};
+
+/**
+ * Builds compact JSON snapshot of today's macro totals and active workout status
+ * to pin into systemInstruction (Phase 2 token optimization).
+ */
+const buildUserTodayStatus = async (user, timeZone = 'UTC') => {
+  if (!user || !user._id) return null;
+
+  try {
+    const today = new Date();
+    const todayStr = dayKey(today, timeZone);
+    const mongoose = require('mongoose');
+
+    if (mongoose.connection.readyState !== 1) {
+      return {
+        date: todayStr,
+        macroTotalsToday: {
+          consumed: 0,
+          calorieGoal: user.dailycaloriesintake || 2000,
+          protein: 0,
+          proteinGoal: user.dailyproteingoal || 150,
+          carbs: 0,
+          carbsGoal: user.dailycarbsgoal || 200,
+          fats: 0,
+          fatGoal: user.dailyfatgoal || 65,
+        },
+        activeWorkoutRoutine: {
+          planTitle: null,
+          days: [],
+          completedToday: false,
+        },
+      };
+    }
+
+    const startOfDay = new Date(`${todayStr}T00:00:00.000Z`);
+    const endOfDay = new Date(`${todayStr}T23:59:59.999Z`);
+
+    const [foodLogs, activePlan, todayActivity] = await Promise.all([
+      FoodLog.find({ user: user._id, date: { $gte: startOfDay, $lte: endOfDay } }).lean().catch(() => []),
+      WorkoutPlan.findOne({ user: user._id, isActive: true }).lean().catch(() => null),
+      ActivityLog.findOne({ user: user._id, date: { $gte: startOfDay, $lte: endOfDay } }).lean().catch(() => null),
+    ]);
+
+    const macros = (foodLogs || []).reduce(
+      (acc, f) => ({
+        calories: acc.calories + (f.calories || 0),
+        protein: acc.protein + (f.protein || 0),
+        carbs: acc.carbs + (f.carbs || 0),
+        fat: acc.fat + (f.fat || 0),
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+
+    return {
+      date: todayStr,
+      macroTotalsToday: {
+        consumed: Math.round(macros.calories),
+        calorieGoal: user.dailycaloriesintake || 2000,
+        protein: Math.round(macros.protein * 10) / 10,
+        proteinGoal: user.dailyproteingoal || 150,
+        carbs: Math.round(macros.carbs * 10) / 10,
+        carbsGoal: user.dailycarbsgoal || 200,
+        fats: Math.round(macros.fat * 10) / 10,
+        fatGoal: user.dailyfatgoal || 65,
+      },
+      activeWorkoutRoutine: {
+        planTitle: activePlan ? activePlan.title : null,
+        days: activePlan?.days ? activePlan.days.map((d) => d.day) : [],
+        completedToday: Boolean(todayActivity),
+      },
+    };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Runs an agentic Gemini FitBot chat session with function calling and bounded context window.
+ * - Caps history array sent to Gemini to last 8 turns (history.slice(-8)).
+ * - Pins compact JSON snapshot of today's macros and workout status into systemInstruction.
+ * - Implements server-side tool execution loop when functionCalls is non-empty.
+ */
+const runFitBotAgentSession = async ({
+  messages,
+  user,
+  systemPrompt,
+  timeZone = 'UTC',
+}) => {
+  // Bounded Context Window: cap conversation history array sent to Gemini to last 8 turns
+  const boundedMessages = Array.isArray(messages) ? messages.slice(-8) : [];
+  if (boundedMessages.length === 0) {
+    throw new Error('No messages provided to FitBot');
+  }
+
+  // Build compact JSON snapshot of today's macros and workout status
+  const todayStatus = await buildUserTodayStatus(user, timeZone);
+  const statusBlock = todayStatus
+    ? `\n\n[Active User Today Snapshot - Do Not Recalculate]\n${JSON.stringify(todayStatus)}`
+    : '';
+  const fullSystemInstruction = `${systemPrompt || 'You are FitBot, an encouraging and expert AI fitness and nutrition coach.'}${statusBlock}`;
+
+  if (mockFitBotHandler) {
+    const mockRes = await mockFitBotHandler({
+      messages: boundedMessages,
+      user,
+      systemInstruction: fullSystemInstruction,
+      todayStatus,
+    });
+    return mockRes;
+  }
+
+  const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Google Gemini API key not configured. Please set GOOGLE_API_KEY.');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const modelName = process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash';
+
+  const model = genAI.getGenerativeModel({
+    model: modelName,
+    systemInstruction: fullSystemInstruction,
+    tools: fitbotTools,
+  });
+
+  // Extract the latest user message
+  const lastMsg = boundedMessages[boundedMessages.length - 1];
+  const lastMsgText =
+    typeof lastMsg.content === 'string'
+      ? lastMsg.content
+      : (Array.isArray(lastMsg.parts)
+          ? lastMsg.parts.map((p) => p.text).join('')
+          : (lastMsg.text || ''));
+
+  // Prior turns form the chat history (up to 7 prior turns)
+  const priorTurns = boundedMessages.slice(0, boundedMessages.length - 1);
+  const geminiHistory = [];
+
+  for (const m of priorTurns) {
+    const role = m.role === 'model' || m.role === 'assistant' ? 'model' : 'user';
+    const text =
+      typeof m.content === 'string'
+        ? m.content
+        : (Array.isArray(m.parts)
+            ? m.parts.map((p) => p.text).join('')
+            : (m.text || ''));
+    geminiHistory.push({
+      role,
+      parts: [{ text }],
+    });
+  }
+
+  // Gemini history must start with user turn
+  while (geminiHistory.length > 0 && geminiHistory[0].role !== 'user') {
+    geminiHistory.shift();
+  }
+
+  const chat = model.startChat({
+    history: geminiHistory,
+  });
+
+  const response = await chat.sendMessage(lastMsgText);
+  const candidate = response.response;
+
+  // Check if Gemini invoked any function calls
+  const functionCalls = candidate.functionCalls ? candidate.functionCalls() : [];
+
+  if (functionCalls && functionCalls.length > 0) {
+    const executedActions = [];
+    const functionResponses = [];
+
+    for (const call of functionCalls) {
+      const toolResult = await executeFitBotTool(call.name, call.args, user);
+      executedActions.push(toolResult);
+      functionResponses.push({
+        functionResponse: {
+          name: call.name,
+          response: toolResult,
+        },
+      });
+    }
+
+    // Feed function responses back to Gemini to generate natural confirmation message
+    const followUp = await chat.sendMessage(functionResponses);
+    const reply = followUp.response.text();
+
+    return {
+      reply,
+      executedActions,
+      model: modelName,
+    };
+  }
+
+  // Standard text response without tool calls
+  return {
+    reply: candidate.text(),
+    executedActions: [],
+    model: modelName,
+  };
+};
+
 module.exports = {
   FoodSnapSchema,
+  fitbotTools,
+  fitbotFunctionDeclarations,
   analyzeFoodImage,
   normalizeVisionOutput,
+  executeFitBotTool,
+  buildUserTodayStatus,
+  runFitBotAgentSession,
   setGeminiVisionMock,
   clearGeminiVisionMock,
+  setGeminiFitBotMock,
+  clearGeminiFitBotMock,
+  isFitBotMockActive,
+  isFitBotConfigured,
 };

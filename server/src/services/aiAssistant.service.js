@@ -7,6 +7,7 @@ const {
   extractRawJson,
 } = require('../schemas/aiPlans.schema');
 const { checkPlannerLimits } = require('../utils/plannerLimits');
+const { runFitBotAgentSession, isFitBotConfigured } = require('../utils/gemini');
 const logger = require('../utils/logger');
 
 // In-memory configurable TTL and capacity bounded LRU cache (FitBot Phase 4)
@@ -181,6 +182,31 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
   // Check if query requests structured JSON (e.g. Activity Planner / Meal Planner)
   const lastUserMsg = openRouterMessages[openRouterMessages.length - 1]?.content || '';
   const isJsonRequest = Boolean(options.expectJson || /return (only )?valid json/i.test(lastUserMsg));
+
+  // If FitBot agentic session is available and this is not a structured JSON plan request,
+  // execute conversational chat via Gemini function calling loop.
+  if ((options.forceGemini || isFitBotConfigured()) && !isJsonRequest) {
+    try {
+      const agentRes = await runFitBotAgentSession({
+        messages,
+        user: options.user || userContext,
+        systemPrompt: systemInstruction,
+        timeZone: options.timeZone,
+      });
+      return {
+        reply: agentRes.reply,
+        executedActions: agentRes.executedActions || [],
+        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        model: agentRes.model || 'gemini-2.5-flash',
+        cached: false,
+      };
+    } catch (agentErr) {
+      logger.warn(`[AI Assistant] Gemini agent error: ${agentErr.message}; falling back to standard pipeline...`);
+      if (options.forceGemini) {
+        throw agentErr;
+      }
+    }
+  }
 
   // Auto-detect structured plan type if not explicitly supplied
   let effectivePlanType = options.planType;

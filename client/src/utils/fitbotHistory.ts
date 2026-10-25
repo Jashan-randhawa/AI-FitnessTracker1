@@ -1,4 +1,5 @@
 import type { ProposedChatAction } from "../schemas/chatAction.schema";
+import type { ExecutedAction } from "../services/aiAssistantClient";
 
 export type FitBotActionState = {
   action: ProposedChatAction;
@@ -12,6 +13,7 @@ export type FitBotMessage = {
   text: string;
   timestamp: Date;
   isError?: boolean;
+  executedActions?: ExecutedAction[];
   proposedActions?: FitBotActionState[];
 };
 

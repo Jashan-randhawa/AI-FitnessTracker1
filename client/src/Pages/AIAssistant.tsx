@@ -42,7 +42,7 @@ import {
 } from "../utils/fitbotHistory";
 import { createHandoffState, readHandoff } from "../utils/handoff";
 import { getFitBotSuggestions } from "../utils/fitbotSuggestions";
-import { useDaySummary } from "../data/summaryStore";
+import { useDaySummary, invalidateSummaries } from "../data/summaryStore";
 import { localDayKey } from "../utils/localDay";
 import { getWeatherObservation } from "../data/weatherStore";
 import jsPDF from "jspdf";
@@ -327,6 +327,20 @@ const ChatMessageItem = React.memo(({
           ) : (
             <div className="w-full text-slate-800 dark:text-slate-200">
               <MarkdownMessage content={msg.text} onSavePlan={onSavePlan} />
+              {/* Phase 2: Action Executed Pill Badge */}
+              {Array.isArray(msg.executedActions) && msg.executedActions.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap gap-2">
+                  {msg.executedActions.map((action, aIdx) => (
+                    <span
+                      key={aIdx}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-xs"
+                    >
+                      <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      Action Executed: {action.action === "logMealItem" ? `Logged ${action.foodName || "Meal"}` : action.action === "logWorkoutSession" ? `Logged ${action.exerciseName || "Workout"}` : action.action === "swapExerciseInPlan" ? `Swapped ${action.targetExercise}` : action.action}
+                    </span>
+                  ))}
+                </div>
+              )}
               {Array.isArray(msg.proposedActions) && msg.proposedActions.length > 0 && (
                 <div className="mt-3 space-y-2">
                   {msg.proposedActions.map((item, aIdx) => (
@@ -434,7 +448,7 @@ ChatMessageItem.displayName = "ChatMessageItem";
 
 // ── Main AIAssistant Component ─────────────────────────────
 export default function AIAssistant() {
-  const { user, setAllWaterLogs } = useappcontext();
+  const { user, setAllWaterLogs, setAllFoodLogs, setAllActivityLogs } = useappcontext();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -1215,6 +1229,7 @@ export default function AIAssistant() {
         role: "assistant",
         text: reply,
         timestamp: new Date(),
+        executedActions: data.executedActions,
         proposedActions:
           Array.isArray(data.proposedActions) && data.proposedActions.length > 0
             ? data.proposedActions.map((action) => ({
@@ -1225,6 +1240,36 @@ export default function AIAssistant() {
       };
       const finalMessages = [...newMessages, assistantMsg];
       setMessages(finalMessages);
+
+      // Phase 2: Live state refresh for dashboard macro rings & workout lists
+      if (Array.isArray(data.executedActions) && data.executedActions.length > 0) {
+        invalidateSummaries();
+        const token = localStorage.getItem("token");
+        if (token) {
+          const hasFood = data.executedActions.some((a) => a.action === "logMealItem");
+          const hasWorkout = data.executedActions.some(
+            (a) => a.action === "logWorkoutSession" || a.action === "swapExerciseInPlan"
+          );
+          if (hasFood) {
+            api
+              .get("/api/foodlogs", { headers: { Authorization: `Bearer ${token}` } })
+              .then((res) => {
+                const list = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+                setAllFoodLogs(list);
+              })
+              .catch(() => {});
+          }
+          if (hasWorkout) {
+            api
+              .get("/api/activitylogs", { headers: { Authorization: `Bearer ${token}` } })
+              .then((res) => {
+                const list = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+                setAllActivityLogs(list);
+              })
+              .catch(() => {});
+          }
+        }
+      }
 
       if (soundEnabled) playCompletionChime();
 

@@ -8,6 +8,7 @@
  * - Request cancellation via AbortSignal
  * - Structured plan validation & repair integration
  * - Consistent error formatting
+ * - Phase 2 Gemini Function Calling (executedActions)
  */
 
 import api from "../configs/api";
@@ -21,6 +22,27 @@ import {
 
 import type { ProposedChatAction } from "../schemas/chatAction.schema";
 export type { ProposedChatAction };
+
+export interface ExecutedAction {
+  action: string;
+  name?: string;
+  foodName?: string;
+  exerciseName?: string;
+  targetExercise?: string;
+  replacementExercise?: string;
+  sets?: number;
+  reps?: number;
+  weightKg?: number;
+  rpe?: number | null;
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  mealType?: string;
+  status: "success" | "error" | "not_found";
+  message?: string;
+  recordId?: string;
+}
 
 export interface AiChatMessage {
   role: "user" | "assistant" | "model";
@@ -53,6 +75,7 @@ export interface AiChatRequest {
 export interface AiChatResponse {
   success: boolean;
   reply: string;
+  executedActions?: ExecutedAction[];
   proposedActions?: ProposedChatAction[];
   usage?: {
     promptTokens: number;
@@ -124,6 +147,7 @@ export async function chatAiAssistant(req: AiChatRequest): Promise<AiChatRespons
   return {
     success: true,
     reply: typeof data.reply === "string" ? data.reply : "",
+    executedActions: Array.isArray(data.executedActions) ? (data.executedActions as ExecutedAction[]) : undefined,
     proposedActions: Array.isArray(data.proposedActions) ? (data.proposedActions as ProposedChatAction[]) : undefined,
     usage: (data.usage as AiChatResponse["usage"]) || null,
     model: typeof data.model === "string" ? data.model : undefined,
