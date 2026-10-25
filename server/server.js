@@ -1,5 +1,22 @@
 require('dotenv').config();
 
+const { validateEnvironment } = require('./src/config/envValidator');
+const envValidation = validateEnvironment();
+
+if (!envValidation.valid) {
+  console.error('❌ [FATAL] Environment validation failed:');
+  for (const err of envValidation.errors) {
+    console.error(`  - ${err}`);
+  }
+  process.exit(1);
+}
+
+if (envValidation.warnings.length > 0) {
+  for (const warn of envValidation.warnings) {
+    console.warn(`⚠️  [CONFIG WARNING] ${warn}`);
+  }
+}
+
 const app = require('./src/app');
 const connectDB = require('./src/config/db');
 const { seedBlogPosts } = require('./src/services/seed.service');

@@ -68,9 +68,13 @@ jobs:
         env:
           JWT_SECRET: "ci_test_secret_32_characters_long_min"
           NODE_ENV: "test"
+          CI: "true"
+          CI_DRY_RUN: "true"
 
       - name: Run unit tests
         run: npm test
         env:
           JWT_SECRET: "ci_test_secret_32_characters_long_min"
           NODE_ENV: "test"
+          CI: "true"
+          CI_DRY_RUN: "true"

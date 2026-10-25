@@ -1,4 +1,5 @@
 import axios from "axios";
+import toast from "react-hot-toast";
 
 // Support both modern VITE_API_URL and legacy VITE_STRAPI_API_URL for seamless zero-crash deployment
 const rawApiUrl =
@@ -51,6 +52,16 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Phase 5: Friendly cooldown toast on HTTP 429 AI rate limit
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.data?.retryAfterSeconds || 60;
+      const minutes = Math.ceil(retryAfter / 60);
+      toast.error(
+        `AI Rate limit reached: please cooldown for ${minutes} minute${minutes > 1 ? "s" : ""} ⏳`,
+        { id: "ai-rate-limit" }
+      );
+    }
+
     const config = error.config;
     if (
       config &&
