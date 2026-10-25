@@ -28,8 +28,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Security audit
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Run lint
         run: npm run lint
+
+      - name: Run client tests
+        run: npm test
 
       - name: Run typecheck & build
         run: npm run build
@@ -55,6 +61,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Security audit
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Check JavaScript syntax
         run: |
           node -c server.js
@@ -73,6 +82,14 @@ jobs:
 
       - name: Run unit tests
         run: npm test
+        env:
+          JWT_SECRET: "ci_test_secret_32_characters_long_min"
+          NODE_ENV: "test"
+          CI: "true"
+          CI_DRY_RUN: "true"
+
+      - name: Run server smoke test
+        run: npm run test:smoke
         env:
           JWT_SECRET: "ci_test_secret_32_characters_long_min"
           NODE_ENV: "test"

@@ -9,6 +9,7 @@
     "dev": "nodemon server.js",
     "seed": "node src/services/seed.service.js",
     "test": "node scripts/ci-guard-email.js && node --test test/*.test.js",
+    "test:smoke": "node scripts/smoke-test.js",
     "ci:guard": "node scripts/ci-guard-email.js",
     "test:email": "node scripts/test-email.js"
   },
