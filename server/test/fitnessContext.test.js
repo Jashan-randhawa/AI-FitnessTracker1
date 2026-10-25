@@ -61,6 +61,7 @@ const loaders = (overrides = {}) => ({
   computeDaySummary: async ({ user, date }) => daySummaryFor(user, date),
   computeRangeSummary: async ({ user, from, to }) => rangeFor(user, from, to),
   findActivePlan: async () => null,
+  findRecentWeightLogs: async () => [],
   ...overrides,
 });
 
@@ -601,7 +602,7 @@ describe('contract', () => {
     assert.equal(ctx.schemaVersion, CONTEXT_SCHEMA_VERSION);
     assert.deepEqual(
       Object.keys(ctx).sort(),
-      ['generatedAt', 'localTime', 'plan', 'profile', 'schemaVersion', 'today', 'trend']
+      ['generatedAt', 'localTime', 'plan', 'profile', 'schemaVersion', 'today', 'trend', 'weightTrend']
     );
   });
 });

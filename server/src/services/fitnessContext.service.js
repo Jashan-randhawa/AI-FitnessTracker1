@@ -28,6 +28,8 @@
  */
 
 const WorkoutPlan = require('../models/WorkoutPlan');
+const WeightLog = require('../models/WeightLog');
+const mongoose = require('mongoose');
 const { computeDaySummary, computeRangeSummary } = require('./summary.service');
 const { deriveGoals } = require('../utils/goals');
 const { isValidTimeZone, dayKey, addDays } = require('../utils/localDay');
@@ -37,6 +39,8 @@ const logger = require('../utils/logger');
 const CONTEXT_SCHEMA_VERSION = 1;
 const DEFAULT_TIME_ZONE = 'UTC';
 const TREND_DAYS = 7;
+const WEIGHT_TREND_DAYS = 30;
+const WEIGHT_EVIDENCE_MIN_ENTRIES = 3;
 // Minimum logged days before weekly patterns are described. Below this, the context says
 // the evidence is insufficient so the model does not generalise from a few entries.
 const EVIDENCE_MIN_DAYS = { food: 4, activity: 3, water: 4 };
@@ -288,11 +292,60 @@ const buildPlan = (plan) => {
 };
 
 /** Active plan for one user. Mirrors GET /api/workout-plans/active. */
-const findActivePlan = (userId) =>
-  WorkoutPlan.findOne({ user: userId, isActive: true })
+const findActivePlan = (userId) => {
+  if (mongoose.connection.readyState !== 1) return Promise.resolve(null);
+  return WorkoutPlan.findOne({ user: userId, isActive: true })
     .sort({ updatedAt: -1 })
     .select(PLAN_FIELDS)
     .lean();
+};
+
+/** Recent weight logs for one user over the last 30 days. */
+const findRecentWeightLogs = (userId, fromDate) => {
+  if (mongoose.connection.readyState !== 1) return Promise.resolve([]);
+  return WeightLog.find({ user: userId, date: { $gte: fromDate } })
+    .sort({ date: -1 })
+    .limit(30)
+    .select('weightKg date')
+    .lean();
+};
+
+const buildWeightTrend = (logs) => {
+  if (!Array.isArray(logs) || logs.length === 0) {
+    return {
+      status: 'none',
+      entries: 0,
+      latest: null,
+      oldest: null,
+      deltaKg: null,
+      evidence: false,
+    };
+  }
+
+  const entries = logs.length;
+  // logs are sorted desc (newest first)
+  const latest = logs[0].weightKg;
+  const oldest = logs[logs.length - 1].weightKg;
+  const deltaKg = Number((latest - oldest).toFixed(1));
+
+  return {
+    status: 'ok',
+    entries,
+    latest,
+    oldest,
+    deltaKg,
+    evidence: entries >= WEIGHT_EVIDENCE_MIN_ENTRIES,
+  };
+};
+
+const unavailableWeightTrend = () => ({
+  status: 'unavailable',
+  entries: 0,
+  latest: null,
+  oldest: null,
+  deltaKg: null,
+  evidence: false,
+});
 
 /** Runs fn and turns a synchronous throw into a rejected promise, for allSettled. */
 const attempt = (fn) => new Promise((resolve) => resolve(fn()));
@@ -301,11 +354,11 @@ const attempt = (fn) => new Promise((resolve) => resolve(fn()));
  * Builds the context for one authenticated user.
  *
  * Query count is fixed: one day summary (its aggregations and two counts), one
- * seven-day range summary, and one plan lookup. Nothing scales with history.
+ * seven-day range summary, one recent weight query, and one plan lookup. Nothing scales with history.
  *
  * @param {{ user: object, timeZone?: string, now?: Date, deps?: object }} args
  *   `user` is the authenticated user document (req.user). `timeZone` is the raw
- *   X-Timezone value. `deps` is for tests and overrides the three loaders.
+ *   X-Timezone value. `deps` is for tests and overrides the loaders.
  * @returns {Promise<object>} the context object described in the file header
  */
 const buildFitnessContext = async ({ user, timeZone, now = new Date(), deps = {} }) => {
@@ -316,15 +369,18 @@ const buildFitnessContext = async ({ user, timeZone, now = new Date(), deps = {}
   const loadDay = deps.computeDaySummary || computeDaySummary;
   const loadRange = deps.computeRangeSummary || computeRangeSummary;
   const loadPlan = deps.findActivePlan || findActivePlan;
+  const loadWeight = deps.findRecentWeightLogs || findRecentWeightLogs;
 
   const { timeZone: tz, source } = resolveTimeZone(timeZone);
   const today = dayKey(now, tz);
   const trendFrom = addDays(today, -(TREND_DAYS - 1));
+  const weightFrom = new Date(now.getTime() - WEIGHT_TREND_DAYS * 24 * 60 * 60 * 1000);
 
-  const [day, range, plan] = await Promise.allSettled([
+  const [day, range, plan, weight] = await Promise.allSettled([
     attempt(() => loadDay({ user, date: today, tz, today })),
     attempt(() => loadRange({ user, from: trendFrom, to: today, tz })),
     attempt(() => loadPlan(user._id)),
+    attempt(() => loadWeight(user._id, weightFrom)),
   ]);
 
   const failed = (name, result) => {
@@ -339,11 +395,17 @@ const buildFitnessContext = async ({ user, timeZone, now = new Date(), deps = {}
   failed('today', day);
   failed('trend', range);
   failed('plan', plan);
+  failed('weight', weight);
 
   const planSection =
     plan.status === 'fulfilled'
       ? buildPlan(plan.value)
       : { status: 'unavailable', plan: null };
+
+  const weightSection =
+    weight.status === 'fulfilled'
+      ? buildWeightTrend(weight.value)
+      : unavailableWeightTrend();
 
   return {
     schemaVersion: CONTEXT_SCHEMA_VERSION,
@@ -357,6 +419,7 @@ const buildFitnessContext = async ({ user, timeZone, now = new Date(), deps = {}
     profile: buildProfile(user),
     today: day.status === 'fulfilled' ? buildToday(day.value) : unavailableToday(today),
     trend: range.status === 'fulfilled' ? buildTrend(range.value) : unavailableTrend(),
+    weightTrend: weightSection,
     plan: planSection,
   };
 };
@@ -487,6 +550,16 @@ const trendLine = (trend) => {
   );
 };
 
+const weightTrendLine = (wt) => {
+  if (!wt || wt.status === 'none') return null;
+  if (wt.status === 'unavailable') return 'Weight trend (last 30 days): unavailable.';
+  if (!wt.evidence) {
+    return `Weight trend (last 30 days): insufficient evidence (${wt.entries} ${wt.entries === 1 ? 'entry' : 'entries'}; need at least ${WEIGHT_EVIDENCE_MIN_ENTRIES} to establish a trend).`;
+  }
+  const sign = wt.deltaKg > 0 ? '+' : '';
+  return `Weight trend (last 30 days): ${wt.oldest} kg to ${wt.latest} kg (${sign}${wt.deltaKg} kg across ${wt.entries} entries). Evidence: sufficient.`;
+};
+
 const planLine = (plan) => {
   if (plan.status === 'none') return 'Active workout plan: none.';
   if (plan.status === 'unavailable') return 'Active workout plan: unavailable.';
@@ -531,8 +604,14 @@ const serializeFitnessContext = (ctx, { maxChars = MAX_PROMPT_CHARS } = {}) => {
     todayLine(ctx.today, ctx.profile.goals),
     trainingLine(ctx.trend),
     trendLine(ctx.trend),
-    planLine(ctx.plan),
   );
+
+  const weight = weightTrendLine(ctx.weightTrend);
+  if (weight) {
+    lines.push(weight);
+  }
+
+  lines.push(planLine(ctx.plan));
 
   const joined = (arr) => arr.join('\n');
   const kept = [];
@@ -576,6 +655,9 @@ module.exports = {
   EVIDENCE_MIN_DAYS,
   VALID_DIET_STYLES,
   VALID_RESTRICTIONS,
+  WEIGHT_TREND_DAYS,
+  WEIGHT_EVIDENCE_MIN_ENTRIES,
+  weightTrendLine,
   dietaryLine,
   buildFitnessPromptContext,
   CONTEXT_SCHEMA_VERSION,
@@ -587,6 +669,7 @@ module.exports = {
   resolveTimeZone,
   formatLocalTime,
   findActivePlan,
+  findRecentWeightLogs,
   buildFitnessContext,
   serializeFitnessContext,
 };
