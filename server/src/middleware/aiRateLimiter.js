@@ -65,7 +65,7 @@ const createAiRateLimiter = ({
       res.set('X-RateLimit-Reset', String(Math.ceil(expiryTime / 1000)));
 
       return res.status(429).json({
-        error: 'Rate limit exceeded',
+        error: 'AI rate limit reached',
         message:
           friendlyMessage ||
           `${endpointName} rate limit exceeded (${maxRequests} requests/hour). Please wait before trying again.`,

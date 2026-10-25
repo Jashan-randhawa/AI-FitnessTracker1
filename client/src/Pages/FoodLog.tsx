@@ -273,9 +273,11 @@ const FoodSnapAdjustmentModal = ({
           <div className="flex flex-wrap gap-2">
             {[
               { label: "Oil-Free (-50 kcal)", delta: -50 },
+              { label: "Light Oil (-30 kcal)", delta: -30 },
               { label: "As Detected (±0)", delta: 0 },
               { label: "+1 tsp Oil (+45 kcal)", delta: 45 },
               { label: "+1 tbsp Oil (+120 kcal)", delta: 120 },
+              { label: "Heavy Ghee/Oil (+150 kcal)", delta: 150 },
               { label: "+Extra Dressing (+80 kcal)", delta: 80 },
             ].map((chip) => (
               <button

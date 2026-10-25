@@ -262,7 +262,7 @@ describe('Phase 5: Production Security, Rate Limiting & End-to-End AI Flow Integ
 
       assert.equal(nextCalledOn11, false, '11th request must be rejected');
       assert.equal(blockedRes.getStatusCode(), 429);
-      assert.equal(blockedRes.getPayload().error, 'Rate limit exceeded');
+      assert.equal(blockedRes.getPayload().error, 'AI rate limit reached');
       assert.ok(blockedRes.getPayload().retryAfterSeconds > 0);
       assert.ok(blockedRes.getHeaders()['Retry-After']);
     });
@@ -315,7 +315,7 @@ describe('Phase 5: Production Security, Rate Limiting & End-to-End AI Flow Integ
 
       assert.equal(nextCalledOn31, false, '31st message must be rejected');
       assert.equal(blockedRes.getStatusCode(), 429);
-      assert.equal(blockedRes.getPayload().error, 'Rate limit exceeded');
+      assert.equal(blockedRes.getPayload().error, 'AI rate limit reached');
       assert.ok(blockedRes.getPayload().retryAfterSeconds > 0);
     });
   });
