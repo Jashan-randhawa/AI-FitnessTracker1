@@ -2,8 +2,10 @@ const asyncHandler = require('express-async-handler');
 const WeightLog = require('../models/WeightLog');
 const User = require('../models/User');
 const sendError = require('../utils/sendError');
+const { publishChange } = require('../services/eventBus');
+const { dayKey, isValidTimeZone, isValidDateKey } = require('../utils/localDay');
 
-// POST /api/weightlogs — body: { data: { weightKg, date, notes, source } }
+// POST /api/weightlogs — body: { data: { weightKg, date, localDay, notes, source } }
 const create = asyncHandler(async (req, res) => {
   const raw = req.body.data || req.body || {};
   const weightKg = Number(raw.weightKg);
@@ -16,19 +18,36 @@ const create = asyncHandler(async (req, res) => {
     return sendError(res, 400, 'Invalid date format');
   }
 
-  const entry = await WeightLog.create({
-    user: req.user._id,
-    weightKg,
-    date: logDate,
-    notes: typeof raw.notes === 'string' ? raw.notes.trim().slice(0, 100) : '',
-    source: ['profile', 'quick-log', 'onboarding'].includes(raw.source) ? raw.source : 'quick-log',
-  });
+  let localDay = null;
+  if (raw.localDay && isValidDateKey(raw.localDay)) {
+    localDay = raw.localDay;
+  } else {
+    const tzHeader = req.headers ? req.headers['x-timezone'] : undefined;
+    const tz = isValidTimeZone(tzHeader) ? tzHeader : 'UTC';
+    localDay = dayKey(logDate, tz);
+  }
+
+  // N2: One weight entry per user per local day (upsert replaces same-day entry with latest)
+  const entry = await WeightLog.findOneAndUpdate(
+    { user: req.user._id, localDay },
+    {
+      weightKg,
+      date: logDate,
+      localDay,
+      notes: typeof raw.notes === 'string' ? raw.notes.trim().slice(0, 100) : '',
+      source: ['profile', 'quick-log', 'onboarding'].includes(raw.source) ? raw.source : 'quick-log',
+    },
+    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+  );
 
   // Check if this is the newest weigh-in; if so, sync to User.weight
   const newestLog = await WeightLog.findOne({ user: req.user._id }).sort({ date: -1 });
   if (newestLog && String(newestLog._id) === String(entry._id)) {
-    await User.findByIdAndUpdate(req.user._id, { weight: weightKg });
+    await User.findByIdAndUpdate(req.user._id, { weight: newestLog.weightKg });
   }
+
+  // N3: Publish change event
+  publishChange(String(req.user._id), 'weight', entry.date);
 
   res.status(201).json(entry.toJSON());
 });
@@ -62,6 +81,9 @@ const remove = asyncHandler(async (req, res) => {
   if (newestLog) {
     await User.findByIdAndUpdate(req.user._id, { weight: newestLog.weightKg });
   }
+
+  // N3: Publish change event on delete
+  publishChange(String(req.user._id), 'weight', entry.date);
 
   res.json(entry.toJSON());
 });

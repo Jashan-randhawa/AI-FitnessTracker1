@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import api, { API_BASE_URL } from "../configs/api";
 import toast from "react-hot-toast";
 import { useappcontext } from "../Context/AppContext";
@@ -846,14 +846,24 @@ export default function Profile() {
   const [sendingVerification, setSendingVerification] = useState(false);
   const [verificationCooldown, setVerificationCooldown] = useState(0);
   const [weightLogs, setWeightLogs] = useState<WeightEntry[]>([]);
+  const [weightUnit, setWeightUnit] = useState<"kg" | "lbs">("kg");
+  const [newWeightInput, setNewWeightInput] = useState("");
+  const [weightNotesInput, setWeightNotesInput] = useState("");
+  const [savingWeight, setSavingWeight] = useState(false);
+  const [deletingWeightId, setDeletingWeightId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchWeightLogs = useCallback(() => {
     let isMounted = true;
     api
       .get("/api/weightlogs")
       .then((res) => {
-        if (isMounted && Array.isArray(res.data?.data)) {
-          setWeightLogs(res.data.data);
+        const logs = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : [];
+        if (isMounted) {
+          setWeightLogs(logs);
         }
       })
       .catch(() => {
@@ -862,17 +872,110 @@ export default function Profile() {
     return () => {
       isMounted = false;
     };
-  }, [user?.weight]);
+  }, []);
+
+  useEffect(() => {
+    fetchWeightLogs();
+  }, [user?.weight, fetchWeightLogs]);
+
+  const sortedWeightLogs = useMemo(() => {
+    return [...weightLogs].sort((a, b) => {
+      const timeA = new Date(a.date).getTime();
+      const timeB = new Date(b.date).getTime();
+      return timeB - timeA; // newest first
+    });
+  }, [weightLogs]);
+
+  const todayKey = useMemo(() => localDayKey(), []);
+
+  const todayWeightEntry = useMemo(() => {
+    return sortedWeightLogs.find((entry) => {
+      const entryDay = entry.localDay || (entry.date ? entry.date.slice(0, 10) : "");
+      return entryDay === todayKey;
+    });
+  }, [sortedWeightLogs, todayKey]);
 
   const weightDelta = useMemo(() => {
-    if (!weightLogs || weightLogs.length < 2) return null;
-    const latest = user?.weight ?? weightLogs[0]?.weightKg;
-    const oldest = weightLogs[weightLogs.length - 1]?.weightKg;
+    if (!sortedWeightLogs || sortedWeightLogs.length < 2) return null;
+    const latest = sortedWeightLogs[0]?.weightKg ?? user?.weight;
+    const oldest = sortedWeightLogs[sortedWeightLogs.length - 1]?.weightKg;
     if (typeof latest !== "number" || typeof oldest !== "number") return null;
     const diff = Number((latest - oldest).toFixed(1));
     const sign = diff > 0 ? "+" : "";
     return `${sign}${diff} kg`;
-  }, [weightLogs, user?.weight]);
+  }, [sortedWeightLogs, user?.weight]);
+
+  const toDisplayWeight = useCallback(
+    (kg?: number | null) => {
+      if (typeof kg !== "number" || !Number.isFinite(kg)) return "—";
+      if (weightUnit === "lbs") {
+        return `${(kg * 2.20462).toFixed(1)} lbs`;
+      }
+      return `${kg.toFixed(1)} kg`;
+    },
+    [weightUnit]
+  );
+
+  const handleLogWeight = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(newWeightInput);
+    if (!Number.isFinite(val) || val <= 0) {
+      toast.error("Please enter a valid weight number");
+      return;
+    }
+    const weightKg = Number((weightUnit === "lbs" ? val / 2.20462 : val).toFixed(1));
+    if (weightKg < 20 || weightKg > 400) {
+      toast.error(
+        weightUnit === "lbs"
+          ? "Weight must be between 44 and 882 lbs"
+          : "Weight must be between 20 and 400 kg"
+      );
+      return;
+    }
+    setSavingWeight(true);
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      await api.post(
+        "/api/weightlogs",
+        {
+          data: {
+            weightKg,
+            notes: weightNotesInput.trim(),
+            source: "quick-log",
+          },
+        },
+        { headers: { "X-Timezone": tz } }
+      );
+      toast.success(
+        todayWeightEntry
+          ? "Today's weight entry updated!"
+          : "New weight logged!"
+      );
+      setNewWeightInput("");
+      setWeightNotesInput("");
+      setUser((prev: any) => ({ ...prev, weight: weightKg }));
+      fetchWeightLogs();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to log weight");
+    } finally {
+      setSavingWeight(false);
+    }
+  };
+
+  const handleDeleteWeightLog = async (id: string) => {
+    setDeletingWeightId(id);
+    try {
+      await api.delete(`/api/weightlogs/${id}`);
+      toast.success("Weight log removed");
+      fetchWeightLogs();
+      const meRes = await api.get("/api/auth/me").catch(() => null);
+      if (meRes?.data) setUser((prev: any) => ({ ...prev, ...meRes.data }));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to remove entry");
+    } finally {
+      setDeletingWeightId(null);
+    }
+  };
 
   const handleSendVerification = async () => {
     if (!user?.email || sendingVerification || verificationCooldown > 0) return;
@@ -903,7 +1006,6 @@ export default function Profile() {
   }, [user]);
 
   // Streak and achievements come from the server's day summary.
-  const todayKey = useMemo(() => localDayKey(), []);
   const daySummary = useDaySummary(todayKey);
   const streak = daySummary.data?.streak ?? 0;
   const badgeViews = useMemo(() => withBadgeState(daySummary.data?.badges), [daySummary.data]);
@@ -1110,6 +1212,170 @@ export default function Profile() {
             >
               Update Preferences
             </button>
+          </div>
+
+          {/* Weight Tracking & Trend Card (G9 / N1) */}
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div>
+                <p className="text-sm font-bold text-gray-900 dark:text-white">Weight History & Trend</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Log weigh-ins & monitor progress</p>
+              </div>
+              <div className="flex items-center bg-slate-200 dark:bg-slate-700/70 p-0.5 rounded-lg text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setWeightUnit("kg")}
+                  className={`px-2 py-0.5 rounded-md transition-colors ${
+                    weightUnit === "kg"
+                      ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                      : "text-slate-500 dark:text-slate-400 hover:text-gray-900"
+                  }`}
+                >
+                  kg
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWeightUnit("lbs")}
+                  className={`px-2 py-0.5 rounded-md transition-colors ${
+                    weightUnit === "lbs"
+                      ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                      : "text-slate-500 dark:text-slate-400 hover:text-gray-900"
+                  }`}
+                >
+                  lbs
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div className="grid grid-cols-3 gap-2 p-3 bg-white dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700/40 text-center">
+              <div>
+                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Current</p>
+                <p className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">
+                  {toDisplayWeight(user?.weight ?? sortedWeightLogs[0]?.weightKg)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Trend Delta</p>
+                <p
+                  className={`text-sm font-bold mt-0.5 ${
+                    weightDelta
+                      ? weightDelta.startsWith("-")
+                        ? "text-emerald-500"
+                        : "text-amber-500"
+                      : "text-slate-400"
+                  }`}
+                >
+                  {weightDelta ? (weightUnit === "lbs" ? `${(parseFloat(weightDelta) * 2.20462).toFixed(1)} lbs` : weightDelta) : "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Evidence</p>
+                <p className="text-xs font-semibold mt-1">
+                  {sortedWeightLogs.length >= 3 ? (
+                    <span className="text-emerald-600 dark:text-emerald-400">✓ Sufficient</span>
+                  ) : (
+                    <span className="text-slate-400 text-[11px]">{sortedWeightLogs.length}/3 entries</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Weight Entry Form */}
+            <form onSubmit={handleLogWeight} className="space-y-2.5">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min={weightUnit === "lbs" ? "44" : "20"}
+                    max={weightUnit === "lbs" ? "882" : "400"}
+                    value={newWeightInput}
+                    onChange={(e) => setNewWeightInput(e.target.value)}
+                    placeholder={
+                      todayWeightEntry
+                        ? `Update today (${toDisplayWeight(todayWeightEntry.weightKg)})`
+                        : `Enter weight in ${weightUnit}`
+                    }
+                    className="w-full text-xs bg-white dark:bg-slate-900/70 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2.5 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    required
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400 pointer-events-none">
+                    {weightUnit}
+                  </span>
+                </div>
+                <button
+                  type="submit"
+                  disabled={savingWeight}
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer whitespace-nowrap"
+                >
+                  {savingWeight
+                    ? "Saving..."
+                    : todayWeightEntry
+                    ? "Update Today"
+                    : "Log Weight"}
+                </button>
+              </div>
+              <input
+                type="text"
+                maxLength={100}
+                value={weightNotesInput}
+                onChange={(e) => setWeightNotesInput(e.target.value)}
+                placeholder="Optional notes (e.g. Morning fasted, post-run)"
+                className="w-full text-xs bg-white dark:bg-slate-900/70 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              />
+              <p className="text-[10px] text-slate-400">
+                One entry per local day. Logging on the same day replaces the previous entry.
+              </p>
+            </form>
+
+            {/* Recent Weight Entries */}
+            <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700/40">
+              <p className="text-xs font-bold text-gray-900 dark:text-white">Recent Entries</p>
+              {sortedWeightLogs.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">No weight entries logged yet.</p>
+              ) : (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {sortedWeightLogs.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-700/30 rounded-xl text-xs"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-gray-900 dark:text-white">
+                            {toDisplayWeight(entry.weightKg)}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium">
+                            {entry.source || "quick-log"}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {new Date(entry.date).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                          {entry.notes ? ` · ${entry.notes}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteWeightLog(entry.id)}
+                        disabled={deletingWeightId === entry.id}
+                        className="text-slate-400 hover:text-rose-500 p-1 transition-colors cursor-pointer disabled:opacity-50"
+                        title="Delete entry"
+                        aria-label="Delete entry"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Sign-in Methods Card */}

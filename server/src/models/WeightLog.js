@@ -21,6 +21,16 @@ const weightLogSchema = new mongoose.Schema(
       default: Date.now,
       index: true,
     },
+    localDay: {
+      type: String,
+      required: [true, 'localDay is required'],
+      match: [/^\d{4}-\d{2}-\d{2}$/, 'localDay must be in YYYY-MM-DD format'],
+      default: function () {
+        const d = this.date || new Date();
+        return d instanceof Date && !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+      },
+      index: true,
+    },
     notes: {
       type: String,
       maxlength: [100, 'notes cannot exceed 100 characters'],
@@ -36,6 +46,7 @@ const weightLogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+weightLogSchema.index({ user: 1, localDay: 1 }, { unique: true });
 weightLogSchema.index({ user: 1, date: -1 });
 
 toJSONPlugin(weightLogSchema);

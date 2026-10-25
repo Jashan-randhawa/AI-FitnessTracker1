@@ -56,7 +56,7 @@ const subscribe = (userId, listener) => {
 /**
  * Tells a user's open views that something changed.
  * @param {string} userId
- * @param {'food'|'activity'|'water'|'plan'|'goals'} kind
+ * @param {'food'|'activity'|'water'|'plan'|'goals'|'weight'} kind
  * @param {Date|string|null} [date] the affected record's date, if known
  */
 const publishChange = (userId, kind, date = null) => {

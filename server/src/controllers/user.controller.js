@@ -3,6 +3,7 @@ const { publishChange } = require('../services/eventBus');
 const User = require('../models/User');
 const WeightLog = require('../models/WeightLog');
 const { deriveGoals } = require('../utils/goals');
+const { dayKey, isValidTimeZone } = require('../utils/localDay');
 const sendError = require('../utils/sendError');
 const generateToken = require('../utils/generateToken');
 const { validatePasswordPolicy } = require('../utils/passwordPolicy');
@@ -122,19 +123,28 @@ const updateUser = asyncHandler(async (req, res) => {
     }
   }
 
-  // WeightLog synchronization (G9)
+  // WeightLog synchronization (G9 / N2)
   if (updates.weight !== undefined && Number.isFinite(Number(updates.weight))) {
     const weightVal = Number(updates.weight);
     if (weightVal >= 20 && weightVal <= 400) {
       const source = isOnboarding ? 'onboarding' : 'profile';
-      await WeightLog.create({
-        user: req.user._id,
-        weightKg: weightVal,
-        date: new Date(),
-        source,
-      }).catch((err) => {
-        logger.warn('[WeightLog] auto-sync weight log creation failed', { error: err?.message || 'Error' });
+      const tzHeader = req.headers ? req.headers['x-timezone'] : undefined;
+      const tz = isValidTimeZone(tzHeader) ? tzHeader : 'UTC';
+      const now = new Date();
+      const localDay = dayKey(now, tz);
+      await WeightLog.findOneAndUpdate(
+        { user: req.user._id, localDay },
+        {
+          weightKg: weightVal,
+          date: now,
+          localDay,
+          source,
+        },
+        { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+      ).catch((err) => {
+        logger.warn('[WeightLog] auto-sync weight log upsert failed', { error: err?.message || 'Error' });
       });
+      publishChange(String(req.user._id), 'weight', now);
     }
   }
 

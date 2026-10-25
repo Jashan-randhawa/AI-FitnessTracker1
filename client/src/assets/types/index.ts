@@ -77,6 +77,7 @@ export type WeightEntry = {
   id: string;
   weightKg: number;
   date: string;
+  localDay?: string;
   notes?: string;
   source?: string;
 };
