@@ -147,7 +147,11 @@ export async function chatAiAssistant(req: AiChatRequest): Promise<AiChatRespons
   return {
     success: true,
     reply: typeof data.reply === "string" ? data.reply : "",
-    executedActions: Array.isArray(data.executedActions) ? (data.executedActions as ExecutedAction[]) : undefined,
+    executedActions: Array.isArray(data.executedActions)
+      ? (data.executedActions as ExecutedAction[])
+      : Array.isArray(data.executedTools)
+      ? (data.executedTools as ExecutedAction[])
+      : undefined,
     proposedActions: Array.isArray(data.proposedActions) ? (data.proposedActions as ProposedChatAction[]) : undefined,
     usage: (data.usage as AiChatResponse["usage"]) || null,
     model: typeof data.model === "string" ? data.model : undefined,

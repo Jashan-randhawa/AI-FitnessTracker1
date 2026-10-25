@@ -94,6 +94,7 @@ const analyze = asyncHandler(async (req, res) => {
       result: analysis, // backward compatibility
       analysis,
       savedRecord,
+      savedLog: savedRecord,
       autoSaved,
       fit,
     });

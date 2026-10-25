@@ -252,6 +252,7 @@ const chat = asyncHandler(async (req, res) => {
       success: true,
       reply: cleanedReply,
       executedActions: result.executedActions || [],
+      executedTools: result.executedActions || [],
       proposedActions,
       usage: result.usage,
       model: result.model,
