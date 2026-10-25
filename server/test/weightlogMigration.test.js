@@ -167,3 +167,25 @@ describe('WeightLog Migration & Backfill (Existing Data Safeguards)', () => {
     }
   });
 });
+
+describe('backfill log safety', () => {
+  const { describeMongoTarget } = require('../scripts/backfill-weightlog-localday');
+
+  it('never includes credentials or options in the target description', () => {
+    const out = describeMongoTarget('mongodb+srv://user:s3cret@cluster0.example.net/fittrack?retryWrites=true');
+    assert.equal(out.includes('s3cret'), false);
+    assert.equal(out.includes('user'), false);
+    assert.equal(out.includes('retryWrites'), false);
+    assert.equal(out, 'cluster0.example.net/fittrack');
+  });
+
+  it('handles local URIs without credentials', () => {
+    assert.equal(describeMongoTarget('mongodb://127.0.0.1:27017/fittrack'), '127.0.0.1:27017/fittrack');
+  });
+
+  it('handles passwords containing @ and malformed input', () => {
+    const out = describeMongoTarget('mongodb://u:p@ss@host1:27017/db');
+    assert.equal(out.includes('p@ss'), false);
+    assert.equal(typeof describeMongoTarget(undefined), 'string');
+  });
+});

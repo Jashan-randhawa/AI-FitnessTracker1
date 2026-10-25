@@ -18,6 +18,7 @@
  */
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const mongoose = require('mongoose');
 const WeightLog = require('../src/models/WeightLog');
@@ -61,7 +62,7 @@ async function backfillWeightLogs(options = {}) {
     backupPath =
       typeof backupFile === 'string'
         ? path.resolve(backupFile)
-        : path.resolve(process.cwd(), `weightlogs-backup-${timestamp}.json`);
+        : path.resolve(os.tmpdir(), `weightlogs-backup-${timestamp}.json`);
     try {
       fs.writeFileSync(backupPath, JSON.stringify(allLogs, null, 2), 'utf8');
     } catch (err) {
@@ -194,6 +195,21 @@ Options:
   return options;
 }
 
+/**
+ * Returns a log-safe description of a MongoDB connection string: host(s) and
+ * database name only. Credentials and query options are never included.
+ */
+function describeMongoTarget(uri) {
+  try {
+    const rest = String(uri).replace(/^mongodb(\+srv)?:\/\//i, '');
+    const afterAuth = rest.includes('@') ? rest.slice(rest.lastIndexOf('@') + 1) : rest;
+    const [hostPart, dbPart = ''] = afterAuth.split('?')[0].split(/\/(.*)/s);
+    return `${hostPart || 'unknown-host'}/${dbPart || '(default db)'}`;
+  } catch {
+    return '(unparseable connection string)';
+  }
+}
+
 async function main() {
   const options = parseCliArgs();
   const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/fittrack';
@@ -202,7 +218,7 @@ async function main() {
   console.log('FitTrack AI — WeightLog Migration & Backfill Tool');
   console.log(`Mode: ${options.dryRun ? 'DRY RUN (Read-Only Simulation)' : 'LIVE EXECUTION'}`);
   console.log(`Timezone: ${options.timezone}`);
-  console.log(`Target Database: ${uri}`);
+  console.log(`Target Database: ${describeMongoTarget(uri)}`);
   console.log('====================================================\n');
 
   console.log(`Connecting to MongoDB...`);
@@ -237,6 +253,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  describeMongoTarget,
   backfillWeightLogs,
   deriveLocalDay,
 };
