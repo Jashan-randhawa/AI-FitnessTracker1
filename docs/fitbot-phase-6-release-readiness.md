@@ -109,7 +109,7 @@ A dedicated release gate test suite (`server/test/phase6Release.test.js`) was ad
 4. **Clinical Safety Safeguards**:
    - Safe harbor floor: strictly enforces minimum 1,200 kcal (female) / 1,500 kcal (male); refuses severe starvation regimens (<1,000 kcal).
    - Acute symptom stoppage: directs immediate cessation and emergency medical evaluation for chest pain, shortness of breath, or joint swelling.
-   - Eating disorder safeguards: offers compassionate support and professional helpline resources (e.g. NEDA) when restrictive/purging behaviors are detected.
+   - Eating disorder safeguards: offers compassionate support and professional helpline resources (e.g. the National Alliance for Eating Disorders helpline) when restrictive/purging behaviors are detected.
    - Non-diagnostic disclaimer: reinforces that FitBot is an educational wellness coach, not a medical doctor.
 
 ---

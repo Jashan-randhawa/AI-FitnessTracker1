@@ -14,7 +14,7 @@
 [![Express](https://img.shields.io/badge/Express-4.19-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E=20.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tests](https://img.shields.io/badge/Unit_Tests-241_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
+[![Tests](https://img.shields.io/badge/Unit_Tests-459_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
 [![Audit](https://img.shields.io/badge/Vulnerabilities-0-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://ai-fitness-tracker1.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
@@ -34,7 +34,7 @@
 **FitTrack AI** combines modern fitness tracking with generative artificial intelligence to deliver an experience that goes beyond standard calorie counting:
 
 - **Intelligent Vision & NLP Logging:** Snap a photo or type a meal description; AI identifies foods and computes calories and macros automatically.
-- **Context-Aware Coaching & Clinical Safety:** FitBot tracks your personal biometrics, target calories, daily consumed/burned metrics, and past conversation memory while enforcing clinical safe-harbor boundaries against hazardous dietary advice.
+- **Context-Aware Coaching & Clinical Safety:** FitBot and the meal and activity planners build their context on the server from your own records (goals, today's food, activity and water, a 7-day trend, streak, and active workout plan), optionally with a validated weather observation, while enforcing clinical safe-harbor boundaries against hazardous dietary advice.
 - **High-Performance Analytics & Midnight Rollover:** $O(N)$ single-pass daily totals aggregation engine (`dailyTotals.ts`), dynamic midnight rollover (`useToday`) with visibility detection, weekly insight tiles, and goal reference lines with rose exceed highlights.
 - **Full-Stack Macro & Hydration Target Customization:** Profile and dashboard integration with customizable protein, carbohydrate, fat, and hydration goals, backed by intelligent automatic derivation (30/40/30 macro split, 2500 ml water).
 - **Redesigned Modern Planners:** Glassmorphism UI for both Meal Planner and Activity Planner featuring single-day ("Today") and multi-day scheduling (1, 3, 5, 7 days), smart presets, and one-click "Log to Tracker" integration.
@@ -79,6 +79,9 @@ npm install @jashan-randhawa/fitness-utils
 
 ### 🧠 1. Artificial Intelligence Core
 - **FitBot Personal Coach (`/ai-assistant` & `/ai`):** Chat with a context-aware fitness assistant powered by OpenRouter LLMs. FitBot references your profile (weight, target calories, training goal) and remembers past sessions.
+  - **Server-Built Fitness Context:** One shared, user-scoped context service (`server/src/services/fitnessContext.service.js`) reuses the dashboard's own summary and goal calculations, so AI answers match the numbers you see on screen. Missing data is reported as unavailable rather than zero, the local day comes from the validated `X-Timezone` header (with a safe fallback), and the prompt text is length-bounded. Context sent by the client is not trusted or forwarded.
+  - **Weather & Local-Time Context (optional):** The Weather page's AI suggestions can send a compact observation (temperature, condition, precipitation chance, AQI, timestamp) that the server validates against fixed ranges. Raw coordinates and place names are never part of the contract, observations older than 3 hours are treated as stale, and missing data is never treated as safe weather. AQI uses the US EPA scale by default (`AQI_STANDARD`).
+  - **Cache & Privacy:** Response cache keys include the full prompt, prompt version, and a per-user scope, so one user's personalised answer cannot be served to another.
   - **Zod Schema Validation & Plan Contracts:** Automated structural parsing and validation for meal and workout plans ensuring non-negative values, realistic workout durations ($\le 720$ min), and validated schema structures.
   - **Clinical Safety Boundaries & Non-Diagnosis Guarantees:** Built-in clinical safe harbor refusing harmful diet advice, extreme caloric deficits, or medical treatment prescriptions while requiring affirmative confirmation for rigorous training splits.
   - **Transparent AI Context & Memory Management:** User-directed conversation memory scoping, per-user isolation, and zero-leak context privacy controls (`/api/ai-assistant/memory`).
@@ -136,6 +139,8 @@ npm install @jashan-randhawa/fitness-utils
 - **Smart Presets & Goal Filters:** Quick presets for Weight Loss, Muscle Gain, Maintenance, Keto, High Protein, Endurance, HIIT, Strength, and Home Workouts.
 - **One-Click "Log to Tracker":** Seamlessly log meals directly to Food Log (`/api/foodlogs`) and workouts directly to Activity Log (`/api/activitylogs`) with validated payload normalization (`mealType`, `time`, `calories`, `protein`, `carbs`, `fat`, structured exercises, and sets).
 - **Nutrition Summary & Macro Distribution:** Visual breakdown of daily calories, protein, carbs, and fat per day with progress against targets.
+- **Adaptive Planning:** The server adds today's remaining calories and macros, the names of food already logged, your active workout plan, and your recent activity to every planner request. Day 1 of a meal plan fits what is left today, or is planned as tomorrow if today's budget is used up. If this context cannot be loaded, the request is refused with `503` instead of planning without your data. Planned meals and workouts are never logged automatically; logging stays an explicit button press.
+- **Current limitation:** The Activity Planner does not yet receive weather, so it treats outdoor conditions as unknown and favours indoor options.
 
 ### 🏋️ 4. Workout Studio, Live Tracker & Music Player
 - **Three-Tab Segmented Control:** Instantly switch between **Videos**, **Today's Plan**, and **Music** with compact mobile hero and animated tab transitions.
@@ -156,6 +161,7 @@ npm install @jashan-randhawa/fitness-utils
 
 ### 🌤️ 5. Outdoor Weather & Health News
 - **Live Weather & AQI:** Real-time temperature, wind, humidity, and Air Quality Index powered by Open-Meteo to plan safe outdoor training sessions.
+- **Context-Aware Workout Suggestions:** AI suggestions use the current observation together with your logged data, and stay conservative when conditions are risky, stale, or incomplete.
 - **Health & Wellness News Feed:** Live headlines curated from leading health publications via NewsAPI.
 - **Curated Fitness Blog:** Informative fitness articles with search and category tags.
 
@@ -260,11 +266,15 @@ cd server
 npm test
 ```
 
-Test coverage includes **241 unit tests** across **64 suites** (100% passing, 0 external runner overhead):
+Test coverage includes **459 unit tests** across **119 suites** (100% passing, 0 external runner overhead):
 - **User Macro & Water Goals (`test/userGoals.test.js`):** Numeric validation, non-negative constraints (`min: 0`), and non-numeric casting guards for `dailyproteingoal`, `dailycarbsgoal`, `dailyfatgoal`, and `dailywatergoal`.
 - **AI Structured Plans & Schemas (`test/aiPlans.test.js`):** Zod validation contracts for meal and workout plan JSON payloads, rejecting negative macros or unrealistic durations.
 - **FitBot Reliability & Cancellation (`test/fitbotReliability.test.js`):** Idempotent persistence, request deduplication, and client abort handling.
 - **FitBot Context, Memory & Privacy (`test/fitbotContextPrivacy.test.js`):** Per-user memory scoping, context injection, and privacy controls.
+- **Shared Fitness Context (`test/fitnessContext.test.js`):** Complete and partial profiles, empty logs, missing plans, invalid timezones, day rollovers, user isolation, and prompt-size limits.
+- **Weather & Local-Time Context (`test/environment.test.js`):** Range and enum validation, malformed or stale observations, missing fields, and conservative outdoor risk handling.
+- **FitBot Contextual Coaching (`test/fitbotCoaching.test.js`):** Server-built context in prompts, prompt-version and cache-key behaviour, and cross-user cache isolation.
+- **Adaptive Planners (`test/plannerContext.test.js`):** Remaining calorie and macro budgets, exceeded or missing targets, active-plan and streak rules, fail-closed behaviour, and planner limits.
 - **Release Gate & Safety Boundaries (`test/phase6Release.test.js`):** Multi-user authorization boundaries, adversarial prompt injection defense, clinical safety safe harbor, and LRU cache isolation.
 - **Auth & JWT (`test/auth.test.js`):** Token generation, signature validation, payload integrity, username/email/password registration validators, and login validation.
 - **Dual Sign-In Matrix & Password Policy (`test/phase3-google-linking.test.js`, `test/phase4-password-management.test.js`):** Google OAuth 6-case automated linking matrix, squat account protection, password setting/updating with step-up verification (`requireRecentLogin`), and rolling 5-password history prevention.
@@ -347,7 +357,7 @@ AI-FitnessTracker1/
 │
 ├── server/                              # Express + MongoDB API
 │   ├── server.js                        # Server entry point
-│   ├── test/                            # Unit tests (node --test - 64 suites / 241 tests)
+│   ├── test/                            # Unit tests (node --test - 119 suites / 459 tests)
 │   │   ├── aiAssistant.test.js          # AI payload caps & truncation tests
 │   │   ├── aiPlans.test.js              # Zod schema validation for structured plans
 │   │   ├── auth.test.js                 # Auth & JWT unit tests
@@ -355,14 +365,18 @@ AI-FitnessTracker1/
 │   │   ├── chatHistory.test.js          # Chat history persistence tests
 │   │   ├── errorHandler.test.js         # Error handling & production masking tests
 │   │   ├── estimates.test.js            # Calorie & food estimate tests
+│   │   ├── environment.test.js          # Weather & local-time context validation tests
+│   │   ├── fitbotCoaching.test.js       # Contextual coaching, prompt version & cache tests
 │   │   ├── fitbotContextPrivacy.test.js # FitBot context, memory & privacy tests
 │   │   ├── fitbotReliability.test.js    # FitBot retry & cancellation tests
+│   │   ├── fitnessContext.test.js       # Shared server-side fitness context tests
 │   │   ├── health.test.js               # Health check & request-ID tests
 │   │   ├── logger.test.js               # Logger & secret scrubber tests
 │   │   ├── metrics.test.js              # Prometheus metrics tests
 │   │   ├── openrouter.test.js           # OpenRouter resilience & prompt tests
 │   │   ├── passwordReset.test.js        # Password reset validation tests
 │   │   ├── phase6Release.test.js        # Release gates, clinical safety & security boundaries
+│   │   ├── plannerContext.test.js       # Meal & activity planner context tests
 │   │   ├── userGoals.test.js            # User macro and water targets validation
 │   │   └── workoutPlan.test.js          # Workout plan & activity log schema tests
 │   └── src/
@@ -374,7 +388,7 @@ AI-FitnessTracker1/
 │       ├── prompts/                     # Versioned AI system prompts (fitbot.prompt.js)
 │       ├── middleware/                  # JWT auth, rateLimiter, requestId, httpLogger, errorHandler
 │       ├── utils/                       # Structured JSON logger, secret scrubber, Redis client
-│       └── services/                    # OpenRouter AI with fallback, Brevo email services
+│       └── services/                    # OpenRouter AI with fallback, shared fitness/planner/weather context, Brevo email services
 │
 ├── IMPLEMENTATION_GUIDE.md              # Technical architecture & deployment guide
 └── LICENSE                              # MIT License
@@ -528,7 +542,7 @@ All requests requiring authorization must include the header:
 ### Generative AI & Media
 | Method | Endpoint | Description | Rate Limit | Access |
 |---|---|---|---|---|
-| `POST` | `/api/ai-assistant/chat` | Send message to FitBot Coach (with model fallback & retry) | 30 req/m (IP) + 20 req/m (User) | Private |
+| `POST` | `/api/ai-assistant/chat` | Send message to FitBot Coach or run a planner (server-built context from `X-Timezone`; optional validated `environment`; model fallback & retry) | 30 req/m (IP) + 20 req/m (User) | Private |
 | `POST` | `/api/image-analysis` | Analyze meal photo for nutrition | 30 req / 1m | Private |
 | `POST` | `/api/food-estimate` | Natural language text nutrition estimator | 30 req / 1m | Private |
 | `POST` | `/api/calorie-estimate` | Estimate calories burned from exercise | 30 req / 1m | Private |
