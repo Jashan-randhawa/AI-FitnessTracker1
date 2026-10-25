@@ -55,10 +55,10 @@ const validateEnvironment = (rawEnv = process.env) => {
   // Gemini API key check
   const hasGemini = Boolean(rawEnv.GOOGLE_API_KEY || rawEnv.GEMINI_API_KEY);
   if (!hasGemini) {
-    if (isProd && !isCiOrTest) {
-      errors.push('GOOGLE_API_KEY or GEMINI_API_KEY is required in production for AI features.');
+    if (isProd && rawEnv.STRICT_AI_KEYS === 'true' && !isCiOrTest) {
+      errors.push('GOOGLE_API_KEY or GEMINI_API_KEY is required in production when STRICT_AI_KEYS is enabled.');
     } else {
-      warnings.push('Google Gemini API key not configured; AI features will run in mock/fallback mode.');
+      warnings.push('GOOGLE_API_KEY / GEMINI_API_KEY not configured. Gemini AI features (Food Snap v2 vision, FitBot tools, voice logger) will run with fallback handlers until a key is added.');
     }
   }
 
