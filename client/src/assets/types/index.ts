@@ -11,6 +11,8 @@ export type User = {
   age?: number;
   weight?: number;
   height?: number;
+  gender?: "male" | "female" | "other" | string;
+  activityLevel?: "sedentary" | "light" | "moderate" | "active" | "very_active" | string;
   goal?: "lose" | "maintain" | "gain";
   dailycaloriesintake?: number;
   dailycaloriesburned?: number;

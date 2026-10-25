@@ -1,7 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { useappcontext } from "../Context/AppContext";
 import api from "../configs/api";
+import { calculateGoalSuggestion } from "../utils/deriveGoals";
 
 type Step = 1 | 2 | 3;
 
@@ -9,6 +10,8 @@ interface FormData {
   age: string;
   weight: string;
   height: string;
+  gender: string;
+  activityLevel: string;
   goal: string;
   calorieIntake: number;
   calorieBurn: number;
@@ -29,6 +32,8 @@ const Onboarding = () => {
     age: "",
     weight: "",
     height: "",
+    gender: "other",
+    activityLevel: "moderate",
     goal: "maintain",
     calorieIntake: 2000,
     calorieBurn: 400,
@@ -37,6 +42,17 @@ const Onboarding = () => {
   const [dragX, setDragX] = useState(0);
   const dragStartX = useRef<number | null>(null);
   const { user, setOnboardingCompleted, fetchUser } = useappcontext();
+
+  const suggestion = useMemo(() => {
+    return calculateGoalSuggestion({
+      age: Number(form.age) || undefined,
+      weight: Number(form.weight) || undefined,
+      height: Number(form.height) || undefined,
+      gender: form.gender,
+      activityLevel: form.activityLevel,
+      goal: form.goal,
+    });
+  }, [form.age, form.weight, form.height, form.gender, form.activityLevel, form.goal]);
 
   const goTo = (next: Step, dir: "forward" | "back") => {
     setExitDir(dir === "forward" ? "left" : "right");
@@ -81,6 +97,8 @@ const Onboarding = () => {
       age: Number(form.age),
       weight: Number(form.weight),
       height: form.height ? Number(form.height) : null,
+      gender: form.gender,
+      activityLevel: form.activityLevel,
       goal: form.goal,
       dailycaloriesintake: form.calorieIntake,
       dailycaloriesburned: form.calorieBurn,
@@ -612,6 +630,32 @@ const Onboarding = () => {
 
                   <div className="fit-targets">
                     <div className="fit-targets-title">Daily Targets</div>
+
+                    {suggestion && (
+                      <div className="p-3 mb-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                            <span>💡</span> Suggested Target ({form.goal})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                calorieIntake: suggestion.calorieIntake,
+                                calorieBurn: suggestion.calorieBurn,
+                              }))
+                            }
+                            className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer"
+                          >
+                            Apply {suggestion.calorieIntake} kcal
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-emerald-700/90 dark:text-emerald-400/90">
+                          {suggestion.explanation}
+                        </p>
+                      </div>
+                    )}
 
                     <div className="fit-slider-row">
                       <div className="fit-slider-top">

@@ -18,6 +18,8 @@ const ALLOWED_FIELDS = [
   'age',
   'weight',
   'height',
+  'gender',
+  'activityLevel',
   'goal',
   'dailycaloriesintake',
   'dailycaloriesburned',

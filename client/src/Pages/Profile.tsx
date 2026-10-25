@@ -8,7 +8,7 @@ import autoTable from "jspdf-autotable";
 import AnimatedNumber from "../components/AnimatedNumber";
 import { Eye, EyeOff, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { PasswordStrengthMeter } from "../components/auth/PasswordStrengthMeter";
-import { deriveGoals } from "../utils/deriveGoals";
+import { deriveGoals, calculateGoalSuggestion } from "../utils/deriveGoals";
 import { withBadgeState } from "../utils/badges";
 import { useDaySummary } from "../data/summaryStore";
 import { localDayKey } from "../utils/localDay";
@@ -55,6 +55,16 @@ const EditProfileModal = ({ user, onClose, onSave }: {
   const [weight, setWeight] = useState(String(user?.weight ?? ""));
   const [height, setHeight] = useState(String(user?.height ?? ""));
   const [goal, setGoal] = useState(user?.goal ?? "maintain");
+
+  const suggested = useMemo(() => {
+    return calculateGoalSuggestion({
+      age: Number(age) || undefined,
+      weight: Number(weight) || undefined,
+      height: Number(height) || undefined,
+      goal,
+    });
+  }, [age, weight, height, goal]);
+
   const [caloriesIn, setCaloriesIn] = useState(String(user?.dailycaloriesintake ?? ""));
   const [caloriesOut, setCaloriesOut] = useState(String(user?.dailycaloriesburned ?? ""));
   const [proteinGoal, setProteinGoal] = useState(user?.dailyproteingoal ? String(user.dailyproteingoal) : "");
@@ -144,6 +154,23 @@ const EditProfileModal = ({ user, onClose, onSave }: {
               <input type={type} className={inputCls} value={val} onChange={(e) => set(e.target.value)} />
             </div>
           ))}
+          {suggested && (
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-center justify-between">
+              <span className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300">
+                💡 Suggested for {goal}: {suggested.calorieIntake} kcal
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCaloriesIn(String(suggested.calorieIntake));
+                  setCaloriesOut(String(suggested.calorieBurn));
+                }}
+                className="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer"
+              >
+                Apply
+              </button>
+            </div>
+          )}
           <div className="pt-2 border-t border-slate-200 dark:border-slate-700/50">
             <p className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-1">Macro & Water Targets</p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
