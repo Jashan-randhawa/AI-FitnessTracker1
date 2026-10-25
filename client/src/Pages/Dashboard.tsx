@@ -540,13 +540,8 @@ export default function Dashboard() {
     const fetchTip = async () => {
       setTipLoading(true);
       try {
-        const userCtx = [
-          user?.goal ? `goal: ${user.goal} weight` : "",
-          user?.weight ? `weight: ${user.weight}kg` : "",
-          totalCaloriesToday ? `consumed today: ${totalCaloriesToday} kcal` : "",
-          totalCaloriesBurnedToday ? `burned today: ${totalCaloriesBurnedToday} kcal` : "",
-        ].filter(Boolean).join(", ");
-        const tip = await fetchDailyFitnessTip(userCtx);
+        // Goal, weight, and today's totals come from the server context.
+        const tip = await fetchDailyFitnessTip("");
         if (tip) {
           setDailyTip(tip);
           sessionStorage.setItem(cacheKey, tip);

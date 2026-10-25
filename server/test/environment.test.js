@@ -338,13 +338,13 @@ describe('chat service: environment reaches the model without changing the reque
       environmentContext: text,
     });
     assert.equal(seen.body.messages[0].role, 'system');
-    assert.ok(seen.body.messages[0].content.includes('<environment>'));
+    assert.ok(seen.body.messages[0].content.includes('<environment>\nLocal time'));
   });
 
   it('keeps the system message free of an environment block when none is supplied', async () => {
     const { seen, fetchFn } = capture();
     await chatWithAssistant([{ role: 'user', content: 'Plan a run' }], undefined, { fetchFn, skipCache: true });
-    assert.equal(seen.body.messages[0].content.includes('<environment>'), false);
+    assert.equal(seen.body.messages[0].content.includes('<environment>\nLocal time'), false);
   });
 
   it('does not let environment data change the model or the token ceiling', async () => {
@@ -410,7 +410,7 @@ describe('controller: request contract', () => {
     const seen = {};
     const res = await run({}, {}, seen);
     assert.equal(res.statusCode, 200);
-    assert.equal(seen.body.messages[0].content.includes('<environment>'), false);
+    assert.equal(seen.body.messages[0].content.includes('<environment>\nLocal time'), false);
   });
 
   it('adds the block with the validated X-Timezone and a fresh observation', async () => {
@@ -423,7 +423,7 @@ describe('controller: request contract', () => {
     );
     assert.equal(res.statusCode, 200);
     const system = seen.body.messages[0].content;
-    assert.ok(system.includes('<environment>'));
+    assert.ok(system.includes('<environment>\nLocal time'));
     assert.ok(/Local time: \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(Asia\/Calcutta\)/.test(system));
     assert.ok(system.includes('Outdoor risk: low.'));
   });

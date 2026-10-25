@@ -37,7 +37,6 @@ import {
   getRegenerateContext,
   buildSessionSummary,
   getValidMessages,
-  buildNormalizedContext,
   formatMemoryContext,
   isSameCalendarDay,
 } from "../utils/fitbotHistory";
@@ -745,11 +744,7 @@ export default function AIAssistant() {
     }
   };
 
-  // Build verified, normalized user context string with provenance tags
-  const { contextString: userContext } = useMemo(
-    () => buildNormalizedContext({ user, foodLogs: todayFood, activityLogs: todayActivity }),
-    [user, todayFood, todayActivity]
-  );
+  // FitBot's profile and daily data come from the server context. The client sends none.
 
   // Build bounded, sanitized memory context string from past sessions
   const memoryContext = useMemo(
@@ -946,7 +941,6 @@ export default function AIAssistant() {
     try {
       const data = await chatAiAssistant({
         messages: historyPayload,
-        userContext,
         memoryContext,
         options: {
           regenerate: Boolean(sendOptions?.regenerate),

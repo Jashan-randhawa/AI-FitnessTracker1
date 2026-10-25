@@ -51,11 +51,20 @@ const resetCache = () => {
   cacheStats.evictions = 0;
 };
 
+/**
+ * Cache key for one completion. Every input that changes the answer is included:
+ * the full messages (system prompt, server context, memory, history), the JSON
+ * flag, model, token ceiling, prompt version, and the user scope. The scope stops
+ * one user's personalised answer from being served to another user, even when
+ * the messages match.
+ */
 const computeCacheKey = ({
   messages,
   isJsonRequest = false,
   model = DEFAULT_MODEL,
   maxTokens = DEFAULT_MAX_OUTPUT_TOKENS,
+  scope = 'shared',
+  promptVersion = PROMPT_VERSION,
 }) => {
   return crypto
     .createHash('sha256')
@@ -65,7 +74,8 @@ const computeCacheKey = ({
         isJsonRequest: Boolean(isJsonRequest),
         model,
         maxTokens,
-        version: PROMPT_VERSION,
+        version: promptVersion,
+        scope: String(scope),
       })
     )
     .digest('hex');
@@ -124,7 +134,12 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
   cleanExpiredCache();
 
   const memoryContext = options.memoryContext;
-  const systemInstruction = buildFitBotPrompt(userContext, memoryContext, options.environmentContext);
+  const systemInstruction = buildFitBotPrompt(
+    userContext,
+    memoryContext,
+    options.environmentContext,
+    options.fitnessContext
+  );
 
   const openRouterMessages = [
     { role: 'system', content: systemInstruction },
@@ -170,6 +185,7 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
     isJsonRequest,
     model: targetModel,
     maxTokens,
+    scope: options.cacheScope,
   });
 
   // Check LRU cache if not bypassing

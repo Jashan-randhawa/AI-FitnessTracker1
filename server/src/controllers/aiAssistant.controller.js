@@ -1,6 +1,13 @@
 const asyncHandler = require('express-async-handler');
 const { chatWithAssistant } = require('../services/aiAssistant.service');
 const { buildEnvironmentContext } = require('../services/environment.service');
+const { buildFitnessPromptContext } = require('../services/fitnessContext.service');
+
+// Test seam: lets tests replace the context loader without a database. Production never changes it.
+let fitnessPromptBuilder = buildFitnessPromptContext;
+const setFitnessPromptBuilderForTests = (fn) => {
+  fitnessPromptBuilder = fn || buildFitnessPromptContext;
+};
 const logger = require('../utils/logger');
 
 const MAX_MESSAGES = 50;
@@ -89,10 +96,7 @@ const prepareMessages = (rawMessages) => {
 const chat = asyncHandler(async (req, res) => {
   const {
     messages: rawMessages,
-    userContext: rawUserContext,
     memoryContext: rawMemoryContext,
-    context: rawStructuredContext,
-    systemInstruction,
     expectJson,
     options,
     skipCache,
@@ -129,23 +133,9 @@ const chat = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: prepared.error });
   }
 
-  // Gracefully accept userContext, structured context, or legacy systemInstruction
-  let userContext = undefined;
-  if (typeof rawUserContext === 'string' && rawUserContext.trim().length > 0) {
-    userContext = rawUserContext.trim();
-  } else if (rawStructuredContext && typeof rawStructuredContext === 'object') {
-    try {
-      userContext = JSON.stringify(rawStructuredContext);
-    } catch {
-      userContext = undefined;
-    }
-  } else if (typeof systemInstruction === 'string' && systemInstruction.trim().length > 0) {
-    userContext = systemInstruction.trim();
-  }
-
-  if (userContext && typeof userContext === 'string' && userContext.length > MAX_USER_CONTEXT_CHARS) {
-    userContext = userContext.slice(0, MAX_USER_CONTEXT_CHARS);
-  }
+  // Client-supplied userContext, context, and systemInstruction are not trusted and are
+  // not forwarded. The fitness context below is built on the server from the
+  // authenticated user's records. These fields are still accepted so old clients keep working.
 
   let memoryContext = undefined;
   if (typeof rawMemoryContext === 'string' && rawMemoryContext.trim().length > 0) {
@@ -194,7 +184,15 @@ const chat = asyncHandler(async (req, res) => {
   activeRequestsPerUser.set(userKey, userInFlight + 1);
 
   try {
-    const result = await chatWithAssistant(messages, userContext, chatOptions);
+    // Conversational requests get server-built fitness context. Planner requests
+    // (expectJson) stay as they were, so their JSON contract is unchanged.
+    if (!chatOptions.expectJson) {
+      const tzHeader = typeof req.get === 'function' ? req.get('X-Timezone') : undefined;
+      chatOptions.fitnessContext = await fitnessPromptBuilder({ user: req.user, timeZone: tzHeader });
+    }
+    chatOptions.cacheScope = userId ? `user:${String(userId)}` : `anon:${userKey}`;
+
+    const result = await chatWithAssistant(messages, undefined, chatOptions);
     if (typeof req.removeListener === 'function') {
       req.removeListener('close', onClientClose);
     }
@@ -273,6 +271,7 @@ const chat = asyncHandler(async (req, res) => {
 
 module.exports = {
   chat,
+  setFitnessPromptBuilderForTests,
   prepareMessages,
   getActiveConcurrencyStats,
   resetConcurrencyStats,
