@@ -5,3 +5,7 @@ build/
 .env.local
 .DS_Store
 *.log
+
+# Weight-log migration backups contain user health data
+weightlogs-backup-*.json
+*-backup-*.json
