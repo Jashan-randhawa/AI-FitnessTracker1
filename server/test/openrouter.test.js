@@ -66,7 +66,7 @@ describe('OpenRouter Service & Prompt Configuration Tests', () => {
 
   it('buildFitBotPrompt correctly injects user context and maintains prompt version', () => {
     const promptModule = require('../src/prompts/fitbot.prompt');
-    assert.equal(promptModule.PROMPT_VERSION, '1.6.0');
+    assert.equal(promptModule.PROMPT_VERSION, '1.7.0');
 
     const basicPrompt = promptModule.buildFitBotPrompt();
     assert.ok(basicPrompt.includes('You are FitBot'));

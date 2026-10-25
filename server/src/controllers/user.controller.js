@@ -7,6 +7,7 @@ const { validatePasswordPolicy } = require('../utils/passwordPolicy');
 const { checkPasswordReuse } = require('../utils/passwordReuse');
 const { sendSecurityNoticeEmail } = require('../services/email.service');
 const { recordSecurityEvent } = require('../utils/auditLogger');
+const { sanitizeUntrustedText } = require('../prompts/fitbot.prompt');
 const logger = require('../utils/logger');
 
 // Fields the client actually sends via Onboarding/Profile — anything else
@@ -22,6 +23,10 @@ const ALLOWED_FIELDS = [
   'dailycarbsgoal',
   'dailyfatgoal',
   'dailywatergoal',
+  'dietaryRestrictions',
+  'dietStyle',
+  'preferredCuisine',
+  'customDietaryNotes',
   'onboardedAt',
 ];
 
@@ -63,6 +68,26 @@ const updateUser = asyncHandler(async (req, res) => {
       }
     }
     updates.username = rawUsername;
+  }
+
+  // Dietary sanitization (G7)
+  if (req.body.dietaryRestrictions !== undefined) {
+    if (!Array.isArray(req.body.dietaryRestrictions)) {
+      return sendError(res, 400, 'dietaryRestrictions must be an array of strings');
+    }
+    updates.dietaryRestrictions = req.body.dietaryRestrictions
+      .map((r) => (typeof r === 'string' ? r.trim().toLowerCase() : ''))
+      .filter(Boolean);
+  }
+
+  if (req.body.preferredCuisine !== undefined) {
+    const raw = typeof req.body.preferredCuisine === 'string' ? req.body.preferredCuisine : '';
+    updates.preferredCuisine = sanitizeUntrustedText(raw.replace(/[\u0000-\u001F\u007F]/g, ' '), 50).trim();
+  }
+
+  if (req.body.customDietaryNotes !== undefined) {
+    const raw = typeof req.body.customDietaryNotes === 'string' ? req.body.customDietaryNotes : '';
+    updates.customDietaryNotes = sanitizeUntrustedText(raw.replace(/[\u0000-\u001F\u007F]/g, ' '), 200).trim();
   }
 
   const user = await User.findByIdAndUpdate(req.user._id, updates, {

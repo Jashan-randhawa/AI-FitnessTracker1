@@ -50,6 +50,15 @@ const RESTRICTIONS = [
   "Gluten-Free",
   "Dairy-Free",
   "Nut-Free",
+  "Egg-Free",
+  "Soy-Free",
+  "Vegetarian",
+  "Vegan",
+  "Pescatarian",
+  "Halal",
+  "Kosher",
+  "Low-Carb",
+  "Keto",
   "Low Sodium",
   "High Fiber",
 ];
@@ -127,6 +136,27 @@ export default function MealPlanner() {
       setTargetCalories(user.dailycaloriesintake);
     }
   }, [user?.dailycaloriesintake]);
+
+  // Pre-fill from user dietary profile if set (Phase C / G7)
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  useEffect(() => {
+    if (user && !profileLoaded) {
+      if (user.dietStyle) {
+        setDietStyle(user.dietStyle);
+      }
+      if (user.preferredCuisine && user.preferredCuisine.toLowerCase() !== "any") {
+        setCuisine(user.preferredCuisine);
+      }
+      if (Array.isArray(user.dietaryRestrictions) && user.dietaryRestrictions.length > 0) {
+        const mapped = user.dietaryRestrictions.map((r) => {
+          const match = RESTRICTIONS.find((opt) => opt.toLowerCase() === r.toLowerCase());
+          return match || r;
+        });
+        setSelectedRestrictions((prev) => (prev.length === 0 ? mapped : prev));
+      }
+      setProfileLoaded(true);
+    }
+  }, [user, profileLoaded]);
 
   // Plan State
   const [plan, setPlan] = useState<DayPlan[]>([]);
@@ -591,6 +621,17 @@ ${days > 1 ? "- Never duplicate identical dishes across consecutive days." : "- 
                 placeholder="e.g. Plan remaining calories for today, quick prep, etc."
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-xs sm:text-sm text-gray-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
               />
+            </div>
+
+            {/* Allergen Disclaimer (G7) */}
+            <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
+              <span className="text-base leading-none">⚠️</span>
+              <div>
+                <p className="font-semibold">Allergen Safety Notice</p>
+                <p className="text-[11px] text-amber-700 dark:text-amber-300/80 mt-0.5">
+                  AI meal plans are suggestions and not clinical allergen verifications. Always check ingredient labels for potential allergens.
+                </p>
+              </div>
             </div>
 
             {/* Generate Button */}

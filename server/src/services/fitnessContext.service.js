@@ -44,6 +44,28 @@ const MAX_PLAN_DAYS = 7;
 const MAX_PROMPT_CHARS = 2000;
 const TRUNCATION_NOTE = 'Some context was omitted to keep this prompt bounded.';
 const GOAL_VALUES = ['lose', 'maintain', 'gain'];
+const VALID_DIET_STYLES = [
+  'Balanced',
+  'High Protein',
+  'Keto / Low-Carb',
+  'Plant-Based',
+  'Mediterranean',
+  'Custom',
+];
+const VALID_RESTRICTIONS = [
+  'vegetarian',
+  'vegan',
+  'pescatarian',
+  'gluten-free',
+  'dairy-free',
+  'nut-free',
+  'egg-free',
+  'soy-free',
+  'halal',
+  'kosher',
+  'low-carb',
+  'keto',
+];
 const PLAN_FIELDS =
   'title goal level daysPerWeek split days.day days.focus days.duration days.exercises updatedAt';
 
@@ -103,6 +125,17 @@ const formatLocalTime = (now, timeZone) => {
 
 const buildProfile = (user) => {
   const goals = deriveGoals(user);
+  const rawRestrictions = Array.isArray(user.dietaryRestrictions) ? user.dietaryRestrictions : [];
+  const restrictions = rawRestrictions
+    .map((r) => (typeof r === 'string' ? r.trim().toLowerCase() : ''))
+    .filter((r) => VALID_RESTRICTIONS.includes(r));
+  const dietStyle =
+    typeof user.dietStyle === 'string' && VALID_DIET_STYLES.includes(user.dietStyle)
+      ? user.dietStyle
+      : (user.dietStyle ? cleanText(user.dietStyle, 40) : null);
+  const preferredCuisine = cleanText(user.preferredCuisine, 50);
+  const customDietaryNotes = cleanText(user.customDietaryNotes, 200);
+
   return {
     goal: GOAL_VALUES.includes(user.goal) ? user.goal : null,
     weightKg: numberInRange(user.weight, WEIGHT_RANGE),
@@ -120,6 +153,12 @@ const buildProfile = (user) => {
       carbs: isPositiveNumber(user.dailycarbsgoal),
       fat: isPositiveNumber(user.dailyfatgoal),
       water: isPositiveNumber(user.dailywatergoal),
+    },
+    dietary: {
+      restrictions,
+      dietStyle: dietStyle || (user.dietStyle !== undefined ? 'Balanced' : null),
+      preferredCuisine: preferredCuisine && preferredCuisine.toLowerCase() !== 'any' ? preferredCuisine : null,
+      customDietaryNotes: customDietaryNotes || null,
     },
   };
 };
@@ -360,6 +399,34 @@ const targetsLine = (profile) => {
   );
 };
 
+const dietaryLine = (dietary) => {
+  if (!dietary) return null;
+  const parts = [];
+  const hasRestrictions = Array.isArray(dietary.restrictions) && dietary.restrictions.length > 0;
+  const hasStyle = Boolean(dietary.dietStyle && dietary.dietStyle !== 'Balanced');
+  const hasCuisine = Boolean(dietary.preferredCuisine && dietary.preferredCuisine.toLowerCase() !== 'any');
+  const hasNotes = Boolean(dietary.customDietaryNotes);
+
+  if (!hasRestrictions && !hasStyle && !hasCuisine && !hasNotes) {
+    return null;
+  }
+
+  if (dietary.dietStyle) {
+    parts.push(`Style: ${dietary.dietStyle}`);
+  }
+  if (hasRestrictions) {
+    parts.push(`Restrictions: ${dietary.restrictions.join(', ')}`);
+  }
+  if (hasCuisine) {
+    parts.push(`Preferred cuisine: ${dietary.preferredCuisine}`);
+  }
+  if (hasNotes) {
+    parts.push(`Notes: ${dietary.customDietaryNotes}`);
+  }
+
+  return `Declared dietary preferences: ${parts.join(', ')}. Treat declared restrictions as hard constraints.`;
+};
+
 const todayLine = (today, goals) => {
   if (today.status === 'unavailable') return 'Today so far: unavailable.';
   const food = today.food
@@ -453,11 +520,19 @@ const serializeFitnessContext = (ctx, { maxChars = MAX_PROMPT_CHARS } = {}) => {
     `Local time: ${ctx.localTime.date} ${ctx.localTime.time} (${ctx.localTime.timeZone}).`,
     profileLine(ctx.profile),
     targetsLine(ctx.profile),
+  ];
+
+  const diet = dietaryLine(ctx.profile?.dietary);
+  if (diet) {
+    lines.push(diet);
+  }
+
+  lines.push(
     todayLine(ctx.today, ctx.profile.goals),
     trainingLine(ctx.trend),
     trendLine(ctx.trend),
     planLine(ctx.plan),
-  ];
+  );
 
   const joined = (arr) => arr.join('\n');
   const kept = [];
@@ -499,6 +574,9 @@ const buildFitnessPromptContext = async ({ user, timeZone, now = new Date(), dep
 
 module.exports = {
   EVIDENCE_MIN_DAYS,
+  VALID_DIET_STYLES,
+  VALID_RESTRICTIONS,
+  dietaryLine,
   buildFitnessPromptContext,
   CONTEXT_SCHEMA_VERSION,
   DEFAULT_TIME_ZONE,

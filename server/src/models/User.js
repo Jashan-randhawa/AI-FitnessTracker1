@@ -99,6 +99,47 @@ const userSchema = new mongoose.Schema(
     },
     onboardedAt: Date,
 
+    // ── Saved Dietary Profile (G7) ──
+    dietaryRestrictions: {
+      type: [
+        {
+          type: String,
+          enum: [
+            'vegetarian',
+            'vegan',
+            'pescatarian',
+            'gluten-free',
+            'dairy-free',
+            'nut-free',
+            'egg-free',
+            'soy-free',
+            'halal',
+            'kosher',
+            'low-carb',
+            'keto',
+          ],
+        },
+      ],
+      default: [],
+    },
+    dietStyle: {
+      type: String,
+      enum: ['Balanced', 'High Protein', 'Keto / Low-Carb', 'Plant-Based', 'Mediterranean', 'Custom'],
+      default: 'Balanced',
+    },
+    preferredCuisine: {
+      type: String,
+      maxlength: [50, 'preferredCuisine cannot exceed 50 characters'],
+      default: 'Any',
+      trim: true,
+    },
+    customDietaryNotes: {
+      type: String,
+      maxlength: [200, 'customDietaryNotes cannot exceed 200 characters'],
+      default: '',
+      trim: true,
+    },
+
     // ── Password reset (indexed fields instead of Strapi's scanned JSON blob) ──
     resetPasswordTokenHash: {
       type: String,

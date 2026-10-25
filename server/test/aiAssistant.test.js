@@ -292,9 +292,9 @@ describe('Phase 4: Concurrency Limit & Throttling Tests', () => {
   });
 });
 
-describe('AI Assistant FitBot Prompt Contract v1.6.0', () => {
-  it('exposes PROMPT_VERSION 1.6.0 matching the v1.6.0 changelog', () => {
-    assert.equal(PROMPT_VERSION, '1.6.0');
+describe('AI Assistant FitBot Prompt Contract v1.7.0', () => {
+  it('exposes PROMPT_VERSION 1.7.0 matching the v1.7.0 changelog', () => {
+    assert.equal(PROMPT_VERSION, '1.7.0');
   });
 
   it('includes strict output format contract in system prompt', () => {

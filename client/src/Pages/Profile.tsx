@@ -20,6 +20,30 @@ const GOAL_LABELS: Record<string, string> = {
   gain: "Gain Weight",
 };
 
+export const DIETARY_RESTRICTION_OPTIONS = [
+  { id: "gluten-free", label: "Gluten-Free" },
+  { id: "dairy-free", label: "Dairy-Free" },
+  { id: "nut-free", label: "Nut-Free" },
+  { id: "egg-free", label: "Egg-Free" },
+  { id: "soy-free", label: "Soy-Free" },
+  { id: "vegetarian", label: "Vegetarian" },
+  { id: "vegan", label: "Vegan" },
+  { id: "pescatarian", label: "Pescatarian" },
+  { id: "halal", label: "Halal" },
+  { id: "kosher", label: "Kosher" },
+  { id: "low-carb", label: "Low-Carb" },
+  { id: "keto", label: "Keto" },
+] as const;
+
+export const DIET_STYLE_OPTIONS = [
+  "Balanced",
+  "High Protein",
+  "Keto / Low-Carb",
+  "Plant-Based",
+  "Mediterranean",
+  "Custom",
+] as const;
+
 // ── Edit Profile Modal ──────────────────────────────────────
 const EditProfileModal = ({ user, onClose, onSave }: {
   user: any; onClose: () => void; onSave: (d: any) => Promise<void>;
@@ -36,6 +60,12 @@ const EditProfileModal = ({ user, onClose, onSave }: {
   const [carbsGoal, setCarbsGoal] = useState(user?.dailycarbsgoal ? String(user.dailycarbsgoal) : "");
   const [fatGoal, setFatGoal] = useState(user?.dailyfatgoal ? String(user.dailyfatgoal) : "");
   const [waterGoal, setWaterGoal] = useState(user?.dailywatergoal ? String(user.dailywatergoal) : "");
+  const [dietStyle, setDietStyle] = useState(user?.dietStyle ?? "Balanced");
+  const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>(
+    Array.isArray(user?.dietaryRestrictions) ? user.dietaryRestrictions : []
+  );
+  const [preferredCuisine, setPreferredCuisine] = useState(user?.preferredCuisine ?? "Any");
+  const [customDietaryNotes, setCustomDietaryNotes] = useState(user?.customDietaryNotes ?? "");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async (e?: React.FormEvent) => {
@@ -64,6 +94,10 @@ const EditProfileModal = ({ user, onClose, onSave }: {
         dailycarbsgoal: Number(carbsGoal) || undefined,
         dailyfatgoal: Number(fatGoal) || undefined,
         dailywatergoal: Number(waterGoal) || undefined,
+        dietStyle,
+        dietaryRestrictions,
+        preferredCuisine: preferredCuisine.trim() || "Any",
+        customDietaryNotes: customDietaryNotes.trim(),
       });
       onClose();
     } catch {
@@ -167,6 +201,85 @@ const EditProfileModal = ({ user, onClose, onSave }: {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Dietary Preferences Section (G7) */}
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-700/50 space-y-3">
+            <div>
+              <p className="text-xs font-bold text-gray-700 dark:text-slate-300">Dietary Preferences</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Self-declared preferences used by FitBot and Meal Planner.</p>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 block">Diet Style</label>
+              <select
+                value={dietStyle}
+                onChange={(e) => setDietStyle(e.target.value)}
+                className={inputCls}
+              >
+                {DIET_STYLE_OPTIONS.map((style) => (
+                  <option key={style} value={style} className="dark:bg-slate-800 text-gray-900 dark:text-white">
+                    {style}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 block">Dietary Restrictions & Allergens</label>
+              <div className="flex flex-wrap gap-1.5">
+                {DIETARY_RESTRICTION_OPTIONS.map(({ id, label }) => {
+                  const active = dietaryRestrictions.includes(id);
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        setDietaryRestrictions((prev) =>
+                          active ? prev.filter((r) => r !== id) : [...prev, id]
+                        );
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                        active
+                          ? "bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-semibold"
+                          : "bg-slate-100 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600/40 text-slate-600 dark:text-slate-400 hover:border-slate-400"
+                      }`}
+                    >
+                      {active ? `✓ ${label}` : label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 block">Preferred Cuisine</label>
+                <input
+                  type="text"
+                  maxLength={50}
+                  className={inputCls}
+                  placeholder="e.g. Any, Asian, Mediterranean"
+                  value={preferredCuisine}
+                  onChange={(e) => setPreferredCuisine(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 block">Custom Notes</label>
+                <input
+                  type="text"
+                  maxLength={200}
+                  className={inputCls}
+                  placeholder="e.g. No artificial sweeteners"
+                  value={customDietaryNotes}
+                  onChange={(e) => setCustomDietaryNotes(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <p className="text-[10px] text-amber-600 dark:text-amber-400/90 italic">
+              Notice: AI meal plans are suggestions and not clinical allergen verifications.
+            </p>
           </div>
           <button
             type="submit"
@@ -874,6 +987,68 @@ export default function Profile() {
             <button onClick={() => setShowEdit(true)}
               className="w-full mt-2 py-3 bg-slate-200 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600/50 text-sm font-semibold rounded-xl transition-all cursor-pointer">
               Edit Profile
+            </button>
+          </div>
+
+          {/* Dietary Preferences Card (G7) */}
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between mb-1">
+              <div>
+                <p className="text-sm font-bold text-gray-900 dark:text-white">Dietary Preferences</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Self-declared dietary preferences</p>
+              </div>
+              <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Self-declared
+              </span>
+            </div>
+
+            <InfoRow
+              label="Diet Style"
+              value={user?.dietStyle || "Balanced"}
+              icon={<svg {...svgProps} stroke="#10b981"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></svg>}
+            />
+            <InfoRow
+              label="Preferred Cuisine"
+              value={user?.preferredCuisine || "Any"}
+              icon={<svg {...svgProps} stroke="#f59e0b"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>}
+            />
+            <InfoRow
+              label="Custom Notes"
+              value={user?.customDietaryNotes || "None"}
+              icon={<svg {...svgProps} stroke="#8b5cf6"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>}
+            />
+
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-700/40">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Restrictions & Allergens</p>
+              {Array.isArray(user?.dietaryRestrictions) && user.dietaryRestrictions.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {user.dietaryRestrictions.map((r: string) => {
+                    const match = DIETARY_RESTRICTION_OPTIONS.find((opt) => opt.id === r);
+                    const label = match ? match.label : r;
+                    return (
+                      <span
+                        key={r}
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                      >
+                        ✓ {label}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">None declared</p>
+              )}
+            </div>
+
+            <p className="text-[11px] text-amber-700 dark:text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 italic">
+              Disclaimer: AI meal plans are suggestions and not clinical allergen verifications.
+            </p>
+
+            <button
+              onClick={() => setShowEdit(true)}
+              className="w-full mt-1 py-2.5 bg-slate-200 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600/50 text-xs font-semibold rounded-xl transition-all cursor-pointer"
+            >
+              Update Preferences
             </button>
           </div>
 

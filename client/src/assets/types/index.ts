@@ -18,6 +18,10 @@ export type User = {
   dailycarbsgoal?: number;
   dailyfatgoal?: number;
   dailywatergoal?: number;
+  dietaryRestrictions?: string[];
+  dietStyle?: string;
+  preferredCuisine?: string;
+  customDietaryNotes?: string;
   createdAt?: string;
   updatedAt?: string;
 } | null;
