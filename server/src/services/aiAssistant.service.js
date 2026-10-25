@@ -124,7 +124,7 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
   cleanExpiredCache();
 
   const memoryContext = options.memoryContext;
-  const systemInstruction = buildFitBotPrompt(userContext, memoryContext);
+  const systemInstruction = buildFitBotPrompt(userContext, memoryContext, options.environmentContext);
 
   const openRouterMessages = [
     { role: 'system', content: systemInstruction },

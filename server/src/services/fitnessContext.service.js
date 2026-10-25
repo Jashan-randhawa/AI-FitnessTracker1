@@ -425,6 +425,7 @@ module.exports = {
   MAX_PROMPT_CHARS,
   TRUNCATION_NOTE,
   resolveTimeZone,
+  formatLocalTime,
   findActivePlan,
   buildFitnessContext,
   serializeFitnessContext,

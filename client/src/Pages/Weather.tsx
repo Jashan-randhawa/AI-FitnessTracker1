@@ -3,6 +3,7 @@ import { useTheme } from "../Context/Themecontext";
 import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { fetchWeatherWorkoutSuggestions } from "../services/aiAssistantClient";
+import { toEnvironmentPayload } from "../utils/environmentPayload";
 
 /* ─── Open-Meteo (free, no API key required) ─── */
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast";
@@ -58,6 +59,8 @@ type WeatherData = {
   daily: DailyPoint[];
   locationName: string;
   aqi: AQIData | null;
+  /** When this observation was fetched (ISO 8601, UTC). Sent to the AI as observedAt. */
+  fetchedAt: string;
 };
 
 /* ─── AQI helpers ─── */
@@ -354,7 +357,7 @@ async function fetchAllWeather(lat: number, lon: number): Promise<WeatherData> {
     fetchAQI(lat, lon),
     fetchLocationName(lat, lon),
   ]);
-  return { current, hourly, daily, aqi, locationName };
+  return { current, hourly, daily, aqi, locationName, fetchedAt: new Date().toISOString() };
 }
 
 /* ─── Sub-components ─── */
@@ -392,8 +395,12 @@ const Weather = () => {
     setAiLoading(true);
     setAiSuggestion("");
     try {
-      const prompt = `Weather in ${w.locationName}: ${w.current.phrase}, ${w.current.temperature}°C, feels like ${w.current.feelsLike}°C, humidity ${w.current.humidity}%, wind ${w.current.windSpeed} km/h, UV index ${w.current.uvIndex} (${w.current.uvPhrase}).${w.aqi ? ` Air Quality AQI: ${w.aqi.usAqi}.` : ""} Suggest 3 specific workouts perfectly suited for these conditions today. For each, include: name, duration, intensity, and why it's ideal for this weather. Be concise and practical.`;
-      const suggestion = await fetchWeatherWorkoutSuggestions(prompt);
+      // The observation travels as the structured `environment` field. The server
+      // validates it and sets the local time. Location is not sent.
+      const prompt = "Suggest 3 specific workouts suited to the outdoor conditions in the environment context. For each, include: name, duration, intensity, and why it fits those conditions. If the conditions are unknown or risky, prefer indoor options. Be concise and practical.";
+      const suggestion = await fetchWeatherWorkoutSuggestions(prompt, {
+        environment: toEnvironmentPayload(w),
+      });
       setAiSuggestion(suggestion || "Could not generate suggestions.");
     } catch {
       setAiSuggestion("Failed to get AI suggestions. Please try again.");

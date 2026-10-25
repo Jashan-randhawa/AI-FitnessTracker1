@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const { chatWithAssistant } = require('../services/aiAssistant.service');
+const { buildEnvironmentContext } = require('../services/environment.service');
 const logger = require('../utils/logger');
 
 const MAX_MESSAGES = 50;
@@ -98,6 +99,7 @@ const chat = asyncHandler(async (req, res) => {
     regenerate,
     planType,
     schema,
+    environment: rawEnvironment,
   } = req.body;
   const startTime = Date.now();
   const userId = req.user?.id || req.user?._id;
@@ -166,6 +168,15 @@ const chat = asyncHandler(async (req, res) => {
     req.on('close', onClientClose);
   }
 
+  // Weather and local time are added only when the request includes `environment`.
+  // Requests without it keep their existing prompt. The time comes from the validated
+  // X-Timezone header, never from client text.
+  let environmentContext;
+  if (rawEnvironment !== undefined && rawEnvironment !== null) {
+    const tzHeader = typeof req.get === 'function' ? req.get('X-Timezone') : undefined;
+    environmentContext = buildEnvironmentContext({ raw: rawEnvironment, timeZone: tzHeader }).text;
+  }
+
   const chatOptions = {
     expectJson: Boolean(expectJson || options?.expectJson),
     planType: options?.planType || planType || options?.schema || schema,
@@ -175,6 +186,7 @@ const chat = asyncHandler(async (req, res) => {
     model: options?.model,
     maxTokens: options?.maxTokens,
     fetchFn: options?.fetchFn,
+    environmentContext,
   };
 
   // Track concurrency in flight

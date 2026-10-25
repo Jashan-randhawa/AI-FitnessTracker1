@@ -11,6 +11,7 @@
  */
 
 import api from "../configs/api";
+import type { EnvironmentPayload } from "../utils/environmentPayload";
 import {
   safeParseMealPlan,
   safeParseActivityPlan,
@@ -39,6 +40,8 @@ export interface AiChatRequest {
   userContext?: string | Record<string, unknown>;
   memoryContext?: string;
   options?: AiChatOptions;
+  /** Optional observed weather. Omitted from the request when not provided. */
+  environment?: EnvironmentPayload;
   signal?: AbortSignal;
 }
 
@@ -77,6 +80,14 @@ export async function chatAiAssistant(req: AiChatRequest): Promise<AiChatRespons
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
+  // The server uses this for local-time context. Raw fetch skips the axios interceptor,
+  // so it is set here explicitly.
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz) headers["X-Timezone"] = tz;
+  } catch {
+    // Without Intl timezone support the server falls back to UTC.
+  }
 
   const payload: Record<string, unknown> = {
     messages: req.messages,
@@ -84,6 +95,8 @@ export async function chatAiAssistant(req: AiChatRequest): Promise<AiChatRespons
     memoryContext: req.memoryContext,
     options: req.options,
   };
+  // Added only when given, so other requests keep their existing shape.
+  if (req.environment) payload.environment = req.environment;
 
   const response = await fetch(`${baseUrl}/api/ai-assistant/chat`, {
     method: "POST",
@@ -193,10 +206,11 @@ export async function fetchDailyFitnessTip(
  */
 export async function fetchWeatherWorkoutSuggestions(
   weatherPrompt: string,
-  options: { signal?: AbortSignal } = {}
+  options: { signal?: AbortSignal; environment?: EnvironmentPayload } = {}
 ): Promise<string> {
   const res = await chatAiAssistant({
     messages: [{ role: "user", parts: [{ text: weatherPrompt }] }],
+    environment: options.environment,
     signal: options.signal,
   });
 

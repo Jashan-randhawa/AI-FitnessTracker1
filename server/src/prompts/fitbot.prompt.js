@@ -88,9 +88,11 @@ const sanitizeUntrustedText = (text, maxLen = 4000) => {
  *
  * @param {string|object} [userContext]
  * @param {string} [memoryContext]
+ * @param {string} [environmentContext] Server-built <environment> block (Phase 3). Appended
+ *   verbatim, and only when provided, so existing prompts are unchanged.
  * @returns {string}
  */
-const buildFitBotPrompt = (userContext, memoryContext) => {
+const buildFitBotPrompt = (userContext, memoryContext, environmentContext) => {
   let prompt = FITBOT_SYSTEM_PROMPT;
 
   let contextStr = '';
@@ -113,6 +115,12 @@ const buildFitBotPrompt = (userContext, memoryContext) => {
 
   if (memStr) {
     prompt += `\n\n<coaching_memory>\n${memStr}\n</coaching_memory>`;
+  }
+
+  // Built on the server from validated fields only. Not passed through the user
+  // sanitiser, because that would strip the tags this block relies on.
+  if (typeof environmentContext === 'string' && environmentContext.startsWith('<environment>')) {
+    prompt += `\n\n${environmentContext}`;
   }
 
   return prompt;
