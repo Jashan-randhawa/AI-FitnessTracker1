@@ -1,5 +1,5 @@
-import { resolveDate } from "../utils/dates";
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Copy,
@@ -38,8 +38,12 @@ import {
   buildSessionSummary,
   getValidMessages,
   formatMemoryContext,
-  isSameCalendarDay,
 } from "../utils/fitbotHistory";
+import { createHandoffState, readHandoff } from "../utils/handoff";
+import { getFitBotSuggestions } from "../utils/fitbotSuggestions";
+import { useDaySummary } from "../data/summaryStore";
+import { localDayKey } from "../utils/localDay";
+import { getWeatherObservation } from "../data/weatherStore";
 import jsPDF from "jspdf";
 
 // ── Helpers ───────────────────────────────────────────────
@@ -91,14 +95,6 @@ const parseMarkdownIntoWorkoutDays = (markdown: string) => {
 };
 
 
-const BASE_SUGGESTIONS = [
-  "What should I eat before a workout?",
-  "Create a 7-day meal plan for weight loss",
-  "How many calories should I eat daily?",
-  "Best exercises to build core strength",
-  "How to stay motivated to exercise?",
-  "What's a good post-workout meal?",
-];
 
 const QUICK_ACTIONS = [
   { label: "🥗 Meal Ideas", prompt: "Suggest healthy meal ideas based on my daily calories remaining" },
@@ -326,7 +322,13 @@ ChatMessageItem.displayName = "ChatMessageItem";
 
 // ── Main AIAssistant Component ─────────────────────────────
 export default function AIAssistant() {
-  const { user, allFoodLogs, allActivityLogs } = useappcontext();
+  const { user } = useappcontext();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const todayKey = useMemo(() => localDayKey(), []);
+  const daySummary = useDaySummary(todayKey);
+  const weatherObs = useMemo(() => getWeatherObservation(), []);
 
   const [planConfirmModal, setPlanConfirmModal] = useState<{
     isOpen: boolean;
@@ -501,23 +503,22 @@ export default function AIAssistant() {
     });
   };
 
-  // Filter today's dynamic logs using timezone-safe calendar day comparison
-  const todayFood = useMemo(
-    () => (allFoodLogs || []).filter((l) => isSameCalendarDay(resolveDate(l))),
-    [allFoodLogs]
-  );
-  const todayActivity = useMemo(
-    () => (allActivityLogs || []).filter((l) => isSameCalendarDay(resolveDate(l))),
-    [allActivityLogs]
-  );
-
+  // Live deterministic suggestions based on day summary and weather (Phase B / G6)
   const suggestions = useMemo(() => {
-    const dynamic: string[] = [];
-    if (todayFood.length === 0) dynamic.push("What's a healthy breakfast idea?");
-    if (todayActivity.length === 0) dynamic.push("Suggest a quick 20-minute workout");
-    const total = [...dynamic, ...BASE_SUGGESTIONS];
-    return total.slice(0, 6);
-  }, [todayFood, todayActivity]);
+    return getFitBotSuggestions(daySummary.data, weatherObs);
+  }, [daySummary.data, weatherObs]);
+
+  // Handle incoming router hand-offs (Phase B / G5)
+  useEffect(() => {
+    const handoff = readHandoff(location.state);
+    if (handoff && handoff.intent === "ask_followup" && handoff.prefill) {
+      setInput(handoff.prefill);
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   // Auto-resize input textarea smoothly within compact bounds, enabling smooth scrolling when overflowing
   useEffect(() => {
@@ -1529,9 +1530,42 @@ export default function AIAssistant() {
               <h2 className="text-lg sm:text-xl font-bold mb-1 text-gray-900 dark:text-white">
                 {FITBOT_CONFIG.GREETING}
               </h2>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mb-4 sm:mb-6 max-w-xs sm:max-w-sm">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mb-4 sm:mb-5 max-w-xs sm:max-w-sm">
                 {FITBOT_CONFIG.DESCRIPTION}
               </p>
+              {/* Planner Shortcuts Hand-offs (Phase B / G5) */}
+              <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/planner", {
+                      state: createHandoffState(
+                        "fitbot",
+                        "plan_rest_of_today",
+                        "Plan meals for today tailored to my coaching conversation."
+                      ),
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-pink-200 dark:border-pink-800/60 bg-pink-50 dark:bg-pink-950/20 text-xs font-semibold text-pink-700 dark:text-pink-300 hover:bg-pink-100 dark:hover:bg-pink-900/40 transition-colors cursor-pointer"
+                >
+                  <span>🥗</span> Open Meal Planner &rarr;
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/activity-planner", {
+                      state: createHandoffState(
+                        "fitbot",
+                        "indoor_alternative",
+                        "Plan a workout routine tailored to my coaching conversation."
+                      ),
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/20 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors cursor-pointer"
+                >
+                  <span>💪</span> Open Activity Planner &rarr;
+                </button>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
                 {suggestions.map((s) => (
                   <button

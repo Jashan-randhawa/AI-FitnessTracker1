@@ -25,6 +25,7 @@ import {
   serializeStoredTip,
   shouldRefreshTip,
 } from "../utils/dashboardTip";
+import { createHandoffState } from "../utils/handoff";
 
 // ── Helpers ────────────────────────────────────────────────
 const getLastSevenDays = (_refDate?: string) =>
@@ -980,6 +981,23 @@ export default function Dashboard() {
           ) : dailyTip ? (
             <div className={`text-sm text-slate-600 dark:text-slate-300 leading-relaxed ${tipLoading ? "opacity-70 transition-opacity" : ""}`}>
               <MarkdownMessage content={dailyTip} />
+              <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/ai", {
+                      state: createHandoffState(
+                        "dashboard",
+                        "ask_followup",
+                        `Regarding today's tip: "${dailyTip.replace(/\n/g, " ").slice(0, 150)}..." - could you give me specific steps to apply this?`
+                      ),
+                    })
+                  }
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline cursor-pointer"
+                >
+                  <span>💬</span> Discuss with FitBot &rarr;
+                </button>
+              </div>
             </div>
           ) : (
             <p className="text-sm text-slate-400 dark:text-slate-500 italic">Log your food or activity to get a personalized tip.</p>
@@ -991,15 +1009,15 @@ export default function Dashboard() {
           <h3 className="text-sm font-bold mb-3 text-gray-900 dark:text-white">Quick Actions</h3>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: "Log Food",      icon: "🍽️", path: "/food",      color: "bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400" },
-              { label: "Log Workout",   icon: "💪", path: "/activity",  color: "bg-orange-500/10 border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-400" },
-              { label: "Ask FitBot",    icon: "⚡", path: "/ai",        color: "bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400" },
-              { label: "Meal Planner",  icon: "📅", path: "/planner",   color: "bg-pink-500/10 border-pink-200 dark:border-pink-500/30 text-pink-700 dark:text-pink-400" },
-              { label: "Activity Planner", icon: "🏃", path: "/activity-planner", color: "bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-400" },
-            ].map(({ label, icon, path, color }) => (
+              { label: "Log Food", icon: "🍽️", path: "/food", color: "bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400", handoff: null },
+              { label: "Log Workout", icon: "💪", path: "/activity", color: "bg-orange-500/10 border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-400", handoff: null },
+              { label: "Ask FitBot", icon: "⚡", path: "/ai", color: "bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400", handoff: createHandoffState("dashboard", "ask_followup", "Hello FitBot, how is my fitness progress tracking today?") },
+              { label: "Meal Planner", icon: "📅", path: "/planner", color: "bg-pink-500/10 border-pink-200 dark:border-pink-500/30 text-pink-700 dark:text-pink-400", handoff: createHandoffState("dashboard", "plan_rest_of_today", "Plan meals for today matching my remaining targets.") },
+              { label: "Activity Planner", icon: "🏃", path: "/activity-planner", color: "bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-400", handoff: createHandoffState("dashboard", "plan_rest_of_today", "Plan a workout routine matching today's activity goal.") },
+            ].map(({ label, icon, path, color, handoff }) => (
               <button
                 key={label}
-                onClick={() => navigate(path)}
+                onClick={() => navigate(path, handoff ? { state: handoff } : undefined)}
                 className={`flex items-center gap-3 p-4 rounded-2xl border ${color} hover:scale-[1.02] hover:-translate-y-1 hover:shadow-lg active:scale-[0.98] transition-all duration-150 cursor-pointer text-left`}
               >
                 <span className="text-xl">{icon}</span>

@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "../Context/Themecontext";
 import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { fetchWeatherWorkoutSuggestions } from "../services/aiAssistantClient";
 import { toEnvironmentPayload } from "../utils/environmentPayload";
 import { saveWeatherObservation } from "../data/weatherStore";
+import { createHandoffState } from "../utils/handoff";
 
 /* ─── Open-Meteo (free, no API key required) ─── */
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast";
@@ -383,6 +385,7 @@ const PollutantRow = ({ label, value, unit }: { label: string; value: number; un
 
 /* ─── Main component ─── */
 const Weather = () => {
+  const navigate = useNavigate();
   const { theme } = useTheme();
   const isDark = theme.toString() === "dark";
 
@@ -756,6 +759,24 @@ const Weather = () => {
                 </button>
               </div>
             )}
+
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/activity-planner", {
+                    state: createHandoffState(
+                      "weather",
+                      "indoor_alternative",
+                      `Weather observation: ${weather?.current.temperature ?? 20}°C, ${weather?.current.phrase || "current conditions"}. Plan an indoor alternative workout routine.`
+                    ),
+                  })
+                }
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline cursor-pointer"
+              >
+                <span>💪</span> Plan indoor workout in Activity Planner &rarr;
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Sparkles,
@@ -25,6 +26,7 @@ import {
   getFreshWeatherObservation,
   formatWeatherBadgeText,
 } from "../data/weatherStore";
+import { readHandoff } from "../utils/handoff";
 import {
   safeParseActivityPlan,
   type PlannedActivity,
@@ -138,9 +140,30 @@ export default function ActivityPlanner() {
   const [batchLogging, setBatchLogging] = useState(false);
   const [weatherObs, setWeatherObs] = useState<EnvironmentPayload | null>(() => getWeatherObservation());
 
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [customFocus, setCustomFocus] = useState<string>("");
+
   useEffect(() => {
     setWeatherObs(getWeatherObservation());
   }, []);
+
+  // Handle incoming router hand-offs (Phase B / G5)
+  useEffect(() => {
+    const handoff = readHandoff(location.state);
+    if (handoff) {
+      if (handoff.intent === "indoor_alternative") {
+        setDays(1);
+        setEquipment("No Equipment (Bodyweight Only)");
+      } else if (handoff.intent === "plan_rest_of_today" || handoff.intent === "plan_tomorrow") {
+        setDays(1);
+      }
+      if (handoff.prefill) {
+        setCustomFocus(handoff.prefill);
+      }
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   // 1. Load active plan from database on mount, fallback to localStorage
   useEffect(() => {
@@ -266,6 +289,7 @@ Requirements:
 - Realistic duration (15 to 75 min total) and calorie burn estimates.
 ${days > 1 ? `- Progressive variation across days matching ${focus} and ${level}.` : `- Balanced single-day workout flow matching ${focus} and ${level}.`}
 - Strictly adhere to equipment constraints: ${equipment}. Plan outdoor sessions only if the planning context shows suitable conditions; otherwise use indoor options.
+${customFocus.trim() ? `- Special Focus / User Request: ${customFocus.trim()}` : ""}
 - Follow the active workout plan's split from the planning context unless the primary focus says otherwise.
 - Total daily calories burned should approximate ~${calorieBurnTarget} kcal.`;
 
@@ -686,6 +710,20 @@ ${days > 1 ? `- Progressive variation across days matching ${focus} and ${level}
                   +
                 </button>
               </div>
+            </div>
+
+            {/* Custom Focus / Hand-off Request */}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                Special Focus or Custom Request (Optional)
+              </label>
+              <input
+                type="text"
+                value={customFocus}
+                onChange={(e) => setCustomFocus(e.target.value)}
+                placeholder="e.g. Indoor routine, shoulder mobility, recovery, etc."
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-xs sm:text-sm text-gray-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+              />
             </div>
 
             {/* Generate Button */}

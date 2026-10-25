@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Sparkles,
@@ -17,6 +18,7 @@ import toast from "react-hot-toast";
 import { generateStructuredMealPlan } from "../services/aiAssistantClient";
 import type { Meal, DayPlan } from "../schemas/aiPlans.schema";
 import type { FoodEntry } from "../assets/types";
+import { readHandoff } from "../utils/handoff";
 
 // ── Options & Presets ──────────────────────────────────────────
 const DAYS_OPTIONS = [1, 3, 5, 7];
@@ -94,6 +96,8 @@ const STORAGE_KEY = "fittrack_saved_meal_plan";
 
 export default function MealPlanner() {
   const { user, setAllFoodLogs } = useappcontext();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   // Settings
   const [days, setDays] = useState(7);
@@ -101,6 +105,21 @@ export default function MealPlanner() {
   const [cuisine, setCuisine] = useState("Any");
   const [selectedRestrictions, setSelectedRestrictions] = useState<string[]>([]);
   const [targetCalories, setTargetCalories] = useState<number>(user?.dailycaloriesintake || 2000);
+  const [customFocus, setCustomFocus] = useState<string>("");
+
+  // Handle incoming router hand-offs (Phase B / G5)
+  useEffect(() => {
+    const handoff = readHandoff(location.state);
+    if (handoff) {
+      if (handoff.intent === "plan_rest_of_today" || handoff.intent === "plan_tomorrow") {
+        setDays(1);
+      }
+      if (handoff.prefill) {
+        setCustomFocus(handoff.prefill);
+      }
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   // Sync default target calories if user updates
   useEffect(() => {
@@ -162,11 +181,14 @@ export default function MealPlanner() {
         selectedRestrictions.length > 0
           ? `\n- Dietary restrictions/allergies: ${selectedRestrictions.join(", ")}`
           : "";
+      const customFocusText = customFocus.trim()
+        ? `\n- Additional Focus / Instructions: ${customFocus.trim()}`
+        : "";
 
       const prompt = `Generate a comprehensive ${days === 1 ? "single-day" : `${days}-day`} structured meal plan tailored for:
 - Requested daily target: ${targetCalories} kcal. The server caps this at the user's goal and plans Day 1 only for calories left today.
 - Dietary Focus: ${dietStyle}
-- Preferred Cuisine: ${cuisine}${restrictionsText}
+- Preferred Cuisine: ${cuisine}${restrictionsText}${customFocusText}
 
 Return ONLY a valid JSON array of ${days} day object${days > 1 ? "s" : ""} (no markdown, no extra commentary):
 [
@@ -555,6 +577,20 @@ ${days > 1 ? "- Never duplicate identical dishes across consecutive days." : "- 
                   );
                 })}
               </div>
+            </div>
+
+            {/* Custom Focus / Hand-off Note */}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                Special Focus or Custom Request (Optional)
+              </label>
+              <input
+                type="text"
+                value={customFocus}
+                onChange={(e) => setCustomFocus(e.target.value)}
+                placeholder="e.g. Plan remaining calories for today, quick prep, etc."
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-xs sm:text-sm text-gray-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              />
             </div>
 
             {/* Generate Button */}
