@@ -1,12 +1,16 @@
+const { analyzeFoodImage } = require('../utils/gemini');
 const { chatCompletion } = require('./openrouter.service');
 
 const cleanResponse = (raw) =>
   raw.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/```json|```/g, '').trim();
 
 const IMAGE_PROMPT =
-  'Identify the food in this image and return ONLY a valid JSON object with these exact keys: "name" (string, concise food name), "calories" (number, estimated kcal), "protein" (number, grams), "carbs" (number, grams), "fat" (number, grams). Estimates for the visible portion. No explanation, no markdown, no extra text.';
+  'Analyze this food image and return a JSON object with: "dishTitle", "totalCalories", "totalProtein", "totalCarbs", "totalFats", "overallConfidence" (0.0 to 1.0), and "items" (array with name, weightGrams, calories, protein, carbs, fats, confidenceScore). Output ONLY valid JSON.';
 
-const parseAndValidate = (raw) => {
+/**
+ * Fallback parser for OpenRouter responses if Gemini API is unavailable.
+ */
+const parseOpenRouterResponse = (raw) => {
   const cleaned = cleanResponse(raw);
   let parsed;
   try {
@@ -14,41 +18,45 @@ const parseAndValidate = (raw) => {
   } catch {
     throw new Error('AI returned unreadable output. Please try again with a clearer photo.');
   }
-  if (!parsed.name || typeof parsed.calories !== 'number' || parsed.calories <= 0) {
-    throw new Error('Could not identify food in the image. Please try a clearer photo.');
-  }
-  return {
-    name: String(parsed.name).trim(),
-    calories: Math.round(parsed.calories),
-    protein: typeof parsed.protein === 'number' ? Math.round(parsed.protein * 10) / 10 : 0,
-    carbs: typeof parsed.carbs === 'number' ? Math.round(parsed.carbs * 10) / 10 : 0,
-    fat: typeof parsed.fat === 'number' ? Math.round(parsed.fat * 10) / 10 : 0,
-  };
+
+  const { normalizeVisionOutput } = require('../utils/gemini');
+  return normalizeVisionOutput(parsed);
 };
 
 /**
- * @param {Buffer} buffer raw image bytes (from multer memory storage)
- * @param {string} mimeType e.g. "image/jpeg"
+ * Analyzes a food image buffer.
+ * Prefers Gemini Vision with native responseSchema; falls back to OpenRouter if configured.
+ * @param {Buffer} buffer - Raw image bytes
+ * @param {string} mimeType - e.g. "image/jpeg"
  */
-const analyzeImage = async (buffer, mimeType) => {
-  const base64 = buffer.toString('base64');
+const analyzeImage = async (buffer, mimeType = 'image/jpeg') => {
+  const hasGeminiKey = Boolean(process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY);
 
-  console.log('[AI] Using OpenRouter for image analysis...');
-  const content = await chatCompletion({
-    messages: [
-      {
-        role: 'user',
-        content: [
-          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
-          { type: 'text', text: IMAGE_PROMPT },
-        ],
-      },
-    ],
-    title: 'FitTrack Image Analysis',
-    maxTokens: 200,
-  });
+  if (hasGeminiKey) {
+    return analyzeFoodImage(buffer, mimeType);
+  }
 
-  return parseAndValidate(content);
+  // If Gemini key is not set but OpenRouter is available, fallback gracefully
+  if (process.env.OPENROUTER_API_KEY) {
+    const base64 = buffer.toString('base64');
+    const content = await chatCompletion({
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
+            { type: 'text', text: IMAGE_PROMPT },
+          ],
+        },
+      ],
+      title: 'FitTrack Image Analysis',
+      maxTokens: 500,
+    });
+    return parseOpenRouterResponse(content);
+  }
+
+  // Otherwise invoke Gemini (which will cleanly throw or use mock if testing)
+  return analyzeFoodImage(buffer, mimeType);
 };
 
-module.exports = { analyzeImage };
+module.exports = { analyzeImage, analyzeFoodImage };

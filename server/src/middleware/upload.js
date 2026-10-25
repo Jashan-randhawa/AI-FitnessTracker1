@@ -9,12 +9,12 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/heif',
 ]);
 
-// Memory storage — the image only needs to be base64-encoded and forwarded
-// to OpenRouter, never written to disk (matches original 10MB cap from
-// Strapi's formidable config in config/middlewares.ts).
+// In-Memory Multipart Parsing (capped at 4 MB per Phase 1 spec).
+// Images are streamed directly to memory buffer and base64-encoded for Gemini Vision inlineData,
+// eliminating orphaned temporary files on disk.
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 4 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_MIME_TYPES.has(file.mimetype)) return cb(null, true);
     cb(new Error('Unsupported image type. Use JPEG, PNG, WebP, GIF, HEIC, or HEIF.'));
