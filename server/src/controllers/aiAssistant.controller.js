@@ -3,6 +3,7 @@ const { chatWithAssistant } = require('../services/aiAssistant.service');
 const { buildEnvironmentContext } = require('../services/environment.service');
 const { buildFitnessPromptContext } = require('../services/fitnessContext.service');
 const { buildPlannerContext, PLANNER_KINDS } = require('../services/plannerContext.service');
+const { extractProposedActions } = require('../utils/chatActions');
 
 // Test seams: let tests replace the context loaders without a database. Production never changes them.
 let fitnessPromptBuilder = buildFitnessPromptContext;
@@ -243,9 +244,12 @@ const chat = asyncHandler(async (req, res) => {
       success: true,
     });
 
+    const { cleanedReply, proposedActions } = extractProposedActions(result.reply);
+
     res.json({
       success: true,
-      reply: result.reply,
+      reply: cleanedReply,
+      proposedActions,
       usage: result.usage,
       model: result.model,
       cached: result.cached || false,

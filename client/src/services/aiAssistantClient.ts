@@ -19,6 +19,9 @@ import {
   type ActivityDayPlan,
 } from "../schemas/aiPlans.schema";
 
+import type { ProposedChatAction } from "../schemas/chatAction.schema";
+export type { ProposedChatAction };
+
 export interface AiChatMessage {
   role: "user" | "assistant" | "model";
   parts?: Array<{ text: string }>;
@@ -50,6 +53,7 @@ export interface AiChatRequest {
 export interface AiChatResponse {
   success: boolean;
   reply: string;
+  proposedActions?: ProposedChatAction[];
   usage?: {
     promptTokens: number;
     completionTokens: number;
@@ -120,6 +124,7 @@ export async function chatAiAssistant(req: AiChatRequest): Promise<AiChatRespons
   return {
     success: true,
     reply: typeof data.reply === "string" ? data.reply : "",
+    proposedActions: Array.isArray(data.proposedActions) ? (data.proposedActions as ProposedChatAction[]) : undefined,
     usage: (data.usage as AiChatResponse["usage"]) || null,
     model: typeof data.model === "string" ? data.model : undefined,
     cached: Boolean(data.cached),

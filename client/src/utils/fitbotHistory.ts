@@ -1,9 +1,18 @@
+import type { ProposedChatAction } from "../schemas/chatAction.schema";
+
+export type FitBotActionState = {
+  action: ProposedChatAction;
+  status: "pending" | "logging" | "logged" | "dismissed";
+  loggedId?: string;
+};
+
 export type FitBotMessage = {
   id: string;
   role: "user" | "assistant";
   text: string;
   timestamp: Date;
   isError?: boolean;
+  proposedActions?: FitBotActionState[];
 };
 
 export type GeminiMessage = {

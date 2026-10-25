@@ -29,6 +29,7 @@ import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { buildWorkoutPlanActionPayload } from "../schemas/aiPlans.schema";
 import { chatAiAssistant } from "../services/aiAssistantClient";
+import type { ProposedChatAction } from "../schemas/chatAction.schema";
 import { FITBOT_CONFIG } from "../constants/fitbot";
 import {
   type FitBotMessage as Message,
@@ -149,6 +150,97 @@ const playCompletionChime = () => {
 
 
 
+// ── Confirmed Chat Action Confirmation Card (Phase D / G2) ──
+const ActionConfirmationCard = ({
+  action,
+  status,
+  onConfirm,
+  onDismiss,
+  onUndo,
+}: {
+  action: ProposedChatAction;
+  status: "pending" | "logging" | "logged" | "dismissed";
+  onConfirm: () => void;
+  onDismiss: () => void;
+  onUndo: () => void;
+}) => {
+  if (status === "dismissed") return null;
+
+  if (status === "logged") {
+    return (
+      <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-base">💧</span>
+          <div>
+            <span className="font-bold text-emerald-800 dark:text-emerald-300">
+              Logged {action.amountMl} ml water
+            </span>
+            {action.label && (
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 ml-1.5">
+                ({action.label})
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onUndo}
+          className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/60 dark:hover:bg-emerald-800 text-emerald-800 dark:text-emerald-200 transition-colors cursor-pointer"
+        >
+          Undo
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 rounded-2xl bg-cyan-50/80 dark:bg-cyan-950/30 border border-cyan-200/80 dark:border-cyan-800/50 shadow-xs">
+      <div className="flex items-start gap-2.5">
+        <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/20 text-cyan-600 dark:text-cyan-400 flex items-center justify-center text-base shrink-0 mt-0.5">
+          💧
+        </div>
+        <div>
+          <p className="text-xs font-bold text-gray-900 dark:text-white">
+            Log Water Intake
+          </p>
+          <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5">
+            <span className="font-bold text-cyan-700 dark:text-cyan-300">{action.amountMl} ml</span>
+            {action.label ? ` • ${action.label}` : ""}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 self-end sm:self-center">
+        <button
+          type="button"
+          onClick={onDismiss}
+          disabled={status === "logging"}
+          className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 transition-colors cursor-pointer disabled:opacity-50"
+        >
+          Dismiss
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={status === "logging"}
+          className="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-xs font-bold text-white shadow-xs shadow-cyan-600/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+        >
+          {status === "logging" ? (
+            <>
+              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span>Logging…</span>
+            </>
+          ) : (
+            <>
+              <span>✓ Confirm & Log</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ── Memoized Chat Message Item ─────────────────────────────
 interface ChatMessageItemProps {
   msg: Message;
@@ -161,6 +253,9 @@ interface ChatMessageItemProps {
   onSpeakToggle: (id: string, text: string) => void;
   onRetry: () => void;
   onSavePlan?: (title: string, markdown: string) => void;
+  onConfirmAction?: (msgId: string, actionIndex: number, action: ProposedChatAction) => void;
+  onDismissAction?: (msgId: string, actionIndex: number) => void;
+  onUndoAction?: (msgId: string, actionIndex: number, loggedId: string) => void;
 }
 
 const ChatMessageItem = React.memo(({
@@ -174,6 +269,9 @@ const ChatMessageItem = React.memo(({
   onSpeakToggle,
   onRetry,
   onSavePlan,
+  onConfirmAction,
+  onDismissAction,
+  onUndoAction,
 }: ChatMessageItemProps) => {
   const isAssistant = msg.role === "assistant";
 
@@ -229,6 +327,20 @@ const ChatMessageItem = React.memo(({
           ) : (
             <div className="w-full text-slate-800 dark:text-slate-200">
               <MarkdownMessage content={msg.text} onSavePlan={onSavePlan} />
+              {Array.isArray(msg.proposedActions) && msg.proposedActions.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {msg.proposedActions.map((item, aIdx) => (
+                    <ActionConfirmationCard
+                      key={aIdx}
+                      action={item.action}
+                      status={item.status}
+                      onConfirm={() => onConfirmAction?.(msg.id, aIdx, item.action)}
+                      onDismiss={() => onDismissAction?.(msg.id, aIdx)}
+                      onUndo={() => item.loggedId && onUndoAction?.(msg.id, aIdx, item.loggedId)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -322,7 +434,7 @@ ChatMessageItem.displayName = "ChatMessageItem";
 
 // ── Main AIAssistant Component ─────────────────────────────
 export default function AIAssistant() {
-  const { user } = useappcontext();
+  const { user, setAllWaterLogs } = useappcontext();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -383,6 +495,106 @@ export default function AIAssistant() {
       toast.error(msg);
     }
   };
+
+  const handleConfirmAction = useCallback(async (
+    msgId: string,
+    actionIndex: number,
+    action: ProposedChatAction
+  ) => {
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== msgId || !m.proposedActions) return m;
+        const updated = [...m.proposedActions];
+        updated[actionIndex] = { ...updated[actionIndex], status: "logging" };
+        return { ...m, proposedActions: updated };
+      })
+    );
+
+    try {
+      if (action.type === "log_water") {
+        const { data } = await api.post("/api/waterlogs", {
+          data: {
+            amount: action.amountMl,
+            date: new Date().toISOString(),
+          },
+        });
+
+        const created = data;
+        const loggedId = created?._id || created?.id;
+
+        if (loggedId && setAllWaterLogs) {
+          setAllWaterLogs((prev: any[]) => [
+            {
+              id: String(loggedId),
+              amount: action.amountMl,
+              date: created?.date || new Date().toISOString(),
+            },
+            ...prev,
+          ]);
+        }
+
+        toast.success(`Logged ${action.amountMl} ml water! 💧`);
+
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== msgId || !m.proposedActions) return m;
+            const updated = [...m.proposedActions];
+            updated[actionIndex] = {
+              ...updated[actionIndex],
+              status: "logged",
+              loggedId: String(loggedId),
+            };
+            return { ...m, proposedActions: updated };
+          })
+        );
+      }
+    } catch {
+      toast.error("Failed to log water. Please try again.");
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== msgId || !m.proposedActions) return m;
+          const updated = [...m.proposedActions];
+          updated[actionIndex] = { ...updated[actionIndex], status: "pending" };
+          return { ...m, proposedActions: updated };
+        })
+      );
+    }
+  }, [setAllWaterLogs]);
+
+  const handleDismissAction = useCallback((msgId: string, actionIndex: number) => {
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== msgId || !m.proposedActions) return m;
+        const updated = [...m.proposedActions];
+        updated[actionIndex] = { ...updated[actionIndex], status: "dismissed" };
+        return { ...m, proposedActions: updated };
+      })
+    );
+  }, []);
+
+  const handleUndoAction = useCallback(async (
+    msgId: string,
+    actionIndex: number,
+    loggedId: string
+  ) => {
+    try {
+      await api.delete(`/api/waterlogs/${loggedId}`);
+      if (setAllWaterLogs) {
+        setAllWaterLogs((prev: any[]) => prev.filter((w) => String(w.id || w._id) !== String(loggedId)));
+      }
+      toast("Water log removed.");
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== msgId || !m.proposedActions) return m;
+          const updated = [...m.proposedActions];
+          updated[actionIndex] = { ...updated[actionIndex], status: "pending", loggedId: undefined };
+          return { ...m, proposedActions: updated };
+        })
+      );
+    } catch {
+      toast.error("Failed to undo water log.");
+    }
+  }, [setAllWaterLogs]);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -731,6 +943,7 @@ export default function AIAssistant() {
         role: m.role === "user" ? "user" : "assistant",
         text: m.text || "",
         timestamp: new Date(session.updatedAt || session.createdAt || Date.now()),
+        proposedActions: m.proposedActions,
       }));
       setMessages(formatted);
       const sId = session.sessionId || session._id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `session-${Date.now()}`);
@@ -960,6 +1173,13 @@ export default function AIAssistant() {
         role: "assistant",
         text: reply,
         timestamp: new Date(),
+        proposedActions:
+          Array.isArray(data.proposedActions) && data.proposedActions.length > 0
+            ? data.proposedActions.map((action) => ({
+                action,
+                status: "pending" as const,
+              }))
+            : undefined,
       };
       const finalMessages = [...newMessages, assistantMsg];
       setMessages(finalMessages);
@@ -1598,6 +1818,9 @@ export default function AIAssistant() {
                   onSpeakToggle={toggleSpeakMessage}
                   onRetry={retryLastMessage}
                   onSavePlan={handleOpenPlanConfirm}
+                  onConfirmAction={handleConfirmAction}
+                  onDismissAction={handleDismissAction}
+                  onUndoAction={handleUndoAction}
                 />
               );
             })}
