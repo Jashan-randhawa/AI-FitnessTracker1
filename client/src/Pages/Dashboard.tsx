@@ -20,6 +20,7 @@ import { summaryRowsToTotals } from "../utils/summaryTotals";
 import { deriveGoals } from "../utils/deriveGoals";
 import { withBadgeState, nextBadge } from "../utils/badges";
 import {
+  TIP_THROTTLE_MS,
   computeTipSignature,
   parseStoredTip,
   serializeStoredTip,
@@ -601,6 +602,16 @@ export default function Dashboard() {
 
     fetchTip(false);
   }, [isUserFetched, today, daySummary.data, fetchTip]);
+
+  // Periodic tip freshness re-check (Phase G / N5)
+  // Re-checks tip every 30 minutes in case user activity changed the signature while the tab remained open.
+  useEffect(() => {
+    if (!isUserFetched) return;
+    const interval = setInterval(() => {
+      fetchTip(false);
+    }, TIP_THROTTLE_MS);
+    return () => clearInterval(interval);
+  }, [isUserFetched, fetchTip]);
 
   const cardCls = `bg-white dark:bg-slate-800/90 dark:backdrop-blur border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5`;
   const softCardCls = `bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5`;

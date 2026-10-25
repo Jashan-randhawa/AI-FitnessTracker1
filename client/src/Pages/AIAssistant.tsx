@@ -727,10 +727,40 @@ export default function AIAssistant() {
     });
   };
 
-  // Live deterministic suggestions based on day summary and weather (Phase B / G6)
+  // Active workout plan for plan-scheduled chip suggestions (Phase G / N7)
+  const [activePlan, setActivePlan] = useState<any>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    api
+      .get("/api/workout-plans/active")
+      .then((res) => {
+        if (isMounted && res.data?.plan) {
+          setActivePlan(res.data.plan);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const todayPlanDay = useMemo(() => {
+    if (!activePlan?.days || !Array.isArray(activePlan.days) || activePlan.days.length === 0) {
+      return null;
+    }
+    const todayIndex = new Date().getDay() % activePlan.days.length;
+    return activePlan.days[todayIndex] || null;
+  }, [activePlan]);
+
+  // Live deterministic suggestions based on day summary, weather, and active plan (Phase B / G6 & Phase G / N7)
   const suggestions = useMemo(() => {
-    return getFitBotSuggestions(daySummary.data, weatherObs);
-  }, [daySummary.data, weatherObs]);
+    return getFitBotSuggestions(
+      daySummary.data,
+      weatherObs,
+      todayPlanDay ? { planDayScheduled: true, focus: todayPlanDay.focus, day: todayPlanDay.day } : null
+    );
+  }, [daySummary.data, weatherObs, todayPlanDay]);
 
   // Handle incoming router hand-offs (Phase B / G5)
   useEffect(() => {

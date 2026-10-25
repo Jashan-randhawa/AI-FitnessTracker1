@@ -19,9 +19,16 @@ export const BASE_SUGGESTIONS = [
   "What's a good post-workout meal?",
 ];
 
+export interface PlanScheduledContext {
+  planDayScheduled?: boolean;
+  focus?: string;
+  day?: string;
+}
+
 export const getFitBotSuggestions = (
   summary?: DaySummary | null,
-  weather?: EnvironmentPayload | null
+  weather?: EnvironmentPayload | null,
+  planContext?: PlanScheduledContext | boolean | null
 ): string[] => {
   const chips: string[] = [];
   const seen = new Set<string>();
@@ -74,6 +81,21 @@ export const getFitBotSuggestions = (
       addChip("Suggest a quick 20-minute workout");
     } else if (goals.calorieBurnGoal > 0 && activity.burnedKcal >= goals.calorieBurnGoal) {
       addChip("Post-workout recovery and stretching tips");
+    }
+
+    // Rule 6: Scheduled workout plan day (Phase G / N7)
+    const isPlanScheduled =
+      typeof planContext === "boolean"
+        ? planContext
+        : Boolean(planContext?.planDayScheduled);
+    const planFocus = typeof planContext === "object" ? planContext?.focus : undefined;
+
+    if (isPlanScheduled) {
+      addChip(
+        planFocus
+          ? `Tips for today's ${planFocus} workout`
+          : "Tips for today's scheduled workout"
+      );
     }
   }
 

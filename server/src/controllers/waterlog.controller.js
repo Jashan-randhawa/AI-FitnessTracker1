@@ -1,10 +1,14 @@
 const asyncHandler = require('express-async-handler');
+const mongoose = require('mongoose');
 const { publishChange } = require('../services/eventBus');
 const WaterLog = require('../models/WaterLog');
+const IdempotencyKey = require('../models/IdempotencyKey');
 const sendError = require('../utils/sendError');
 
 const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
 const idempotencyMap = new Map();
+
+const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
 
 const cleanExpiredIdempotency = (now = Date.now()) => {
   for (const [key, item] of idempotencyMap.entries()) {
@@ -23,8 +27,27 @@ const create = asyncHandler(async (req, res) => {
     body.idempotencyKey;
 
   if (idempotencyKey && typeof idempotencyKey === 'string') {
+    const trimmedKey = idempotencyKey.trim();
+
+    // Durable DB idempotency check (Phase G / N6)
+    // Only query DB if mongoose is connected or in stubbed test mode (avoids 10s buffering timeout in disconnected unit tests)
+    if (isDbConnected()) {
+      try {
+        const persisted = await IdempotencyKey.findOne({
+          user: req.user._id,
+          key: trimmedKey,
+        });
+        if (persisted && persisted.response) {
+          return res.status(200).json(persisted.response);
+        }
+      } catch {
+        // Fall through to in-memory fallback
+      }
+    }
+
+    // Fast-path in-memory fallback
     cleanExpiredIdempotency();
-    const cacheKey = `${String(req.user._id)}:${idempotencyKey.trim()}`;
+    const cacheKey = `${String(req.user._id)}:${trimmedKey}`;
     const cached = idempotencyMap.get(cacheKey);
     if (cached) {
       return res.status(200).json(cached.response);
@@ -40,8 +63,20 @@ const create = asyncHandler(async (req, res) => {
   const responseJson = entry.toJSON();
 
   if (idempotencyKey && typeof idempotencyKey === 'string') {
-    const cacheKey = `${String(req.user._id)}:${idempotencyKey.trim()}`;
+    const trimmedKey = idempotencyKey.trim();
+    const cacheKey = `${String(req.user._id)}:${trimmedKey}`;
     idempotencyMap.set(cacheKey, { timestamp: Date.now(), response: responseJson });
+
+    // Persist to 5-minute TTL database store when connected (Phase G / N6)
+    if (isDbConnected()) {
+      await IdempotencyKey.findOneAndUpdate(
+        { user: req.user._id, key: trimmedKey },
+        { user: req.user._id, key: trimmedKey, response: responseJson, createdAt: new Date() },
+        { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+      ).catch(() => {
+        // In-memory fallback already recorded
+      });
+    }
   }
 
   publishChange(String(req.user._id), 'water', entry.date);
