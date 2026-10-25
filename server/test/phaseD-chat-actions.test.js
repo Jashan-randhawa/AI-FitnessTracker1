@@ -114,9 +114,9 @@ describe('Phase D: Proposed Actions Extraction & Sanitization', () => {
   });
 });
 
-describe('Phase D: Prompt v1.8.0 Action Contract & Injection Protection', () => {
-  it('exposes PROMPT_VERSION 1.8.0 matching changelog', () => {
-    assert.equal(PROMPT_VERSION, '1.8.0');
+describe('Phase D: Prompt v1.9.0 Action Contract & Injection Protection', () => {
+  it('exposes PROMPT_VERSION 1.9.0 matching changelog', () => {
+    assert.equal(PROMPT_VERSION, '1.9.0');
   });
 
   it('includes Confirmed Actions Policy in system prompt', () => {

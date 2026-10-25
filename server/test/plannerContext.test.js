@@ -833,10 +833,10 @@ describe('planned items are never written as completed records', () => {
 // ── prompt contract ────────────────────────────────────────────────────
 
 describe('prompt: planning rules', () => {
-  it('is version 1.8.0 with a changelog entry for the planner rules', () => {
-    assert.equal(PROMPT_VERSION, '1.8.0');
+  it('is version 1.9.0 with a changelog entry for the planner rules', () => {
+    assert.equal(PROMPT_VERSION, '1.9.0');
     const header = fs.readFileSync(require.resolve('../src/prompts/fitbot.prompt'), 'utf8');
-    assert.ok(header.includes('v1.8.0'));
+    assert.ok(header.includes('v1.9.0'));
   });
 
   it('states the planning rules that the limits enforce', () => {

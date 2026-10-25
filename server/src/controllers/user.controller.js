@@ -1,6 +1,8 @@
 const asyncHandler = require('express-async-handler');
 const { publishChange } = require('../services/eventBus');
 const User = require('../models/User');
+const WeightLog = require('../models/WeightLog');
+const { deriveGoals } = require('../utils/goals');
 const sendError = require('../utils/sendError');
 const generateToken = require('../utils/generateToken');
 const { validatePasswordPolicy } = require('../utils/passwordPolicy');
@@ -88,6 +90,50 @@ const updateUser = asyncHandler(async (req, res) => {
   if (req.body.customDietaryNotes !== undefined) {
     const raw = typeof req.body.customDietaryNotes === 'string' ? req.body.customDietaryNotes : '';
     updates.customDietaryNotes = sanitizeUntrustedText(raw.replace(/[\u0000-\u001F\u007F]/g, ' '), 200).trim();
+  }
+
+  // Onboarding Goal Derivation Parity (G8)
+  const isOnboarding = Boolean(updates.onboardedAt || (!req.user.onboardedAt && req.body.onboardedAt));
+  if (isOnboarding) {
+    const projected = {
+      ...(typeof req.user.toObject === 'function' ? req.user.toObject() : req.user),
+      ...updates,
+    };
+    const derived = deriveGoals(projected);
+    if (!updates.dailycaloriesintake && !req.user.dailycaloriesintake) {
+      updates.dailycaloriesintake = derived.calorieLimit;
+    }
+    if (!updates.dailycaloriesburned && !req.user.dailycaloriesburned) {
+      updates.dailycaloriesburned = derived.calorieBurnGoal;
+    }
+    if (!updates.dailyproteingoal && !req.user.dailyproteingoal) {
+      updates.dailyproteingoal = derived.proteinGoal;
+    }
+    if (!updates.dailycarbsgoal && !req.user.dailycarbsgoal) {
+      updates.dailycarbsgoal = derived.carbsGoal;
+    }
+    if (!updates.dailyfatgoal && !req.user.dailyfatgoal) {
+      updates.dailyfatgoal = derived.fatGoal;
+    }
+    if (!updates.dailywatergoal && !req.user.dailywatergoal) {
+      updates.dailywatergoal = derived.waterGoal;
+    }
+  }
+
+  // WeightLog synchronization (G9)
+  if (updates.weight !== undefined && Number.isFinite(Number(updates.weight))) {
+    const weightVal = Number(updates.weight);
+    if (weightVal >= 20 && weightVal <= 400) {
+      const source = isOnboarding ? 'onboarding' : 'profile';
+      await WeightLog.create({
+        user: req.user._id,
+        weightKg: weightVal,
+        date: new Date(),
+        source,
+      }).catch((err) => {
+        logger.warn('[WeightLog] auto-sync weight log creation failed', { error: err?.message || 'Error' });
+      });
+    }
   }
 
   const user = await User.findByIdAndUpdate(req.user._id, updates, {

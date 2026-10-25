@@ -26,6 +26,7 @@ router.use(require('./metrics.routes'));
 router.use('/foodlogs', require('./foodlog.routes'));
 router.use('/activitylogs', require('./activitylog.routes'));
 router.use('/waterlogs', require('./waterlog.routes'));
+router.use('/weightlogs', require('./weightlog.routes'));
 router.use('/chathistories', require('./chathistory.routes'));
 router.use('/blogs', require('./blog.routes'));
 router.use('/workout-plans', require('./workoutPlan.routes'));

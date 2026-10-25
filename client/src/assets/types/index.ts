@@ -70,6 +70,15 @@ export type WaterEntry = {
   date: string;
 };
 
+// ── Weight Log entry ──
+export type WeightEntry = {
+  id: string;
+  weightKg: number;
+  date: string;
+  notes?: string;
+  source?: string;
+};
+
 // ── Auth credentials ──
 export type Credentials = {
   username?: string;

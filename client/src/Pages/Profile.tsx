@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import api, { API_BASE_URL } from "../configs/api";
 import toast from "react-hot-toast";
 import { useappcontext } from "../Context/AppContext";
@@ -13,6 +13,7 @@ import { withBadgeState } from "../utils/badges";
 import { useDaySummary } from "../data/summaryStore";
 import { localDayKey } from "../utils/localDay";
 import { resolveDate } from "../utils/dates";
+import type { WeightEntry } from "../assets/types";
 
 const GOAL_LABELS: Record<string, string> = {
   lose: "Lose Weight",
@@ -817,6 +818,34 @@ export default function Profile() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
   const [verificationCooldown, setVerificationCooldown] = useState(0);
+  const [weightLogs, setWeightLogs] = useState<WeightEntry[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    api
+      .get("/api/weightlogs")
+      .then((res) => {
+        if (isMounted && Array.isArray(res.data?.data)) {
+          setWeightLogs(res.data.data);
+        }
+      })
+      .catch(() => {
+        // Non-critical supplementary data
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.weight]);
+
+  const weightDelta = useMemo(() => {
+    if (!weightLogs || weightLogs.length < 2) return null;
+    const latest = user?.weight ?? weightLogs[0]?.weightKg;
+    const oldest = weightLogs[weightLogs.length - 1]?.weightKg;
+    if (typeof latest !== "number" || typeof oldest !== "number") return null;
+    const diff = Number((latest - oldest).toFixed(1));
+    const sign = diff > 0 ? "+" : "";
+    return `${sign}${diff} kg`;
+  }, [weightLogs, user?.weight]);
 
   const handleSendVerification = async () => {
     if (!user?.email || sendingVerification || verificationCooldown > 0) return;
@@ -978,7 +1007,11 @@ export default function Profile() {
             </div>
             <InfoRow label="Username" value={user?.username ?? "—"} icon={<svg {...svgProps} stroke="#10b981"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></svg>} />
             <InfoRow label="Age"    value={user?.age    ? `${user.age} years` : "—"} icon={<svg {...svgProps} stroke="#818cf8"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>} />
-            <InfoRow label="Weight" value={user?.weight ? `${user.weight} kg` : "—"} icon={<svg {...svgProps} stroke="#c084fc"><circle cx="12" cy="12" r="9" /><path d="M8 12h8M12 8v8" /></svg>} />
+            <InfoRow
+              label="Weight"
+              value={user?.weight ? `${user.weight} kg${weightDelta ? ` (${weightDelta})` : ""}` : "—"}
+              icon={<svg {...svgProps} stroke="#c084fc"><circle cx="12" cy="12" r="9" /><path d="M8 12h8M12 8v8" /></svg>}
+            />
             <InfoRow label="Height" value={user?.height ? `${user.height} cm` : "—"} icon={<svg {...svgProps} stroke="#34d399"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></svg>} />
             <InfoRow label="Goal"   value={GOAL_LABELS[user?.goal ?? ""] ?? user?.goal ?? "—"} icon={<svg {...svgProps} stroke="#fb923c"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>} />
             <InfoRow label="Calorie Target" value={user?.dailycaloriesintake ? `${user.dailycaloriesintake} kcal/day` : "—"} icon={<svg {...svgProps} stroke="#f97316"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" /><path d="M12 6v6l4 2" /></svg>} />

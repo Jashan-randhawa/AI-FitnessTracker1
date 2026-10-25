@@ -221,9 +221,9 @@ describe('Phase C: Dietary Profile in Fitness Context & Serialization', () => {
   });
 });
 
-describe('Phase C: Prompt v1.8.0 Safety Constraints & Changelog', () => {
-  it('exposes PROMPT_VERSION 1.8.0', () => {
-    assert.equal(PROMPT_VERSION, '1.8.0');
+describe('Phase C: Prompt v1.9.0 Safety Constraints & Changelog', () => {
+  it('exposes PROMPT_VERSION 1.9.0', () => {
+    assert.equal(PROMPT_VERSION, '1.9.0');
   });
 
   it('includes Dietary Restrictions & Allergen Safety under Clinical Safety Boundaries', () => {
