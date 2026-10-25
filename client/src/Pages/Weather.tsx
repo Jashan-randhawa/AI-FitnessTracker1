@@ -4,6 +4,7 @@ import { FitBotAvatar } from "../components/FitBotAvatar";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { fetchWeatherWorkoutSuggestions } from "../services/aiAssistantClient";
 import { toEnvironmentPayload } from "../utils/environmentPayload";
+import { saveWeatherObservation } from "../data/weatherStore";
 
 /* ─── Open-Meteo (free, no API key required) ─── */
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast";
@@ -415,6 +416,7 @@ const Weather = () => {
       setError("");
       const data = await fetchAllWeather(lat, lon);
       setWeather(data);
+      saveWeatherObservation(toEnvironmentPayload(data));
     } catch (e: any) {
       setError(e?.message || "Failed to load weather data.");
     } finally {

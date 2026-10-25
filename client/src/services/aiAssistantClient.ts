@@ -161,7 +161,7 @@ export async function generateStructuredMealPlan(
  */
 export async function generateStructuredActivityPlan(
   prompt: string,
-  options: { signal?: AbortSignal; skipCache?: boolean } = {}
+  options: { signal?: AbortSignal; skipCache?: boolean; environment?: EnvironmentPayload } = {}
 ): Promise<ActivityDayPlan[]> {
   const res = await chatAiAssistant({
     messages: [{ role: "user", parts: [{ text: prompt }] }],
@@ -170,6 +170,7 @@ export async function generateStructuredActivityPlan(
       planType: "activityPlan",
       skipCache: options.skipCache,
     },
+    environment: options.environment,
     signal: options.signal,
   });
 

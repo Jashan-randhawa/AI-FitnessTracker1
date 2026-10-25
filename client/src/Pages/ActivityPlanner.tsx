@@ -12,12 +12,19 @@ import {
   ArrowRight,
   Clock,
   Activity as ActivityIcon,
+  CloudSun,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../configs/api";
 import { useappcontext } from "../Context/AppContext";
 import type { ActivityEntry } from "../assets/types";
 import { generateStructuredActivityPlan } from "../services/aiAssistantClient";
+import type { EnvironmentPayload } from "../utils/environmentPayload";
+import {
+  getWeatherObservation,
+  getFreshWeatherObservation,
+  formatWeatherBadgeText,
+} from "../data/weatherStore";
 import {
   safeParseActivityPlan,
   type PlannedActivity,
@@ -129,6 +136,11 @@ export default function ActivityPlanner() {
   const [loggedActivities, setLoggedActivities] = useState<Set<string>>(new Set());
   const [planSaveStatus, setPlanSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [batchLogging, setBatchLogging] = useState(false);
+  const [weatherObs, setWeatherObs] = useState<EnvironmentPayload | null>(() => getWeatherObservation());
+
+  useEffect(() => {
+    setWeatherObs(getWeatherObservation());
+  }, []);
 
   // 1. Load active plan from database on mount, fallback to localStorage
   useEffect(() => {
@@ -257,7 +269,11 @@ ${days > 1 ? `- Progressive variation across days matching ${focus} and ${level}
 - Follow the active workout plan's split from the planning context unless the primary focus says otherwise.
 - Total daily calories burned should approximate ~${calorieBurnTarget} kcal.`;
 
-      const parsedPlan = await generateStructuredActivityPlan(prompt);
+      const freshEnv = getFreshWeatherObservation();
+      setWeatherObs(getWeatherObservation());
+      const parsedPlan = await generateStructuredActivityPlan(prompt, {
+        environment: freshEnv || undefined,
+      });
       setPlan(parsedPlan);
       setActiveDay(0);
       toast.success(
@@ -503,6 +519,10 @@ ${days > 1 ? `- Progressive variation across days matching ${focus} and ${level}
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Select your weekly schedule, focus area, and equipment access.
               </p>
+              <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40">
+                <CloudSun className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                <span>{formatWeatherBadgeText(weatherObs)}</span>
+              </div>
             </div>
 
             {plan.length > 0 && (

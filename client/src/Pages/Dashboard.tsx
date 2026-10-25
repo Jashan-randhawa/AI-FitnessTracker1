@@ -7,6 +7,7 @@ import { useTheme } from "../Context/Themecontext";
 import { useNavigate } from "react-router-dom";
 import api from "../configs/api";
 import toast from "react-hot-toast";
+import { RefreshCw } from "lucide-react";
 import AnimatedNumber from "../components/AnimatedNumber";
 import { StaggerContainer, StaggerItem } from "../components/animations/StaggerList";
 import { FitBotAvatar } from "../components/FitBotAvatar";
@@ -18,6 +19,12 @@ import { localDayKey, addDaysKey } from "../utils/localDay";
 import { summaryRowsToTotals } from "../utils/summaryTotals";
 import { deriveGoals } from "../utils/deriveGoals";
 import { withBadgeState, nextBadge } from "../utils/badges";
+import {
+  computeTipSignature,
+  parseStoredTip,
+  serializeStoredTip,
+  shouldRefreshTip,
+} from "../utils/dashboardTip";
 
 // ── Helpers ────────────────────────────────────────────────
 const getLastSevenDays = (_refDate?: string) =>
@@ -521,36 +528,78 @@ export default function Dashboard() {
     }
   }, [setAllWaterLogs]);
 
-  // ── Daily AI tip ─────────────────────────────────────────
-  useEffect(() => {
-    try {
-      sessionStorage.removeItem("fittrack_daily_tip");
-    } catch { /* silent */ }
+  // ── Daily AI tip (Phase A / G3) ───────────────────────────
+  const tipLoadingRef = useRef(false);
 
-    if (!isUserFetched) return;
-    const cacheKey = `fittrack_daily_tip_${today}`;
-    const stored = sessionStorage.getItem(cacheKey);
-    if (stored) {
-      setDailyTip(stored);
-      return;
-    }
-    setDailyTip("");
-    if (tipLoading) return;
+  const fetchTip = useCallback(
+    async (force = false) => {
+      if (!isUserFetched || tipLoadingRef.current) return;
+      const cacheKey = `fittrack_daily_tip_${today}`;
+      let rawStored: string | null = null;
+      try {
+        rawStored = sessionStorage.getItem(cacheKey);
+      } catch {
+        /* silent */
+      }
+      const parsed = parseStoredTip(rawStored);
+      const currentSignature = computeTipSignature(daySummary.data);
 
-    const fetchTip = async () => {
+      if (!force && !shouldRefreshTip(parsed, currentSignature)) {
+        if (parsed?.tip) {
+          setDailyTip(parsed.tip);
+        }
+        return;
+      }
+
+      tipLoadingRef.current = true;
       setTipLoading(true);
       try {
         // Goal, weight, and today's totals come from the server context.
         const tip = await fetchDailyFitnessTip("");
         if (tip) {
           setDailyTip(tip);
-          sessionStorage.setItem(cacheKey, tip);
+          try {
+            sessionStorage.setItem(
+              cacheKey,
+              serializeStoredTip(tip, currentSignature, Date.now())
+            );
+          } catch {
+            /* silent */
+          }
         }
-      } catch { /* silent */ }
-      finally { setTipLoading(false); }
-    };
-    fetchTip();
-  }, [isUserFetched, today]);
+      } catch {
+        // Keep previous tip on error
+      } finally {
+        tipLoadingRef.current = false;
+        setTipLoading(false);
+      }
+    },
+    [isUserFetched, today, daySummary.data]
+  );
+
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem("fittrack_daily_tip");
+    } catch {
+      /* silent */
+    }
+
+    if (!isUserFetched) return;
+    const cacheKey = `fittrack_daily_tip_${today}`;
+    try {
+      const rawStored = sessionStorage.getItem(cacheKey);
+      const parsed = parseStoredTip(rawStored);
+      if (parsed?.tip) {
+        setDailyTip(parsed.tip);
+      } else {
+        setDailyTip("");
+      }
+    } catch {
+      /* silent */
+    }
+
+    fetchTip(false);
+  }, [isUserFetched, today, daySummary.data, fetchTip]);
 
   const cardCls = `bg-white dark:bg-slate-800/90 dark:backdrop-blur border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5`;
   const softCardCls = `bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5`;
@@ -906,18 +955,30 @@ export default function Dashboard() {
 
         {/* Daily AI Tip */}
         <motion.div variants={StaggerItem} className={cardCls}>
-          <div className="flex items-center gap-2.5 mb-3">
-            <FitBotAvatar size="xs" state={tipLoading ? "thinking" : "idle"} />
-            <span className="text-sm font-bold text-gray-900 dark:text-white">FitBot's Tip for Today</span>
+          <div className="flex items-center justify-between gap-2.5 mb-3">
+            <div className="flex items-center gap-2.5">
+              <FitBotAvatar size="xs" state={tipLoading ? "thinking" : "idle"} />
+              <span className="text-sm font-bold text-gray-900 dark:text-white">FitBot's Tip for Today</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => fetchTip(true)}
+              disabled={tipLoading}
+              title="Refresh tip"
+              aria-label="Refresh tip"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${tipLoading ? "animate-spin" : ""}`} />
+            </button>
           </div>
-          {tipLoading ? (
+          {tipLoading && !dailyTip ? (
             <div className="flex gap-1.5 items-center py-1">
               <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
               <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
               <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" />
             </div>
           ) : dailyTip ? (
-            <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+            <div className={`text-sm text-slate-600 dark:text-slate-300 leading-relaxed ${tipLoading ? "opacity-70 transition-opacity" : ""}`}>
               <MarkdownMessage content={dailyTip} />
             </div>
           ) : (

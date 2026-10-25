@@ -667,6 +667,54 @@ describe('controller: planner requests', () => {
     assert.equal(seen.body.messages[0].content.includes('<environment>\nLocal time'), false);
   });
 
+  it('includes the environment block in activity planner request when valid environment is provided', async () => {
+    const seen = {};
+    const res = await callPlanner({
+      body: {
+        environment: {
+          temperatureC: 21,
+          condition: 'partly_cloudy',
+          precipitationProbability: 10,
+          aqi: 45,
+          observedAt: new Date().toISOString(),
+        },
+      },
+      plannerFn: okPlanner(undefined, seen),
+      seen,
+    });
+    assert.equal(res.statusCode, 200);
+    const systemPrompt = seen.body.messages[0].content;
+    assert.ok(systemPrompt.includes('<environment>'));
+    assert.ok(systemPrompt.includes('21 °C'));
+    assert.ok(systemPrompt.includes('partly cloudy'));
+    assert.ok(systemPrompt.includes('US AQI 45'));
+    assert.equal(systemPrompt.includes('latitude'), false);
+    assert.equal(systemPrompt.includes('longitude'), false);
+    assert.equal(systemPrompt.includes('coordinates'), false);
+  });
+
+  it('marks outdoor observation as too old and conditions unknown when stale in planner request', async () => {
+    const seen = {};
+    const staleTime = new Date(Date.now() - 4 * 3600 * 1000).toISOString();
+    const res = await callPlanner({
+      body: {
+        environment: {
+          temperatureC: 21,
+          condition: 'clear',
+          observedAt: staleTime,
+        },
+      },
+      plannerFn: okPlanner(undefined, seen),
+      seen,
+    });
+    assert.equal(res.statusCode, 200);
+    const systemPrompt = seen.body.messages[0].content;
+    assert.ok(systemPrompt.includes('<environment>'));
+    assert.ok(systemPrompt.includes('too old to use'));
+    assert.ok(systemPrompt.includes('Outdoor risk: unknown'));
+    assert.ok(systemPrompt.includes('Propose outdoor activities only when <environment> shows suitable conditions. Otherwise propose indoor options.'));
+  });
+
   it('keeps expectJson requests with no planner type on the old path (no fitness context)', async () => {
     const conversational = { n: 0 };
     const planner = { n: 0 };
