@@ -22,7 +22,7 @@ const GOAL_LABELS: Record<string, string> = {
   gain: "Gain Weight",
 };
 
-export const DIETARY_RESTRICTION_OPTIONS = [
+const DIETARY_RESTRICTION_OPTIONS = [
   { id: "gluten-free", label: "Gluten-Free" },
   { id: "dairy-free", label: "Dairy-Free" },
   { id: "nut-free", label: "Nut-Free" },
@@ -37,7 +37,7 @@ export const DIETARY_RESTRICTION_OPTIONS = [
   { id: "keto", label: "Keto" },
 ] as const;
 
-export const DIET_STYLE_OPTIONS = [
+const DIET_STYLE_OPTIONS = [
   "Balanced",
   "High Protein",
   "Keto / Low-Carb",
