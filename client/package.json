@@ -15,7 +15,7 @@
     "esbuild": true
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.1.18",
+    "@tailwindcss/vite": "^4.3.3",
     "axios": "^1.13.5",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^14.6.0",
