@@ -43,7 +43,7 @@ import {
   getValidMessages,
   formatMemoryContext,
 } from "../utils/fitbotHistory";
-import { createHandoffState, readHandoff } from "../utils/handoff";
+import { createHandoffState, readHandoff, type HandoffPayload } from "../utils/handoff";
 import { getFitBotSuggestions } from "../utils/fitbotSuggestions";
 import { useDaySummary, invalidateSummaries } from "../data/summaryStore";
 import { localDayKey } from "../utils/localDay";
@@ -474,6 +474,13 @@ const ChatMessageItem = React.memo(({
 ChatMessageItem.displayName = "ChatMessageItem";
 
 // ── Main AIAssistant Component ─────────────────────────────
+// Creates a fresh chat session id. Kept outside the component so render-time
+// analysis never sees the impure Date.now() fallback.
+const newSessionId = (): string =>
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `session-${Date.now()}`;
+
 export default function AIAssistant() {
   const { user, setAllWaterLogs, setAllFoodLogs, setAllActivityLogs } = useappcontext();
   const location = useLocation();
@@ -495,6 +502,8 @@ export default function AIAssistant() {
     payload: null,
     status: "idle",
   });
+
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const handleOpenPlanConfirm = useCallback((title: string, markdown: string) => {
     const days = parseMarkdownIntoWorkoutDays(markdown);
@@ -651,7 +660,6 @@ export default function AIAssistant() {
     }
   }, [setAllWaterLogs]);
 
-  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [pastSessions, setPastSessions] = useState<Array<Record<string, unknown> & { sessionId?: string; _id?: string; summary?: string; createdAt?: string; updatedAt?: string; revision?: number; messages?: Array<{ role?: string; text?: string; proposedActions?: FitBotActionState[] }> }>>([]);
@@ -806,16 +814,23 @@ export default function AIAssistant() {
   }, [daySummary.data, weatherObs, todayPlanDay]);
 
   // Handle incoming router hand-offs (Phase B / G5)
-  useEffect(() => {
+  const activeHandoff = useMemo<HandoffPayload | null>(() => {
     const handoff = readHandoff(location.state);
-    if (handoff && handoff.intent === "ask_followup" && handoff.prefill) {
-      setInput(handoff.prefill);
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
-      navigate(location.pathname, { replace: true, state: {} });
+    return handoff && handoff.intent === "ask_followup" && handoff.prefill ? handoff : null;
+  }, [location.state]);
+  const [appliedHandoff, setAppliedHandoff] = useState<HandoffPayload | null>(null);
+  // Apply the prefill during render when a new hand-off arrives (avoids setState in an effect).
+  if (activeHandoff && activeHandoff !== appliedHandoff) {
+    setAppliedHandoff(activeHandoff);
+    setInput(activeHandoff.prefill ?? "");
+  }
+  useEffect(() => {
+    if (!activeHandoff) return;
+    if (inputRef.current) {
+      inputRef.current.focus();
     }
-  }, [location.state, location.pathname, navigate]);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [activeHandoff, location.pathname, navigate]);
 
   // Auto-resize input textarea smoothly within compact bounds, enabling smooth scrolling when overflowing
   useEffect(() => {
@@ -907,12 +922,18 @@ export default function AIAssistant() {
         if (pendingSaveRef.current) {
           const next = pendingSaveRef.current;
           pendingSaveRef.current = null;
-          saveSession(next.msgs);
+          saveSessionRef.current(next.msgs);
         }
       }
     },
     [token]
   );
+
+  // Lets the queued-save path reach the latest saveSession without a self-reference.
+  const saveSessionRef = useRef(saveSession);
+  useEffect(() => {
+    saveSessionRef.current = saveSession;
+  }, [saveSession]);
 
   // Guaranteed persistence on navigation/refresh via pagehide
   useEffect(() => {
@@ -998,10 +1019,7 @@ export default function AIAssistant() {
 
       // If the deleted session was currently loaded into chat, reset current session identifier
       if (sessionIdRef.current === targetId) {
-        const freshId =
-          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-            ? crypto.randomUUID()
-            : `session-${Date.now()}`;
+        const freshId = newSessionId();
         setSessionId(freshId);
         sessionIdRef.current = freshId;
         saveRevisionRef.current = 0;
@@ -1031,7 +1049,7 @@ export default function AIAssistant() {
         proposedActions: m.proposedActions,
       }));
       setMessages(formatted);
-      const sId = session.sessionId || session._id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `session-${Date.now()}`);
+      const sId = session.sessionId || session._id || newSessionId();
       setSessionId(sId);
       sessionIdRef.current = sId;
       saveRevisionRef.current = session.revision || 1;
@@ -1335,7 +1353,9 @@ export default function AIAssistant() {
   };
 
   const sendMessageRef = useRef(sendMessage);
-  sendMessageRef.current = sendMessage;
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  });
 
   const retryLastMessage = useCallback(() => {
     if (isSendingRef.current || isLoading) return;
