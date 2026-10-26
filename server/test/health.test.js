@@ -36,7 +36,7 @@ describe('Health and Request-ID Middleware Tests', () => {
     };
 
     try {
-      const healthLayer = app._router.stack.find(
+      const healthLayer = (app._router || app.router).stack.find(
         (layer) => layer.route && layer.route.path === '/api/health'
       );
       assert.ok(healthLayer, 'Health route layer should exist');
@@ -88,7 +88,7 @@ describe('Health and Request-ID Middleware Tests', () => {
     };
 
     try {
-      const healthLayer = app._router.stack.find(
+      const healthLayer = (app._router || app.router).stack.find(
         (layer) => layer.route && layer.route.path === '/api/health'
       );
 

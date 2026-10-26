@@ -176,19 +176,17 @@ userSchema.virtual('googleLinked').get(function () {
   return Boolean(this.googleId || (this.provider === 'google' && !this.hasPassword));
 });
 
-userSchema.pre('validate', function syncHasPassword(next) {
+userSchema.pre('validate', function syncHasPassword() {
   if (this.isModified('password') || this.hasPassword === undefined) {
     this.hasPassword = Boolean(this.password);
   }
-  next();
 });
 
-userSchema.pre('save', async function hashPassword(next) {
+userSchema.pre('save', async function hashPassword() {
   this.hasPassword = Boolean(this.password);
-  if (!this.isModified('password') || !this.password) return next();
+  if (!this.isModified('password') || !this.password) return;
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
-  next();
 });
 
 userSchema.methods.comparePassword = async function comparePassword(candidate) {
