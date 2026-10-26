@@ -29,7 +29,7 @@
     "react-router-dom": "^7.18.4",
     "recharts": "^3.7.0",
     "remark-gfm": "^4.0.1",
-    "tailwindcss": "^4.1.18",
+    "tailwindcss": "^4.3.3",
     "zod": "^4.6.5"
   },
   "devDependencies": {
