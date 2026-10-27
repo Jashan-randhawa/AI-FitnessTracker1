@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [[2.6.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.6.0)] — 2026-10-27
+
+### 🔐 Security
+- **Admin-only blog writes**: Creating, editing, and deleting blog posts now requires an administrator account. Users without `isAdmin: true` in the database receive 403 responses. Blog create and update also accept only an explicit list of fields.
+
+### 🧩 Refactoring
+- **React Compiler compliance**: AIAssistant updated to satisfy React Compiler rules.
+
+### 📦 Dependencies & CI
+- Applied minor and patch updates across client and server, including lucide-react 1.61, framer-motion 14.6, recharts 3.10, and mongoose 9.
+- Dependabot now ignores major version bumps for eslint, @eslint/js, and typescript in the client.
+
+### 📝 Documentation
+- `server/.env.example` documents `GEMINI_API_KEY` and the production `VITE_API_URL`.
+- README updated for blog admin authorization, the Gemini key, and the 635-test count.
+
+---
+
 ## [[2.4.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.4.0)] — 2026-10-01
 
 ### 🛡️ Email Delivery Resilience & Duplicate Interception (F1–F5)
