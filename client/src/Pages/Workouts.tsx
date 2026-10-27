@@ -347,7 +347,7 @@ const PunjabiCard = ({ playlist, onPlay }: { playlist: PunjabiPlaylist; index: n
 // ── Search Bar ─────────────────────────────────────────────
 const SearchBar = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
   <div className="relative group">
-    <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="8" />
       <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
@@ -356,8 +356,21 @@ const SearchBar = ({ value, onChange }: { value: string; onChange: (v: string) =
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder="Search workouts by title, trainer or muscle group..."
-      className="w-full min-h-[44px] pl-11 pr-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/70 text-gray-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 shadow-sm transition-all"
+      className="w-full min-h-[42px] sm:min-h-[44px] pl-10 sm:pl-11 pr-8 sm:pr-9 py-2 sm:py-2.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/70 text-gray-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 shadow-sm transition-all"
     />
+    {value && (
+      <button
+        type="button"
+        onClick={() => onChange("")}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+        aria-label="Clear search"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    )}
   </div>
 );
 
@@ -522,60 +535,60 @@ export default function Workouts() {
 
       {/* ── Sticky Segmented Mode Control (M6) ── */}
       <div className="sticky top-0 z-30 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-md py-2 border-b border-slate-200/60 dark:border-slate-800/60">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-900 p-1 rounded-2xl border border-slate-300/40 dark:border-slate-800">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-200/70 dark:bg-slate-900 p-1 rounded-2xl border border-slate-300/40 dark:border-slate-800 shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab("videos")}
-              className={`min-h-[44px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`min-h-[38px] sm:min-h-[44px] px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 active:scale-95 ${
                 activeTab === "videos"
                   ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm"
                   : "text-slate-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
-              <span>🎬</span> Videos
+              <span>🎬</span> <span>Videos</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("today")}
-              className={`min-h-[44px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`min-h-[38px] sm:min-h-[44px] px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 active:scale-95 ${
                 activeTab === "today"
                   ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm"
                   : "text-slate-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
-              <span>📅</span> Today's Plan
+              <span>📅</span> <span>Today<span className="hidden sm:inline">'s Plan</span></span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("music")}
-              className={`min-h-[44px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`min-h-[38px] sm:min-h-[44px] px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 active:scale-95 ${
                 activeTab === "music"
                   ? "bg-white dark:bg-slate-800 text-orange-500 shadow-sm"
                   : "text-slate-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
-              <span>🎵</span> Music
+              <span>🎵</span> <span>Music</span>
             </button>
           </div>
 
           <button
             type="button"
             onClick={() => setShowLiveTracker(true)}
-            className="min-h-[44px] px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 ml-auto"
+            className="min-h-[38px] sm:min-h-[44px] px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap active:scale-95"
           >
-            <span>⏱️</span> Quick Log Set
+            <span>⏱️</span> <span className="hidden xs:inline sm:inline">Quick </span><span>Log<span className="hidden md:inline"> Set</span></span>
           </button>
         </div>
       </div>
 
       {/* ── Mode 1: Videos Library ── */}
       {activeTab === "videos" && (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 space-y-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4">
           <SearchBar value={search} onChange={setSearch} />
 
-          {/* Compact Scrollable Chips (M11) with 44px tap targets */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
+          {/* Compact Scrollable Chips (M11) with touch-friendly tap targets */}
+          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
             {CATEGORIES.map(({ key, label, emoji }) => {
               const active = activeCategory === key;
               return (
@@ -583,7 +596,7 @@ export default function Workouts() {
                   key={key}
                   type="button"
                   onClick={() => setActiveCategory(key as Category | "all")}
-                  className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 snap-start flex items-center gap-1.5 active:scale-95 ${
+                  className={`min-h-[38px] sm:min-h-[44px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 snap-start flex items-center gap-1.5 active:scale-95 ${
                     active
                       ? "bg-emerald-500 text-white border-emerald-500 shadow-sm"
                       : "bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/60 hover:border-emerald-500/50"
@@ -596,7 +609,7 @@ export default function Workouts() {
             })}
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 no-scrollbar scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
             {LEVELS.map((level) => {
               const active = activeLevel === level;
               return (
@@ -604,7 +617,7 @@ export default function Workouts() {
                   key={level}
                   type="button"
                   onClick={() => setActiveLevel(level)}
-                  className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 snap-start capitalize active:scale-95 ${
+                  className={`min-h-[34px] sm:min-h-[38px] px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 snap-start capitalize active:scale-95 ${
                     active
                       ? `${LEVEL_BADGE[level]} border-emerald-500/60`
                       : "bg-white dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/60 hover:border-slate-400"
@@ -792,11 +805,11 @@ export default function Workouts() {
 
       {/* ── Mode 3: Punjabi Music ── */}
       {activeTab === "music" && (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 space-y-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4">
           <SearchBar value={search} onChange={setSearch} />
 
           {/* Mood filters (M11) */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
             {PUNJABI_MOODS.map(({ key, label, emoji }) => {
               const active = activeMood === key;
               return (
@@ -804,7 +817,7 @@ export default function Workouts() {
                   key={key}
                   type="button"
                   onClick={() => setActiveMood(key as PunjabiPlaylist["mood"] | "all")}
-                  className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 snap-start flex items-center gap-1.5 active:scale-95 ${
+                  className={`min-h-[38px] sm:min-h-[44px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 snap-start flex items-center gap-1.5 active:scale-95 ${
                     active
                       ? "bg-orange-500 text-white border-orange-500 shadow-sm"
                       : "bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/60 hover:border-orange-500/50"
