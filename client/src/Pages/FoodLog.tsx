@@ -1,5 +1,5 @@
 import { resolveDate } from "../utils/dates";
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback, type MutableRefObject } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { useappcontext } from "../Context/AppContext";
@@ -171,10 +171,12 @@ const FoodSnapAdjustmentModal = ({
   data,
   onCommit,
   onCancel,
+  allowedPreviewUrlsRef,
 }: {
   data: FoodSnapReviewData;
   onCommit: (adjusted: LogEntryLike) => Promise<void>;
   onCancel: () => void;
+  allowedPreviewUrlsRef: MutableRefObject<Set<string>>;
 }) => {
   const [portionMultiplier, setPortionMultiplier] = useState(1.0);
   const [oilAdjustmentKcal, setOilAdjustmentKcal] = useState(0);
@@ -1103,6 +1105,7 @@ export default function FoodLog() {
       {snapReviewData && (
         <FoodSnapAdjustmentModal
           data={snapReviewData}
+          allowedPreviewUrlsRef={allowedPreviewUrlsRef}
           onCommit={handleCommitAdjustedSnap}
           onCancel={() => {
             if (snapReviewData.previewUrl) {
