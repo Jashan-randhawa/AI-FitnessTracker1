@@ -31,7 +31,9 @@ class MetricsRegistry {
   _formatLabels(labels = {}) {
     const keys = Object.keys(labels).sort();
     if (keys.length === 0) return '';
-    const formatted = keys.map((k) => `${k}="${String(labels[k]).replace(/"/g, '\\"')}"`).join(',');
+    const formatted = keys
+      .map((k) => `${k}="${String(labels[k]).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
+      .join(',');
     return `{${formatted}}`;
   }
 
