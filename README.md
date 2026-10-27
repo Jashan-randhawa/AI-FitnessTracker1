@@ -10,11 +10,11 @@
 [![React](https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Vite](https://img.shields.io/badge/Vite-7.x-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Express](https://img.shields.io/badge/Express-4.19-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
+[![Vite](https://img.shields.io/badge/Vite-8.x-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Express](https://img.shields.io/badge/Express-5.x-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E=20.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tests](https://img.shields.io/badge/Unit_Tests-552_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
+[![Tests](https://img.shields.io/badge/Unit_Tests-635_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
 [![Audit](https://img.shields.io/badge/Vulnerabilities-0-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://ai-fitness-tracker1.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
@@ -231,11 +231,11 @@ graph TD
 ```
 
 ### Frontend Architecture
-- **Framework:** React 19.2 with TypeScript ~5.9
-- **Build Engine:** Vite 7.x
+- **Framework:** React 19.3 with TypeScript ~5.9
+- **Build Engine:** Vite 8.x
 - **Design System:** Tailwind CSS v4
 - **Routing:** React Router v7 (`react-router-dom` 7.18+)
-- **Motion & Micro-interactions:** Framer Motion 12.x
+- **Motion & Micro-interactions:** Framer Motion 14.x
 - **Data Charts:** Recharts 3.x (with ReferenceLines, dynamic Cells, and custom tooltips)
 - **Document & Data Export:** jsPDF 4.2.x (patched DOMPurify), jsPDF-AutoTable 5.x, html2canvas
 - **Data Modeling & Validation:** Zod 4.x
@@ -243,15 +243,15 @@ graph TD
 - **Notifications:** React Hot Toast
 
 ### Backend Architecture
-- **Runtime:** Node.js `>=20.0.0`
-- **Framework:** Express.js 4.19
-- **Database & ODM:** MongoDB & Mongoose 8.x
-- **Security & Reliability:** Helmet, CORS, `express-rate-limit` (dual IP and per-user limiters), bcryptjs, JSON Web Tokens (JWT)
+- **Runtime:** Node.js `>=20.0.0` (tested on Node 20 & 22)
+- **Framework:** Express.js 5.x
+- **Database & ODM:** MongoDB & Mongoose 9.x
+- **Security & Reliability:** Helmet, CORS, `express-rate-limit` (dual IP and per-user limiters), bcryptjs, JSON Web Tokens (JWT), Role-Based Admin Auth (`requireAdmin`)
 - **Contract Validation:** Zod 4.x
 - **Media Ingestion:** Multer 2.4.x (multipart form handling for vision analysis)
 - **Logging & Tracing:** Structured JSON Logger (`LOG_LEVEL`), automated secret scrubber (passwords, tokens, API keys), request ID correlation middleware (`X-Request-Id`), and HTTP access logging
 - **Health & Monitoring:** Production uptime monitoring endpoint (`GET /api/health`) with live MongoDB connection state inspection
-- **External Providers:** OpenRouter (GPT-4o-mini & Gemini fallback), Brevo HTTP API, NewsAPI, RapidAPI
+- **External Providers:** Google Gemini API (Food Snap vision, voice logging, agentic tools), OpenRouter (GPT-4o-mini & fallback models), Brevo HTTP API (transactional email), NewsAPI, RapidAPI
 
 ---
 
@@ -266,7 +266,8 @@ cd server
 npm test
 ```
 
-Test coverage includes **552 unit tests** across **138 suites** (100% passing, 0 external runner overhead):
+Test coverage includes **635 unit tests** across **176 suites** (100% passing, 0 external runner overhead):
+- **Blog Admin Authorization & Field Whitelisting (`test/blogAdminAuthz.test.js`):** Role-based access control (RBAC), `requireAdmin` middleware verification, strict `isAdmin: true` database flag enforcement, and field whitelisting for blog write operations.
 - **User Macro & Water Goals (`test/userGoals.test.js`):** Numeric validation, non-negative constraints (`min: 0`), and non-numeric casting guards for `dailyproteingoal`, `dailycarbsgoal`, `dailyfatgoal`, and `dailywatergoal`.
 - **AI Structured Plans & Schemas (`test/aiPlans.test.js`):** Zod validation contracts for meal and workout plan JSON payloads, rejecting negative macros or unrealistic durations.
 - **FitBot Reliability & Cancellation (`test/fitbotReliability.test.js`):** Idempotent persistence, request deduplication, and client abort handling.
@@ -357,10 +358,11 @@ AI-FitnessTracker1/
 │
 ├── server/                              # Express + MongoDB API
 │   ├── server.js                        # Server entry point
-│   ├── test/                            # Unit tests (node --test - 138 suites / 552 tests)
+│   ├── test/                            # Unit tests (node --test - 176 suites / 635 tests)
 │   │   ├── aiAssistant.test.js          # AI payload caps & truncation tests
 │   │   ├── aiPlans.test.js              # Zod schema validation for structured plans
 │   │   ├── auth.test.js                 # Auth & JWT unit tests
+│   │   ├── blogAdminAuthz.test.js       # Admin authorization & blog write field whitelisting tests
 │   │   ├── brevoEmailService.test.js    # Brevo email delivery tests
 │   │   ├── chatHistory.test.js          # Chat history persistence tests
 │   │   ├── errorHandler.test.js         # Error handling & production masking tests
@@ -434,6 +436,7 @@ JWT_EXPIRES_IN=30d
 # AI & APIs
 OPENROUTER_API_KEY=your_openrouter_api_key
 OPENROUTER_FALLBACK_MODEL=google/gemini-2.0-flash-001
+GEMINI_API_KEY=your_gemini_api_key
 NEWS_API_KEY=your_newsapi_key
 RAPIDAPI_KEY=your_rapidapi_key
 
@@ -533,6 +536,17 @@ All requests requiring authorization must include the header:
 | `GET` | `/api/waterlogs` | Fetch user water intake records | — | Private |
 | `POST` | `/api/waterlogs` | Log water consumption (amount in ml) | — | Private |
 | `DELETE` | `/api/waterlogs/:id` | Delete water entry | — | Private |
+
+### Blog & Articles Management
+| Method | Endpoint | Description | Rate Limit | Access |
+|---|---|---|---|---|
+| `GET` | `/api/blogs` | Retrieve paginated public fitness articles | — | Public |
+| `GET` | `/api/blogs/:id` | Fetch full content of a specific article | — | Public |
+| `POST` | `/api/blogs` | Create a new blog post (whitelisted fields only) | — | Admin Only (`isAdmin: true`) |
+| `PUT` | `/api/blogs/:id` | Update an existing blog post | — | Admin Only (`isAdmin: true`) |
+| `DELETE` | `/api/blogs/:id` | Delete a blog post | — | Admin Only (`isAdmin: true`) |
+
+> 🔒 **Admin Access Note**: Blog creation, updates, and deletion are protected by `requireAdmin` middleware. To grant administrator privileges to an account, set `{ "isAdmin": true }` (type: Boolean) directly on the target user document in the MongoDB `users` collection via MongoDB Atlas or `mongosh`. No public API endpoint grants administrative access.
 
 ### System & Health Monitoring
 | Method | Endpoint | Description | Rate Limit | Access |
