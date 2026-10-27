@@ -726,10 +726,18 @@ export default function AIAssistant() {
   }, [showMemory, updateFlyoutPosition]);
   // Stable session identifier & revision tracking (FitBot Phase 2)
   const [sessionId, setSessionId] = useState<string>(() => {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      return crypto.randomUUID();
+    if (typeof crypto !== "undefined") {
+      if (typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+      }
+      if (typeof crypto.getRandomValues === "function") {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        const randomHex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+        return `session-${Date.now()}-${randomHex}`;
+      }
     }
-    return `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    return `session-${Date.now()}-fallback`;
   });
   const sessionIdRef = useRef<string>(sessionId);
   useEffect(() => {
@@ -1403,9 +1411,20 @@ export default function AIAssistant() {
       saveSession(messages);
     }
 
-    const newId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
-      ? crypto.randomUUID()
-      : `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const newId = (() => {
+      if (typeof crypto !== "undefined") {
+        if (typeof crypto.randomUUID === "function") {
+          return crypto.randomUUID();
+        }
+        if (typeof crypto.getRandomValues === "function") {
+          const bytes = new Uint8Array(16);
+          crypto.getRandomValues(bytes);
+          const randomHex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+          return `session-${Date.now()}-${randomHex}`;
+        }
+      }
+      return `session-${Date.now()}-fallback`;
+    })();
     setSessionId(newId);
     sessionIdRef.current = newId;
     saveRevisionRef.current = 0;
