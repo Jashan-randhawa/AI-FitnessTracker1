@@ -16,11 +16,10 @@ import { enqueueOfflineMutation } from "../utils/offlineSyncQueue";
 
 type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
-const sanitizeImageSrc = (value: string): string => {
+const sanitizeImageSrc = (value: string, allowedBlobUrls: Set<string>): string => {
   try {
     const parsed = new URL(value, window.location.origin);
-    if (parsed.protocol === "blob:") return value;
-    if (parsed.protocol === "data:" && value.startsWith("data:image/")) return value;
+    if (parsed.protocol === "blob:" && allowedBlobUrls.has(value)) return value;
     return "";
   } catch {
     return "";
@@ -226,7 +225,7 @@ const FoodSnapAdjustmentModal = ({
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0 bg-slate-100 dark:bg-slate-900">
-              <img src={sanitizeImageSrc(data.previewUrl)} alt="Snap preview" className="w-full h-full object-cover" />
+              <img src={sanitizeImageSrc(data.previewUrl, allowedPreviewUrlsRef.current)} alt="Snap preview" className="w-full h-full object-cover" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -889,6 +888,7 @@ export default function FoodLog() {
   const [filterDate, setFilterDate] = useState<string | null>(null);
   const [snapReviewData, setSnapReviewData] = useState<FoodSnapReviewData | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const allowedPreviewUrlsRef = useRef<Set<string>>(new Set());
 
   const openCamera = () => { setShowSnapMenu(false); setShowCamera(true); };
 
@@ -969,6 +969,7 @@ export default function FoodLog() {
     e.target.value = "";
 
     const previewUrl = URL.createObjectURL(file);
+    allowedPreviewUrlsRef.current.add(previewUrl);
     setSnapPreview(previewUrl);
     setIsAnalyzing(true);
 
@@ -1005,6 +1006,7 @@ export default function FoodLog() {
           `✨ Auto-saved: ${analysis?.dishTitle || data.savedRecord.name} · ${data.savedRecord.calories} kcal (${confPct}% conf)${fitMsg}`
         );
         URL.revokeObjectURL(previewUrl);
+        allowedPreviewUrlsRef.current.delete(previewUrl);
       } else {
         // Lower confidence (< 0.75): render interactive 1-tap portion/oil adjustment chips before committing
         setSnapReviewData({
@@ -1103,7 +1105,10 @@ export default function FoodLog() {
           data={snapReviewData}
           onCommit={handleCommitAdjustedSnap}
           onCancel={() => {
-            if (snapReviewData.previewUrl) URL.revokeObjectURL(snapReviewData.previewUrl);
+            if (snapReviewData.previewUrl) {
+              URL.revokeObjectURL(snapReviewData.previewUrl);
+              allowedPreviewUrlsRef.current.delete(snapReviewData.previewUrl);
+            }
             setSnapReviewData(null);
           }}
         />
