@@ -66,4 +66,16 @@ const requireRecentLogin = (maxAgeSeconds = 900) => (req, res, next) => {
   next();
 };
 
-module.exports = { protect, requireRecentLogin };
+/**
+ * Restricts a route to administrators. Must run after `protect`, which
+ * populates req.user. Admin status is set only in the database; there is no
+ * API to grant it.
+ */
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.isAdmin !== true) {
+    return sendError(res, 403, 'Administrator access required');
+  }
+  next();
+};
+
+module.exports = { protect, requireRecentLogin, requireAdmin };
