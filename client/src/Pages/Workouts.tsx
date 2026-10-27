@@ -535,49 +535,53 @@ export default function Workouts() {
 
       {/* ── Sticky Segmented Mode Control (M6) ── */}
       <div className="sticky top-0 z-30 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-md py-2 border-b border-slate-200/60 dark:border-slate-800/60">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-2 sm:gap-3">
           <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-200/70 dark:bg-slate-900 p-1 rounded-2xl border border-slate-300/40 dark:border-slate-800 shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab("videos")}
-              className={`min-h-[38px] sm:min-h-[44px] px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 active:scale-95 ${
+              className={`min-h-[38px] sm:min-h-[44px] px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 active:scale-95 ${
                 activeTab === "videos"
                   ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm"
                   : "text-slate-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
-              <span>🎬</span> <span>Videos</span>
+              <span className="text-sm leading-none shrink-0 inline-flex items-center justify-center">🎬</span>
+              <span className="leading-none whitespace-nowrap">Videos</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("today")}
-              className={`min-h-[38px] sm:min-h-[44px] px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 active:scale-95 ${
+              className={`min-h-[38px] sm:min-h-[44px] px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 active:scale-95 ${
                 activeTab === "today"
                   ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm"
                   : "text-slate-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
-              <span>📅</span> <span>Today<span className="hidden sm:inline">'s Plan</span></span>
+              <span className="text-sm leading-none shrink-0 inline-flex items-center justify-center">📅</span>
+              <span className="leading-none whitespace-nowrap">Today<span className="hidden sm:inline">'s Plan</span></span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("music")}
-              className={`min-h-[38px] sm:min-h-[44px] px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 active:scale-95 ${
+              className={`min-h-[38px] sm:min-h-[44px] px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 active:scale-95 ${
                 activeTab === "music"
                   ? "bg-white dark:bg-slate-800 text-orange-500 shadow-sm"
                   : "text-slate-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
-              <span>🎵</span> <span>Music</span>
+              <span className="text-sm leading-none shrink-0 inline-flex items-center justify-center">🎵</span>
+              <span className="leading-none whitespace-nowrap">Music</span>
             </button>
           </div>
 
           <button
             type="button"
             onClick={() => setShowLiveTracker(true)}
-            className="min-h-[38px] sm:min-h-[44px] px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap active:scale-95"
+            className="min-h-[38px] sm:min-h-[44px] px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap active:scale-95"
           >
-            <span>⏱️</span> <span className="hidden xs:inline sm:inline">Quick </span><span>Log<span className="hidden md:inline"> Set</span></span>
+            <span className="text-sm leading-none shrink-0 inline-flex items-center justify-center">⏱️</span>
+            <span className="leading-none whitespace-nowrap"><span className="hidden xs:inline sm:inline">Quick </span><span>Log<span className="hidden md:inline"> Set</span></span></span>
           </button>
         </div>
       </div>
@@ -588,7 +592,7 @@ export default function Workouts() {
           <SearchBar value={search} onChange={setSearch} />
 
           {/* Compact Scrollable Chips (M11) with touch-friendly tap targets */}
-          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar scrollbar-none">
             {CATEGORIES.map(({ key, label, emoji }) => {
               const active = activeCategory === key;
               return (
@@ -596,20 +600,20 @@ export default function Workouts() {
                   key={key}
                   type="button"
                   onClick={() => setActiveCategory(key as Category | "all")}
-                  className={`min-h-[38px] sm:min-h-[44px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 snap-start flex items-center gap-1.5 active:scale-95 ${
+                  className={`min-h-[38px] sm:min-h-[44px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5 active:scale-95 ${
                     active
                       ? "bg-emerald-500 text-white border-emerald-500 shadow-sm"
                       : "bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/60 hover:border-emerald-500/50"
                   }`}
                 >
-                  <span>{emoji}</span>
-                  <span>{label}</span>
+                  <span className="text-sm leading-none shrink-0 inline-flex items-center justify-center">{emoji}</span>
+                  <span className="leading-none whitespace-nowrap">{label}</span>
                 </button>
               );
             })}
           </div>
 
-          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 no-scrollbar scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 no-scrollbar scrollbar-none">
             {LEVELS.map((level) => {
               const active = activeLevel === level;
               return (
@@ -617,13 +621,13 @@ export default function Workouts() {
                   key={level}
                   type="button"
                   onClick={() => setActiveLevel(level)}
-                  className={`min-h-[34px] sm:min-h-[38px] px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 snap-start capitalize active:scale-95 ${
+                  className={`min-h-[34px] sm:min-h-[38px] px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 capitalize flex items-center justify-center active:scale-95 ${
                     active
                       ? `${LEVEL_BADGE[level]} border-emerald-500/60`
                       : "bg-white dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/60 hover:border-slate-400"
                   }`}
                 >
-                  {level}
+                  <span className="leading-none whitespace-nowrap">{level}</span>
                 </button>
               );
             })}
@@ -809,7 +813,7 @@ export default function Workouts() {
           <SearchBar value={search} onChange={setSearch} />
 
           {/* Mood filters (M11) */}
-          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar scrollbar-none">
             {PUNJABI_MOODS.map(({ key, label, emoji }) => {
               const active = activeMood === key;
               return (
@@ -817,14 +821,14 @@ export default function Workouts() {
                   key={key}
                   type="button"
                   onClick={() => setActiveMood(key as PunjabiPlaylist["mood"] | "all")}
-                  className={`min-h-[38px] sm:min-h-[44px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 snap-start flex items-center gap-1.5 active:scale-95 ${
+                  className={`min-h-[38px] sm:min-h-[44px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5 active:scale-95 ${
                     active
                       ? "bg-orange-500 text-white border-orange-500 shadow-sm"
                       : "bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/60 hover:border-orange-500/50"
                   }`}
                 >
-                  <span>{emoji}</span>
-                  <span>{label}</span>
+                  <span className="text-sm leading-none shrink-0 inline-flex items-center justify-center">{emoji}</span>
+                  <span className="leading-none whitespace-nowrap">{label}</span>
                 </button>
               );
             })}
