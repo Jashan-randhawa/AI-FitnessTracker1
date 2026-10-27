@@ -16,6 +16,17 @@ import { enqueueOfflineMutation } from "../utils/offlineSyncQueue";
 
 type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
+const sanitizeImageSrc = (value: string): string => {
+  try {
+    const parsed = new URL(value, window.location.origin);
+    if (parsed.protocol === "blob:") return value;
+    if (parsed.protocol === "data:" && value.startsWith("data:image/")) return value;
+    return "";
+  } catch {
+    return "";
+  }
+};
+
 const MEAL_CONFIG: Record<MealType, { label: string; icon: string; color: string; bg: string; iconBg: string; border: string }> = {
   breakfast: { label: "Breakfast", icon: "☕", color: "text-amber-400",  bg: "bg-amber-400/15",  iconBg: "bg-amber-400/20",  border: "border-amber-400/30"  },
   lunch:     { label: "Lunch",     icon: "🥪", color: "text-orange-400", bg: "bg-orange-400/15", iconBg: "bg-orange-400/20", border: "border-orange-400/30" },
@@ -215,7 +226,7 @@ const FoodSnapAdjustmentModal = ({
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0 bg-slate-100 dark:bg-slate-900">
-              <img src={data.previewUrl} alt="Snap preview" className="w-full h-full object-cover" />
+              <img src={sanitizeImageSrc(data.previewUrl)} alt="Snap preview" className="w-full h-full object-cover" />
             </div>
             <div>
               <div className="flex items-center gap-2">
