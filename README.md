@@ -7,20 +7,20 @@
 [![CI](https://github.com/Jashan-randhawa/AI-FitnessTracker1/actions/workflows/ci.yml/badge.svg)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/actions/workflows/ci.yml)
 [![GitHub Packages](https://img.shields.io/badge/GitHub_Packages-7_Published-2ea44f?style=for-the-badge&logo=github)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/pkgs/npm)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-blue?style=for-the-badge&logo=github)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki)
-[![React](https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![React](https://img.shields.io/badge/React-19.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Vite](https://img.shields.io/badge/Vite-8.x-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Express](https://img.shields.io/badge/Express-5.x-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E=20.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tests](https://img.shields.io/badge/Unit_Tests-635_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
-[![Audit](https://img.shields.io/badge/Vulnerabilities-0-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
+[![Tests](https://img.shields.io/badge/Tests-642_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
+[![Security Hardened](https://img.shields.io/badge/CodeQL_Audit-0_Vulnerabilities-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://ai-fitness-tracker1.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
 
 <p align="center">
-  A full-stack, AI-powered health and fitness operating system designed to transform daily habits into measurable progress. Featuring multimodal AI meal logging, context-aware coaching with clinical safety boundaries, $O(N)$ single-pass analytics with midnight rollover, customizable macro & hydration goals, glassmorphism single-day and multi-day meal & activity planners with 1-click tracker logging, interactive heatmaps, and hardened dual authentication.
+  A full-stack, AI-powered health and fitness operating system designed to transform daily habits into measurable progress. Featuring multimodal AI meal logging, context-aware coaching with clinical safety boundaries, $O(N)$ single-pass analytics with midnight rollover, customizable macro & hydration goals, timezone-safe weight tracking, Server-Sent Events (SSE) live synchronization, glassmorphism single-day and multi-day meal & activity planners with 1-click tracker logging, interactive heatmaps, and hardened dual authentication.
 </p>
 
 [🚀 **Explore Live Demo**](https://ai-fitness-tracker1.vercel.app) • [📦 **Modular Packages**](#-modular-packages-ecosystem) • [📖 **Wiki Documentation**](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki) • [✨ **Features**](#-features) • [📱 **Mobile View**](#-mobile-experience) • [🧪 **Testing & CI**](#-testing--cicd) • [🛠️ **Quick Start**](#-quick-start) • [📡 **API Reference**](#-api-reference)
@@ -33,14 +33,17 @@
 
 **FitTrack AI** combines modern fitness tracking with generative artificial intelligence to deliver an experience that goes beyond standard calorie counting:
 
-- **Intelligent Vision & NLP Logging:** Snap a photo or type a meal description; AI identifies foods and computes calories and macros automatically.
-- **Context-Aware Coaching & Clinical Safety:** FitBot and the meal and activity planners build their context on the server from your own records (goals, today's food, activity and water, a 7-day trend, streak, and active workout plan), optionally with a validated weather observation, while enforcing clinical safe-harbor boundaries against hazardous dietary advice.
+- **Intelligent Vision & NLP Logging:** Snap a photo or type a meal description; AI identifies foods and computes calories and macros automatically with single-RTT auto-saving and manual adjustment.
+- **Hands-Free Gemini Voice Gym Logger:** Speak workout sets or upload audio recordings; multimodal AI parses exercise names, metric/imperial weight, reps, and RPE ratings into structured activity logs.
+- **Context-Aware Coaching & Clinical Safety:** FitBot and the meal and activity planners build their context on the server from your own records (goals, today's food, activity and water, 7-day trend, streak, and active workout plan), optionally with validated weather observations, while enforcing clinical safe-harbor boundaries against hazardous dietary advice.
 - **High-Performance Analytics & Midnight Rollover:** $O(N)$ single-pass daily totals aggregation engine (`dailyTotals.ts`), dynamic midnight rollover (`useToday`) with visibility detection, weekly insight tiles, and goal reference lines with rose exceed highlights.
+- **Timezone-Safe Weight Tracking & Backfills:** User weight history tracking with ISO `localDay` derivation (`YYYY-MM-DD`), compound unique indexes with partial filter expressions protecting legacy databases, and automated backfill safeguards.
+- **Real-Time Server-Sent Events (SSE):** Ticket-authorized streaming updates (`/api/events`) keeping weight, hydration, and meal records synchronized instantly across multiple browser tabs and devices without page reloads.
 - **Full-Stack Macro & Hydration Target Customization:** Profile and dashboard integration with customizable protein, carbohydrate, fat, and hydration goals, backed by intelligent automatic derivation (30/40/30 macro split, 2500 ml water).
 - **Redesigned Modern Planners:** Glassmorphism UI for both Meal Planner and Activity Planner featuring single-day ("Today") and multi-day scheduling (1, 3, 5, 7 days), smart presets, and one-click "Log to Tracker" integration.
 - **Interactive Calendar Heatmaps:** GitHub-style 90-day activity and nutrition heatmaps with intensity scaling, streak tracking, and instant date navigation.
-- **Hardened Security & Rate Limiting:** Protected with dual-tier rate limiting (IP + authenticated user ID), strict AI payload caps, Brevo F1–F5 transactional email resilience, secure fragment-based Google OAuth, and anti-enumeration password resets.
-- **Mobile-First Experience:** Built with responsive bottom-dock navigation, edge-to-edge notch handling, and adaptive data cards for desktop and mobile screens.
+- **Admin-Only Blog & Hardened Security:** Protected with Role-Based Access Control (RBAC) requiring `isAdmin: true` for article authoring, dual-tier rate limiting (IP + authenticated user ID), strict AI payload caps, Brevo F1–F5 transactional email resilience, secure fragment-based Google OAuth, and anti-enumeration password resets.
+- **Mobile-First Experience:** Built with responsive bottom-dock navigation, sticky filter bar with horizontal swiping, edge-to-edge notch handling, and adaptive data cards for desktop and mobile screens.
 - **Comprehensive Wellness Hub:** Includes YouTube workout streaming with server-side caching, live workout tracker with draft persistence, Bhangra & gym pump playlists, persistent AI workout plans, real-time weather & Air Quality Index (AQI), and live fitness news.
 
 ---
@@ -78,13 +81,13 @@ npm install @jashan-randhawa/fitness-utils
 ## ✨ Features
 
 ### 🧠 1. Artificial Intelligence Core
-- **FitBot Personal Coach (`/ai-assistant` & `/ai`):** Chat with a context-aware fitness assistant powered by OpenRouter LLMs. FitBot references your profile (weight, target calories, training goal) and remembers past sessions.
+- **FitBot Personal Coach (`/api/ai-assistant/chat` & `/api/ai/chat`):** Chat with a context-aware fitness assistant powered by OpenRouter LLMs. FitBot references your profile (weight, target calories, training goal) and remembers past sessions.
   - **Server-Built Fitness Context:** One shared, user-scoped context service (`server/src/services/fitnessContext.service.js`) reuses the dashboard's own summary and goal calculations, so AI answers match the numbers you see on screen. Missing data is reported as unavailable rather than zero, the local day comes from the validated `X-Timezone` header (with a safe fallback), and the prompt text is length-bounded. Context sent by the client is not trusted or forwarded.
   - **Weather & Local-Time Context (optional):** The Weather page's AI suggestions can send a compact observation (temperature, condition, precipitation chance, AQI, timestamp) that the server validates against fixed ranges. Raw coordinates and place names are never part of the contract, observations older than 3 hours are treated as stale, and missing data is never treated as safe weather. AQI uses the US EPA scale by default (`AQI_STANDARD`).
   - **Cache & Privacy:** Response cache keys include the full prompt, prompt version, and a per-user scope, so one user's personalised answer cannot be served to another.
   - **Zod Schema Validation & Plan Contracts:** Automated structural parsing and validation for meal and workout plans ensuring non-negative values, realistic workout durations ($\le 720$ min), and validated schema structures.
-  - **Clinical Safety Boundaries & Non-Diagnosis Guarantees:** Built-in clinical safe harbor refusing harmful diet advice, extreme caloric deficits, or medical treatment prescriptions while requiring affirmative confirmation for rigorous training splits.
-  - **Transparent AI Context & Memory Management:** User-directed conversation memory scoping, per-user isolation, and zero-leak context privacy controls (`/api/ai-assistant/memory`).
+  - **Clinical Safety Boundaries & Non-Diagnosis Guarantees:** Built-in clinical safe harbor refusing harmful diet advice, extreme caloric deficits ($< 1000$ kcal), or medical treatment prescriptions while requiring affirmative confirmation for rigorous training splits.
+  - **Transparent AI Context & Memory Management:** User-directed conversation memory scoping, per-user isolation, and zero-leak context privacy controls (`/api/chathistories`).
   - **LRU Query Caching & Concurrency Controls:** Bounded 5-minute query caching with LRU eviction and per-user concurrent request limits (`MAX_USER_CONCURRENT_AI_REQUESTS`).
   - **Idempotent Message Persistence & Cancellation:** Client-side generation cancellation with `AbortController`, request deduplication, and retry queues.
   - **Hands-Free Voice Experience:** Integrated Speech-to-Text (STT) for hands-free workout/diet queries, plus Text-to-Speech (TTS) read-aloud playback via the Web Speech API.
@@ -94,18 +97,22 @@ npm install @jashan-randhawa/fitness-utils
   - **One-Click Export & Clipboard:** Download full workout and nutrition plans as formatted Markdown files or copy specific messages with checkmark confirmation.
   - **Audio Completion Cue:** Gentle dual-tone Web Audio API completion chime with quick mute/unmute header toggle.
   - **Ultra-Smooth 60fps UX:** Memoized message items and animated word reveal restricted strictly to the newest response, eliminating re-render stagger on past chat history.
+- **Multimodal Gemini Voice Gym Logger (`/api/workouts/parse-voice-set`):** Speak workout sets or upload audio recordings; parses exercise names, imperial-to-metric weight conversion, reps, and RPE ratings into structured activity logs with deterministic fallback.
 - **Resilient AI Architecture & Transient Retries:** Integrated exponential backoff retry mechanism (1–2 retries) on network timeouts, provider hiccups, and 429/5xx status codes.
 - **Automated Model Fallback (`OPENROUTER_FALLBACK_MODEL`):** Automatic failover to secondary fallback models (e.g., Gemini 2.0 Flash) if the primary model (`openai/gpt-4o-mini`) is temporarily unavailable.
 - **Dual-Tier Rate Limiting:** 30 req/min per IP (`aiLimiter`) plus 20 req/min per authenticated user (`aiUserLimiter`) keyed on `req.user.id` to prevent NAT starvation and credit exhaustion.
 - **Structured JSON Validation & Repair Retry:** Automated parse verification and repair retry on Activity Planner and Meal Planner calls, ensuring valid multi-day workout JSON plans.
-- **AI Food Snap (Vision Analysis):** Upload or capture a meal photo directly from your camera for instant dish recognition and nutritional estimation.
-- **Smart Natural Language Nutrition Estimator:** Type `"Grilled salmon with brown rice and broccoli"` and receive automated calorie and macronutrient breakdowns (Protein, Carbs, Fat).
+- **AI Food Snap (Vision Analysis):** Upload or capture a meal photo directly from your camera for instant dish recognition and nutritional estimation with confidence scores and single-RTT auto-save flow.
+- **Smart Natural Language Nutrition Estimator (`/api/food-estimate`):** Type `"Grilled salmon with brown rice and broccoli"` and receive automated calorie and macronutrient breakdowns (Protein, Carbs, Fat).
 - **Graceful Degradation:** Production outage handling delivering clear, user-friendly status responses (`503 Service Unavailable`) instead of raw stack traces.
-- **Prompt Injection & Token Guardrails:** Server-side message history bounds (50 messages max), per-message length limits (8,000 chars), and graceful sliding-window conversation truncation.
+- **Prompt Injection & Token Guardrails:** Server-side message history bounds (50 messages max), per-message length limits (8,000 chars), XML encapsulation of untrusted user input, and graceful sliding-window conversation truncation.
 
 ### 📊 2. Health Analytics & Performance Engine
 - **Single-Pass Daily Totals Engine (`dailyTotals.ts`):** High-performance $O(N)$ aggregation over food, activity, and water logs for blazing-fast streak calculations, daily totals, and weekly charts.
 - **Live Midnight Rollover (`useToday` Hook):** Seamless date rollover at local midnight (`setTimeout`) and on tab visibility restoration (`visibilitychange`) without requiring a browser reload.
+- **Real-Time Server-Sent Events (SSE) Synchronization (`/api/events`):** Ticket-authorized SSE stream providing instantaneous reactive updates (such as `kind: 'weight'`, hydration, and food logs) across active tabs without manual refreshes.
+- **Timezone-Safe Weight Tracker (`/api/weightlogs`):** Historical weight tracking with ISO date normalization, timezone-safe `localDay` derivation (`YYYY-MM-DD`), compound unique indexes with `partialFilterExpression` safeguarding legacy data, and migration scripts with automated backup.
+- **Daily & Range Summary Aggregations (`/api/summary/day`, `/api/summary/range`):** High-performance server-side daily and date-range totals, calculating net calories, macro balances, and goal progress in a single pass.
 - **Weekly Insights & Trends Strip:** 4 actionable metrics computed across logged days:
   - Average Calories In per logged day.
   - Average Calories Burned per logged day.
@@ -129,7 +136,7 @@ npm install @jashan-randhawa/fitness-utils
 - **Interactive Water Intake Tracker:** Visual hydration progress with quick-add presets (`+150ml`, `+250ml`, `+350ml`, `+500ml`), custom volume input, and customizable daily target.
 - **Filterable Date Selector:** Historic log inspection with date-by-date nutritional breakdown.
 - **Data Exports (PDF, CSV & PNG):**
-  - **Formatted PDF Report:** Multi-page PDF report with stats summary, profile metrics, food logs, and activity records powered by jsPDF and AutoTable.
+  - **Formatted PDF Report:** Multi-page PDF report with stats summary, profile metrics, food logs, and activity records powered by jsPDF (patched DOMPurify) and AutoTable.
   - **Raw CSV Spreadsheets:** Downloadable comma-separated records of food and activity history with timestamps, categories, and nutritional values.
   - **PNG Progress Card:** Shareable visual progress cards generated client-side with html2canvas for streak milestones and stats.
 
@@ -140,22 +147,21 @@ npm install @jashan-randhawa/fitness-utils
 - **One-Click "Log to Tracker":** Seamlessly log meals directly to Food Log (`/api/foodlogs`) and workouts directly to Activity Log (`/api/activitylogs`) with validated payload normalization (`mealType`, `time`, `calories`, `protein`, `carbs`, `fat`, structured exercises, and sets).
 - **Nutrition Summary & Macro Distribution:** Visual breakdown of daily calories, protein, carbs, and fat per day with progress against targets.
 - **Adaptive Planning:** The server adds today's remaining calories and macros, the names of food already logged, your active workout plan, and your recent activity to every planner request. Day 1 of a meal plan fits what is left today, or is planned as tomorrow if today's budget is used up. If this context cannot be loaded, the request is refused with `503` instead of planning without your data. Planned meals and workouts are never logged automatically; logging stays an explicit button press.
-- **Current limitation:** The Activity Planner does not yet receive weather, so it treats outdoor conditions as unknown and favours indoor options.
 
 ### 🏋️ 4. Workout Studio, Live Tracker & Music Player
 - **Three-Tab Segmented Control:** Instantly switch between **Videos**, **Today's Plan**, and **Music** with compact mobile hero and animated tab transitions.
+- **Sticky Filter Bar & Content Grid Alignment:** Horizontally scrollable category filter chips with sticky positioning and seamless alignment with the content grid on both mobile and desktop viewports.
 - **Today's Plan (Persistent Workout Plans):**
   - Auto-loads your active workout plan from the server on mount. Switch between multiple saved plans, mark one as active, or delete unused ones.
   - Activity Planner auto-saves AI-generated plans to `/api/workout-plans` for cross-session persistence — no more losing generated routines on page reload.
   - Enriched activity log payloads with `type`, `intensity`, and `source: "planner"` for granular analytics.
 - **Live Workout Tracker:**
   - Full-featured in-session tracker launched from BottomSheet modals with drag-to-dismiss, body scroll lock, focus trapping, and Escape key support.
-  - **Weight & Rep Stepper Controls:** ±2.5 kg weight and ±1 rep steppers with 44px minimum touch targets and responsive `flex-wrap` layout.
+  - **Weight & Rep Stepper Controls:** $\pm2.5$ kg weight and $\pm1$ rep steppers with 44px minimum touch targets and responsive `flex-wrap` layout.
   - **Wall-Clock Accurate Rest Timer:** Uses `Date.now()` differential (not `setInterval` drift) for sub-second accuracy. Haptic `navigator.vibrate` feedback on timer completion.
   - **Draft Auto-Save & Restore:** Workout-in-progress automatically persisted to `localStorage`; resume mid-session even after accidental tab close.
   - **Finish & Log Session:** One-tap "Finish & Log Session" POSTs structured exercise/set data to `/api/activitylogs`, or "Discard" to clear the draft.
 - **In-App Video Streaming:** Embedded modal video player powered by YouTube search with **24-hour TTL server-side caching** (Redis with in-memory `Map` fallback) and `X-Cache: HIT/MISS` response headers.
-- **Horizontally Scrollable Filter Chips:** Category, level, and mood filters with swipe-to-scroll on mobile. All interactive elements meet 44px minimum tap target guidelines.
 - **High-Energy Punjabi Gym Playlists:** Curated pump-up mixes (Diljit Dosanjh, AP Dhillon, Sidhu Moosewala, Karan Aujla, Shubh) tagged by BPM and mood (Hype, Pump, Warm-Up, Cool-Down).
 - **Accessible BottomSheet Modals:** Framer Motion drag-to-dismiss with `max-h-[92dvh]`, safe-area bottom padding, focus trapping, and `prefers-reduced-motion` support.
 
@@ -165,7 +171,10 @@ npm install @jashan-randhawa/fitness-utils
 - **Health & Wellness News Feed:** Live headlines curated from leading health publications via NewsAPI.
 - **Curated Fitness Blog:** Informative fitness articles with search and category tags.
 
-### 🔐 6. Security & Authentication Hardening
+### 🔐 6. Security, Authentication Hardening & CodeQL Remediation
+- **Admin-Only Blog Operations & Field Whitelisting:** Creating, updating, or deleting blog posts is strictly restricted to accounts with `isAdmin: true` via `requireAdmin` middleware. Non-admin requests receive `403 Forbidden`. In addition, create and update controllers accept only an explicit whitelist of allowed fields.
+- **GitHub CodeQL Remediation:** Audited and resolved GitHub code scanning alerts across the codebase, enforcing strict HTML entity escaping against DOM text XSS, cryptographically secure random token generation, complete string escaping, and scoped GitHub Actions workflow permissions (`permissions: contents: read`).
+- **React Compiler Compliance:** Frontend views and hooks (including `AIAssistant.tsx`) refactored to satisfy React Compiler rules, ensuring deterministic memoization and eliminating unnecessary re-renders.
 - **Unified Dual Sign-In Architecture (Google OAuth + Password):** Allows users to seamlessly authenticate with Google OAuth, standard password credentials, or both on a single shared account. Features a 6-case automated linking matrix, squat account protection, and cross-provider security alerts.
 - **Resilient Google OAuth Callback Handling:** Frontend `GoogleCallback` utilizes a single-execution `useRef` lifecycle guard to eliminate duplicate OAuth code exchange triggers, timing-safe fragment scrubbing before React state changes, explicit URL parameter error code mapping (`access_denied`, `google_state_invalid`, `oauth_failed`), and an interactive fallback retry screen.
 - **Session Safety & Instant Revocation:** Tokens are verified against `user.passwordChangedAt` on every protected request, immediately invalidating active JWTs across devices upon password change or reset. Step-up authentication (`requireRecentLogin`) enforces a 15-minute window for password changes.
@@ -200,6 +209,7 @@ FitTrack AI features a dedicated mobile architecture designed for modern smartph
 | Feature | Description |
 |---|---|
 | **Bottom Navigation Dock** | Quick-access tab bar (Home, Food, Activity, Workouts, AI Coach) fixed to the bottom with active micro-animations, persisting cleanly across screens including the FitBot AI Coach. |
+| **Sticky Filter Chips** | Swipable horizontal filter header with 44px tap targets and content grid alignment on mobile screens. |
 | **Full-Height Chat Viewport** | Dynamic `100dvh` layout with auto-scroll lock eliminates jitter, while preserving bottom navigation and input controls above mobile soft keyboards. |
 | **Safe-Area Insets** | `viewport-fit=cover` and `.safe-area-pb` support to prevent clipping on iPhone dynamic islands and home indicators. |
 | **Adaptive Goal Rings** | 3-column responsive goal rings that fit cleanly on compact mobile viewports without broken line wraps. |
@@ -212,63 +222,84 @@ FitTrack AI features a dedicated mobile architecture designed for modern smartph
 
 ```mermaid
 graph TD
-    Client["Client (React 19 + TypeScript + Tailwind v4 + Vite)"]
-    Server["Server (Node.js >=20 + Express 4.19)"]
+    Client["Client (React 19.3 + TypeScript + Tailwind v4 + Vite)"]
+    Server["Server (Node.js 22 LTS + Express 5.x)"]
     DB[("Database (MongoDB Atlas)")]
     Redis[("Redis (Optional Cache & Rate Limiting)")]
-    OpenRouter["OpenRouter AI (LLM / Vision)"]
+    OpenRouter["OpenRouter AI (LLM / Plan Generation)"]
+    Gemini["Google Gemini (Food Snap Vision & Voice Logger)"]
     OpenMeteo["Open-Meteo (Weather & AQI)"]
     Brevo["Brevo API (Transactional Email)"]
     YouTube["RapidAPI (YouTube Video Search)"]
+    SSE["Server-Sent Events (/api/events)"]
 
     Client -->|REST API / JWT| Server
+    Server -->|Live Reactive Stream| SSE -->|Instant Sync| Client
     Client -->|Direct Weather API| OpenMeteo
     Server -->|Mongoose ODM| DB
     Server -.->|24h TTL Cache & Distributed Rate Limit| Redis
-    Server -->|Vision / Chat / Nutrition| OpenRouter
+    Server -->|Contextual Coaching / Chat| OpenRouter
+    Server -->|Vision / Speech-to-Set Audio Parsing| Gemini
     Server -->|Password Reset Emails| Brevo
     Server -->|Workout Video Query| YouTube
 ```
 
 ### Frontend Architecture
-- **Framework:** React 19.3 with TypeScript ~5.9
-- **Build Engine:** Vite 8.x
-- **Design System:** Tailwind CSS v4
-- **Routing:** React Router v7 (`react-router-dom` 7.18+)
-- **Motion & Micro-interactions:** Framer Motion 14.x
-- **Data Charts:** Recharts 3.x (with ReferenceLines, dynamic Cells, and custom tooltips)
-- **Document & Data Export:** jsPDF 4.2.x (patched DOMPurify), jsPDF-AutoTable 5.x, html2canvas
-- **Data Modeling & Validation:** Zod 4.x
-- **Icons:** Lucide React
-- **Notifications:** React Hot Toast
+- **Framework:** React 19.3.1 with TypeScript ~5.9.3
+- **Build Engine:** Vite 8.3.5
+- **Design System:** Tailwind CSS v4.3.3
+- **Routing:** React Router v7 (`react-router-dom` 7.18.4)
+- **Motion & Micro-interactions:** Framer Motion 14.6.0
+- **Data Charts:** Recharts 3.10.1 (with ReferenceLines, dynamic Cells, and custom tooltips)
+- **Document & Data Export:** jsPDF 4.2.1 (patched DOMPurify), jsPDF-AutoTable 5.0.9, html2canvas
+- **Data Modeling & Validation:** Zod 4.6.5
+- **Icons:** Lucide React 1.61.0
+- **Notifications:** React Hot Toast 2.6.1
+- **Testing:** Vitest 5.0.5 with `@testing-library/react` and `jsdom` 30.1.3
 
 ### Backend Architecture
-- **Runtime:** Node.js `>=20.0.0` (tested on Node 20 & 22)
-- **Framework:** Express.js 5.x
-- **Database & ODM:** MongoDB & Mongoose 9.x
-- **Security & Reliability:** Helmet, CORS, `express-rate-limit` (dual IP and per-user limiters), bcryptjs, JSON Web Tokens (JWT), Role-Based Admin Auth (`requireAdmin`)
-- **Contract Validation:** Zod 4.x
-- **Media Ingestion:** Multer 2.4.x (multipart form handling for vision analysis)
+- **Runtime:** Node.js 22 LTS (`>=20.0.0` supported, tested on Node 20 & 22)
+- **Framework:** Express.js 5.3.0
+- **Database & ODM:** MongoDB & Mongoose 9.11.3
+- **Security & Reliability:** Helmet 8.3.0, CORS, `express-rate-limit` 8.7.1 (dual IP and per-user limiters), bcryptjs 3.0.3, JSON Web Tokens (JWT) 9.0.2, Role-Based Admin Auth (`requireAdmin`)
+- **Contract Validation:** Zod 4.6.5
+- **Media Ingestion:** Multer 2.4.0 (multipart form handling for vision analysis & voice set audio)
+- **Real-Time Updates:** Server-Sent Events (SSE) with ticket authentication
+- **Caching & Rate Limiting:** ioredis 6.0.0 with automatic in-memory fallback
 - **Logging & Tracing:** Structured JSON Logger (`LOG_LEVEL`), automated secret scrubber (passwords, tokens, API keys), request ID correlation middleware (`X-Request-Id`), and HTTP access logging
 - **Health & Monitoring:** Production uptime monitoring endpoint (`GET /api/health`) with live MongoDB connection state inspection
-- **External Providers:** Google Gemini API (Food Snap vision, voice logging, agentic tools), OpenRouter (GPT-4o-mini & fallback models), Brevo HTTP API (transactional email), NewsAPI, RapidAPI
+- **External Providers:** Google Gemini API (`@google/generative-ai` 0.24.1 for Food Snap vision and voice set logging), OpenRouter (GPT-4o-mini & fallback models), Brevo HTTP API (transactional email), NewsAPI, RapidAPI
 
 ---
 
 ## 🧪 Testing & CI/CD
 
-### Automated Test Suite
-The backend contains an automated unit test suite built with Node.js's native test runner (`node --test`), requiring zero external test framework dependencies:
+### Automated Test Suite (642 Total Tests)
+FitTrack AI includes a comprehensive test suite covering backend controllers, security boundaries, AI schemas, and client state machines:
+
+- **Backend Unit & Integration Tests (635 Tests across 176 Suites):** Native Node.js test runner (`node --test`), requiring zero external test framework dependencies.
+- **Frontend Unit Tests (7 Tests across 2 Suites):** Vitest test runner validating offline synchronization queues and live workout tracker modal interactions.
 
 ```bash
-# Run server test suite
+# Run server test suite (635 tests)
 cd server
+npm test
+
+# Run server smoke test (live boot and endpoint verification)
+npm run test:smoke
+
+# Run client test suite (7 tests)
+cd ../client
 npm test
 ```
 
-Test coverage includes **635 unit tests** across **176 suites** (100% passing, 0 external runner overhead):
+### Backend Test Coverage Highlights
 - **Blog Admin Authorization & Field Whitelisting (`test/blogAdminAuthz.test.js`):** Role-based access control (RBAC), `requireAdmin` middleware verification, strict `isAdmin: true` database flag enforcement, and field whitelisting for blog write operations.
 - **User Macro & Water Goals (`test/userGoals.test.js`):** Numeric validation, non-negative constraints (`min: 0`), and non-numeric casting guards for `dailyproteingoal`, `dailycarbsgoal`, `dailyfatgoal`, and `dailywatergoal`.
+- **WeightLog Migration & Safe Indexing (`test/weightlogMigration.test.js` & `test/phaseF-weightlog.test.js`):** Timezone-aware `localDay` derivation, unique partial compound indexes, de-duplication, and dry-run backfill simulation.
+- **Hands-Free Voice Gym Logging (`test/voiceSetLogger.test.js`):** Strict `VoiceSetSchema`, deterministic regex fallback, imperial-to-metric weight conversion, and multimodal Gemini parser endpoints.
+- **Server-Sent Events & Ticket Auth (`test/events.test.js`):** SSE ticket creation, streaming connection handshake, and stream authorization.
+- **Daily & Range Summary Aggregations (`test/summary.test.js`):** Aggregation calculations for day summary and multi-day range analytics.
 - **AI Structured Plans & Schemas (`test/aiPlans.test.js`):** Zod validation contracts for meal and workout plan JSON payloads, rejecting negative macros or unrealistic durations.
 - **FitBot Reliability & Cancellation (`test/fitbotReliability.test.js`):** Idempotent persistence, request deduplication, and client abort handling.
 - **FitBot Context, Memory & Privacy (`test/fitbotContextPrivacy.test.js`):** Per-user memory scoping, context injection, and privacy controls.
@@ -291,9 +322,9 @@ Test coverage includes **635 unit tests** across **176 suites** (100% passing, 0
 - **Workout Plans & ActivityLog Extensions (`test/workoutPlan.test.js`):** WorkoutPlan model initialization, additive ActivityLog schema fields (type, intensity, source, exercises with nested sets), and savePlan validation.
 
 ### Continuous Integration (GitHub Actions)
-The repository includes a GitHub Actions CI workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) running on Node.js 20:
-- **Client Job:** Dependency installation (`npm ci`), ESLint validation (`npm run lint`), TypeScript typecheck, and Vite production build (`npm run build`).
-- **Server Job:** Dependency installation, JavaScript syntax validation (`node -c`), module loading check, CI email guard, and test execution (`npm test`).
+The repository includes a GitHub Actions CI workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) running on Node.js 22 with strict permissions:
+- **Client Job:** Dependency installation (`npm ci`), high-level security audit (`npm audit --omit=dev --audit-level=high`), ESLint validation (`npm run lint`), client unit testing (`npm test`), TypeScript typecheck, and Vite production build (`npm run build`).
+- **Server Job:** Dependency installation, high-level security audit, JavaScript syntax validation (`node -c`), module loading check, CI email guard (`npm run ci:guard`), automated test execution (`npm test`), and live smoke test execution (`npm run test:smoke`).
 
 ---
 
@@ -302,9 +333,13 @@ The repository includes a GitHub Actions CI workflow ([`.github/workflows/ci.yml
 ```text
 AI-FitnessTracker1/
 ├── .github/
-│   └── workflows/
-│       └── ci.yml                       # GitHub Actions CI workflow
-├── client/                              # React + TypeScript Client
+│   ├── workflows/
+│   │   └── ci.yml                       # GitHub Actions CI workflow (Node 22)
+│   └── dependabot.yml                   # Dependabot dependency update configuration
+├── apps/                                # Monorepo application containers
+│   ├── client/                          # Client workspace package
+│   └── server/                          # Server workspace package
+├── client/                              # React 19 + TypeScript Client
 │   ├── public/
 │   │   └── favicon.svg                  # Brand favicon
 │   ├── src/
@@ -312,7 +347,7 @@ AI-FitnessTracker1/
 │   │   │   ├── Dashboard.tsx            # Analytics, rings, streak, water, insights
 │   │   │   ├── FoodLog.tsx              # Nutrition logging, AI food snap & heatmap
 │   │   │   ├── ActivityLog.tsx          # Exercise tracker & activity heatmap
-│   │   │   ├── AIAssistant.tsx          # FitBot AI chat interface
+│   │   │   ├── AIAssistant.tsx          # FitBot AI chat interface (React Compiler compliant)
 │   │   │   ├── Workouts.tsx             # 3-tab studio (Videos / Today's Plan / Music)
 │   │   │   ├── MealPlanner.tsx          # Glassmorphism meal generator (1-day & multi-day)
 │   │   │   ├── ActivityPlanner.tsx      # Glassmorphism workout generator (1-day & multi-day)
@@ -323,6 +358,7 @@ AI-FitnessTracker1/
 │   │   │   ├── GoogleCallback.tsx       # Secure fragment-based OAuth handler
 │   │   │   ├── ForgotPassword.tsx       # Password reset request view
 │   │   │   ├── ResetPassword.tsx        # Password update view
+│   │   │   ├── VerifyEmail.tsx          # Email verification confirmation view
 │   │   │   └── Onboarding.tsx           # Initial setup questionnaire
 │   │   ├── components/
 │   │   │   ├── BottomNav.tsx            # Mobile fixed bottom navigation dock
@@ -330,68 +366,67 @@ AI-FitnessTracker1/
 │   │   │   ├── CalendarHeatmap.tsx      # 90-day activity & nutrition heatmap
 │   │   │   ├── Logo.tsx                 # Dynamic SVG animated logo
 │   │   │   ├── DateDropdown.tsx         # Date selector component
-│   │   │   ├── ui/                      # Shared reusable UI primitives
-│   │   │   │   └── BottomSheet.tsx      # Accessible drag-to-dismiss modal
-│   │   │   └── animations/
-│   │   │       ├── RestCountdownTimer.tsx     # Wall-clock accurate rest timer
-│   │   │       ├── WorkoutSetRow.tsx          # Weight/rep stepper controls
-│   │   │       └── LiveWorkoutTrackerModal.tsx # In-session tracker with draft save
-│   │   ├── features/
-│   │   │   └── workouts/
-│   │   │       ├── types.ts             # Workout plan & exercise TypeScript types
-│   │   │       └── data/
-│   │   │           └── playlists.ts     # Static playlist data & filter constants
-│   │   ├── utils/
-│   │   │   ├── dailyTotals.ts           # O(N) single-pass daily aggregation & streak
-│   │   │   └── deriveGoals.ts           # Automatic macro & hydration derivation
-│   │   ├── hooks/
-│   │   │   └── useVideoSearch.ts        # Unified video search hook (YouTube API)
-│   │   ├── Context/
-│   │   │   ├── AppContext.tsx           # Global user state & records
-│   │   │   └── Themecontext.tsx         # Light/Dark mode state
-│   │   ├── configs/
-│   │   │   └── api.ts                   # Axios configuration (VITE_API_URL)
+│   │   │   ├── FitBotAvatar.tsx         # FitBot visual avatar
+│   │   │   ├── MarkdownMessage.tsx      # Markdown parser for AI responses
+│   │   │   ├── auth/                    # Auth-specific UI (PasswordStrengthMeter, etc.)
+│   │   │   ├── ui/                      # Shared reusable UI primitives (BottomSheet, etc.)
+│   │   │   └── animations/              # Interactive workout modals, steppers & timers
+│   │   ├── features/                    # Domain-specific types & playlist definitions
+│   │   ├── utils/                       # O(N) dailyTotals engine, deriveGoals
+│   │   ├── test/                        # Client Vitest unit tests
+│   │   ├── hooks/                       # Custom React hooks (useVideoSearch, useToday)
+│   │   ├── Context/                     # AppContext & ThemeContext providers
 │   │   ├── App.tsx                      # Root routes & layout wrapper
 │   │   └── index.css                    # Tailwind CSS v4 theme tokens
-│   ├── index.html                       # HTML entry point (viewport-fit)
-│   └── vite.config.ts                   # Vite configuration
+│   ├── index.html                       # HTML entry point (viewport-fit=cover)
+│   ├── vite.config.ts                   # Vite configuration
+│   └── package.json                     # Client dependencies & scripts
 │
-├── server/                              # Express + MongoDB API
+├── docs/                                # Technical documentation, audits & RFCs
+│   ├── ENGINEERING_REPORTS.md           # Engineering audit & architecture RFC index
+│   ├── email-deliverability.md          # Brevo transactional email architecture
+│   ├── monitoring-alerts.md             # Prometheus metrics & monitoring setup
+│   ├── fitbot-phase-1-audit.md          # Phase 1: Fitness data model & context audit
+│   ├── fitbot-phase-2-chat-reliability.md # Phase 2: Chat reliability & idempotency
+│   ├── fitbot-phase-3-contracts.md      # Phase 3: Zod schemas & contract validation
+│   ├── fitbot-phase-4-ai-reliability.md # Phase 4: Model fallback & transient retries
+│   ├── fitbot-phase-4-contextual-coaching.md # Phase 4: Contextual fitness coaching
+│   ├── fitbot-phase-5-adaptive-planners.md # Phase 5: Adaptive meal & activity planners
+│   ├── fitbot-phase-6-release-readiness.md # Phase 6: Release readiness review
+│   └── fitbot-phase-h-release-evidence.md # Phase H: Model evaluation & verification
+│
+├── packages/                            # Decoupled published libraries (@jashan-randhawa/*)
+│   ├── openrouter-resilient-client/     # Resilient OpenRouter LLM client
+│   ├── express-ai-guard/                # Express security & dual rate limiting
+│   ├── react-calendar-heatmap-streaks/  # Contribution-style heatmap
+│   ├── react-workout-tracker/           # Workout session hook & live modal
+│   ├── react-motion-presets/            # Framer Motion animation presets
+│   ├── fitness-utils/                   # BMR, TDEE, macros, PDF/CSV export
+│   └── ai-nutrition-estimator/          # Multimodal nutrition engine
+│
+├── server/                              # Express 5 + MongoDB API
 │   ├── server.js                        # Server entry point
+│   ├── scripts/                         # Operational & maintenance utilities
+│   │   ├── smoke-test.js                # Server boot & endpoint smoke test
+│   │   ├── ci-guard-email.js            # Automated forbidden mail dependency scanner
+│   │   ├── backfill-weightlog-localday.js # WeightLog localDay migration utility
+│   │   ├── backfill-auth-methods.js     # Auth method migration utility
+│   │   ├── live-model-eval.js           # Model evaluation & guardrail verification
+│   │   └── test-email.js                # Brevo email verification tool
 │   ├── test/                            # Unit tests (node --test - 176 suites / 635 tests)
-│   │   ├── aiAssistant.test.js          # AI payload caps & truncation tests
-│   │   ├── aiPlans.test.js              # Zod schema validation for structured plans
-│   │   ├── auth.test.js                 # Auth & JWT unit tests
-│   │   ├── blogAdminAuthz.test.js       # Admin authorization & blog write field whitelisting tests
-│   │   ├── brevoEmailService.test.js    # Brevo email delivery tests
-│   │   ├── chatHistory.test.js          # Chat history persistence tests
-│   │   ├── errorHandler.test.js         # Error handling & production masking tests
-│   │   ├── estimates.test.js            # Calorie & food estimate tests
-│   │   ├── environment.test.js          # Weather & local-time context validation tests
-│   │   ├── fitbotCoaching.test.js       # Contextual coaching, prompt version & cache tests
-│   │   ├── fitbotContextPrivacy.test.js # FitBot context, memory & privacy tests
-│   │   ├── fitbotReliability.test.js    # FitBot retry & cancellation tests
-│   │   ├── fitnessContext.test.js       # Shared server-side fitness context tests
-│   │   ├── health.test.js               # Health check & request-ID tests
-│   │   ├── logger.test.js               # Logger & secret scrubber tests
-│   │   ├── metrics.test.js              # Prometheus metrics tests
-│   │   ├── openrouter.test.js           # OpenRouter resilience & prompt tests
-│   │   ├── passwordReset.test.js        # Password reset validation tests
-│   │   ├── phase6Release.test.js        # Release gates, clinical safety & security boundaries
-│   │   ├── plannerContext.test.js       # Meal & activity planner context tests
-│   │   ├── userGoals.test.js            # User macro and water targets validation
-│   │   └── workoutPlan.test.js          # Workout plan & activity log schema tests
 │   └── src/
-│       ├── app.js                       # Express configuration & middleware
-│       ├── config/db.js                 # MongoDB connection
-│       ├── models/                      # Mongoose schemas (User, Food, Activity, Water, Blog, Chat, WorkoutPlan)
-│       ├── controllers/                 # Business logic controllers (incl. workoutPlan, aiAssistant)
-│       ├── routes/                      # API endpoint definitions (incl. workoutPlan, aiAssistant)
-│       ├── prompts/                     # Versioned AI system prompts (fitbot.prompt.js)
-│       ├── middleware/                  # JWT auth, rateLimiter, requestId, httpLogger, errorHandler
-│       ├── utils/                       # Structured JSON logger, secret scrubber, Redis client
-│       └── services/                    # OpenRouter AI with fallback, shared fitness/planner/weather context, Brevo email services
+│       ├── app.js                       # Express application setup & middleware
+│       ├── config/                      # Database & environment configuration
+│       ├── controllers/                 # Endpoint business logic
+│       ├── middleware/                  # JWT auth, rate limiters, upload, errorHandler
+│       ├── models/                      # Mongoose schemas (User, Food, Activity, Water, Weight, Blog, Chat, WorkoutPlan)
+│       ├── prompts/                     # Versioned AI system prompts
+│       ├── routes/                      # API route definitions
+│       ├── schemas/                     # Zod request & response schemas
+│       ├── services/                    # AI, fitness context, planner, email & seed services
+│       └── utils/                       # Structured logger, secret scrubber, Redis client
 │
+├── CHANGELOG.md                         # Release history (v1.0.0 through v2.6.0)
 ├── IMPLEMENTATION_GUIDE.md              # Technical architecture & deployment guide
 └── LICENSE                              # MIT License
 ```
@@ -401,7 +436,7 @@ AI-FitnessTracker1/
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **Node.js:** `>= 20.0.0`
+- **Node.js:** `>= 20.0.0` (Node 22 recommended)
 - **npm:** `>= 8.0.0`
 - **MongoDB:** Local MongoDB instance or a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster
 
@@ -463,6 +498,11 @@ npm run dev
 ```
 > Server will boot on `http://localhost:1337` and auto-seed initial blog data if empty.
 
+Verify the server with the automated smoke test:
+```bash
+npm run test:smoke
+```
+
 ### 3. Configure & Run Frontend Client
 Open a new terminal window:
 ```bash
@@ -474,13 +514,17 @@ Create `client/.env`:
 ```env
 VITE_API_URL=http://localhost:1337
 ```
-*(Note: Legacy `VITE_STRAPI_API_URL` is also supported for backward compatibility).*
 
 Launch the development server:
 ```bash
 npm run dev
 ```
 > Visit `http://localhost:5173` in your browser.
+
+Run the client unit tests:
+```bash
+npm test
+```
 
 ---
 
@@ -498,14 +542,13 @@ All requests requiring authorization must include the header:
 | `POST` | `/api/auth/verify-email` | Confirm account email verification token | 10 req / 15m | Public |
 | `POST` | `/api/auth/resend-verification` | Request fresh email verification link | 3 req / 15m | Public |
 | `GET` | `/api/users/me` | Fetch authenticated profile details | — | Private |
-| `PUT` | `/api/users/:id` | Update profile biometrics, username, and custom macro/water goals (`dailyproteingoal`, `dailycarbsgoal`, `dailyfatgoal`, `dailywatergoal`) | — | Private |
+| `PUT` | `/api/users/:id` | Update profile biometrics, username, and custom macro/water goals | — | Private |
 | `POST` | `/api/users/me/password` | Set password (OAuth) or update password (step-up required) | 5 req / 15m | Private |
 | `GET` | `/api/connect/google` | Initiate Google OAuth sign-in | — | Public |
 | `POST` | `/api/password-reset/request` | Request password reset email (Brevo HTTPS, 60s debounce) | 3 req / 1h | Public |
 | `GET` | `/api/password-reset/validate` | Validate password reset token without consuming | 10 req / 15m | Public |
 | `POST` | `/api/password-reset/reset` | Reset password using valid token (5-history protection) | 3 req / 1h | Public |
 | `POST` | `/api/webhooks/email` | Brevo email delivery & bounce webhook receiver | 120 req / 1m | Webhook Key |
-| `GET` | `/metrics` | Prometheus-style application metrics endpoint | — | Token Auth |
 
 ### Nutrition & Food Logging
 | Method | Endpoint | Description | Rate Limit | Access |
@@ -521,7 +564,36 @@ All requests requiring authorization must include the header:
 | `POST` | `/api/activitylogs` | Log activity with optional structured exercises, sets, type, intensity & source | — | Private |
 | `DELETE` | `/api/activitylogs/:id` | Delete activity record | — | Private |
 
-### Workout Plans
+### Weight Tracking
+| Method | Endpoint | Description | Rate Limit | Access |
+|---|---|---|---|---|
+| `GET` | `/api/weightlogs` | Fetch user weight records sorted chronologically | — | Private |
+| `POST` | `/api/weightlogs` | Log weight entry (with automatic timezone-safe `localDay` derivation) | — | Private |
+| `DELETE` | `/api/weightlogs/:id` | Delete weight measurement record | — | Private |
+
+### Daily & Range Summary Aggregations
+| Method | Endpoint | Description | Rate Limit | Access |
+|---|---|---|---|---|
+| `GET` | `/api/summary/day` | Get single-pass aggregated daily summary for a specific date (`?date=YYYY-MM-DD`) | — | Private |
+| `GET` | `/api/summary/range` | Get multi-day aggregated analytics and trend summary (`?startDate=&endDate=`) | — | Private |
+
+### Real-Time Server-Sent Events (SSE)
+| Method | Endpoint | Description | Rate Limit | Access |
+|---|---|---|---|---|
+| `POST` | `/api/events/ticket` | Generate short-lived authentication ticket for SSE connection | — | Private |
+| `GET` | `/api/events` | Stream live server events (`?ticket=<TICKET>`) for zero-reload reactive updates | — | Ticket Auth |
+
+### Chat History & Conversations
+| Method | Endpoint | Description | Rate Limit | Access |
+|---|---|---|---|---|
+| `GET` | `/api/chathistories` | Retrieve all chat sessions for the authenticated user | — | Private |
+| `POST` | `/api/chathistories` | Save or create a chat session | 30 req / 1m | Private |
+| `GET` | `/api/chathistories/session/:sessionId` | Retrieve messages for a specific chat session | — | Private |
+| `PUT` | `/api/chathistories/session/:sessionId` | Upsert message history for a specific chat session | 30 req / 1m | Private |
+| `DELETE` | `/api/chathistories/session/:sessionId` | Delete a single chat session | — | Private |
+| `DELETE` | `/api/chathistories/all` | Purge all chat sessions and conversation memory | — | Private |
+
+### Workout Plans & Voice Set Logging
 | Method | Endpoint | Description | Rate Limit | Access |
 |---|---|---|---|---|
 | `GET` | `/api/workout-plans` | List all saved workout plans for current user | — | Private |
@@ -529,6 +601,8 @@ All requests requiring authorization must include the header:
 | `POST` | `/api/workout-plans` | Save a new workout plan (auto-deactivates previous active plan) | — | Private |
 | `PUT` | `/api/workout-plans/:id/activate` | Set a specific plan as the active plan | — | Private |
 | `DELETE` | `/api/workout-plans/:id` | Delete a workout plan | — | Private |
+| `GET` | `/api/workouts/recommendations` | Get personalized workout recommendations | — | Private |
+| `POST` | `/api/workouts/parse-voice-set` | Multimodal voice set parser (audio upload or spoken text) | — | Private |
 
 ### Water Intake
 | Method | Endpoint | Description | Rate Limit | Access |
@@ -552,12 +626,14 @@ All requests requiring authorization must include the header:
 | Method | Endpoint | Description | Rate Limit | Access |
 |---|---|---|---|---|
 | `GET` | `/api/health` | Uptime health check (MongoDB status, process uptime, timestamp) | — | Public |
+| `GET` | `/metrics` | Prometheus-style application metrics endpoint | — | Token Auth |
 
 ### Generative AI & Media
 | Method | Endpoint | Description | Rate Limit | Access |
 |---|---|---|---|---|
-| `POST` | `/api/ai-assistant/chat` | Send message to FitBot Coach or run a planner (server-built context from `X-Timezone`; optional validated `environment`; model fallback & retry) | 30 req/m (IP) + 20 req/m (User) | Private |
-| `POST` | `/api/image-analysis` | Analyze meal photo for nutrition | 30 req / 1m | Private |
+| `POST` | `/api/ai-assistant/chat` | Send message to FitBot Coach or run a planner (server-built context from `X-Timezone`; model fallback & retry) | 30 req/m (IP) + 20 req/m (User) | Private |
+| `POST` | `/api/ai/chat` | Playbook alias for `/api/ai-assistant/chat` | 30 req/m (IP) + 20 req/m (User) | Private |
+| `POST` | `/api/image-analysis` | Analyze meal photo for nutrition (multimodal Food Snap) | 10 req / 1h + 30 req / 1m | Private |
 | `POST` | `/api/food-estimate` | Natural language text nutrition estimator | 30 req / 1m | Private |
 | `POST` | `/api/calorie-estimate` | Estimate calories burned from exercise | 30 req / 1m | Private |
 | `GET` | `/api/youtube/search` | Search workout videos via RapidAPI proxy (24h TTL cache) | 30 req / 1m | Private |
@@ -578,7 +654,7 @@ All requests requiring authorization must include the header:
 
 ### Backend (Render / Railway / Fly.io / VPS)
 1. Deploy `server/` to any Node.js host.
-2. Ensure Node.js version is `>=20.0.0`.
+2. Ensure Node.js version is `>=20.0.0` (Node 22 recommended).
 3. Set all required environment variables in the host dashboard.
 4. Set start command: `npm start`.
 
@@ -587,9 +663,13 @@ All requests requiring authorization must include the header:
 ## 📖 Documentation, Changelog & Engineering Reports
 
 ### 📑 Repository Documentation & RFCs
-- 📋 **[Changelog (`CHANGELOG.md`)](CHANGELOG.md)**: Detailed release history and version change details from `v1.0.0` through `v2.4.0`.
-- 📑 **[Engineering Reports & Architecture RFCs (`docs/ENGINEERING_REPORTS.md`)](docs/ENGINEERING_REPORTS.md)**: Comprehensive compilation of the engineering audits and architecture RFCs.
+- 📋 **[Changelog (`CHANGELOG.md`)](CHANGELOG.md)**: Detailed release history and version change details from `v1.0.0` through `v2.6.0`.
+- 📑 **[Engineering Reports & Architecture RFCs (`docs/ENGINEERING_REPORTS.md`)](docs/ENGINEERING_REPORTS.md)**: Comprehensive compilation of engineering audits and architecture RFCs.
 - 🛠️ **[Architecture & Developer Guide (`IMPLEMENTATION_GUIDE.md`)](IMPLEMENTATION_GUIDE.md)**: Technical overview of endpoints and folder architecture.
+- 🛡️ **[Phase 6 Release Readiness Review (`docs/fitbot-phase-6-release-readiness.md`)](docs/fitbot-phase-6-release-readiness.md)**: Production validation audit covering context privacy, prompt boundaries, and safety gates.
+- 🔬 **[Phase H Release Evidence & Model Evaluation (`docs/fitbot-phase-h-release-evidence.md`)](docs/fitbot-phase-h-release-evidence.md)**: Empirical evaluation report covering 10 scripted prompt scenarios and backfill safeguards.
+- 📧 **[Email Deliverability Architecture (`docs/email-deliverability.md`)](docs/email-deliverability.md)**: Detailed specification of the Brevo F1–F5 transactional email architecture.
+- 📊 **[Monitoring & Alerts Guide (`docs/monitoring-alerts.md`)](docs/monitoring-alerts.md)**: Production metrics, health checks, and alerting runbook.
 
 ### 🌐 Official GitHub Wiki
 Explore complete architectural specifications, API schemas, and interactive guides in our **[Official GitHub Wiki](https://github.com/Jashan-randhawa/AI-FitnessTracker1/wiki)**:
