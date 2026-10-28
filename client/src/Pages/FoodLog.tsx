@@ -16,10 +16,13 @@ import { enqueueOfflineMutation } from "../utils/offlineSyncQueue";
 
 type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
-const sanitizeImageSrc = (value: string, allowedBlobUrls: Set<string>): string => {
+const sanitizeImageSrc = (value: string, allowedBlobUrls?: Set<string>): string => {
   try {
     const parsed = new URL(value, window.location.origin);
-    if (parsed.protocol === "blob:" && allowedBlobUrls.has(value)) return value;
+    if (parsed.protocol === "blob:") {
+      if (allowedBlobUrls && !allowedBlobUrls.has(value)) return "";
+      return value;
+    }
     return "";
   } catch {
     return "";
@@ -788,7 +791,11 @@ const AISnapLoadingOverlay = ({ imagePreview }: { imagePreview: string }) => (
     <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
     <div className="relative z-10 flex flex-col items-center gap-5 p-8 rounded-3xl shadow-2xl max-w-xs w-full mx-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
       <div className="relative w-32 h-32 rounded-2xl overflow-hidden border-2 border-emerald-500/25">
-        <img src={imagePreview} alt="Food snap" className="w-full h-full object-cover" />
+        <img
+          src={sanitizeImageSrc(imagePreview)}
+          alt="Food snap"
+          className="w-full h-full object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-emerald-400/20 via-transparent to-transparent animate-pulse" />
       </div>
       <div className="flex flex-col items-center gap-2">
