@@ -5,6 +5,7 @@ const WaterLog = require('../models/WaterLog');
 const IdempotencyKey = require('../models/IdempotencyKey');
 const sendError = require('../utils/sendError');
 const logger = require('../utils/logger');
+const { parsePageParams, findPage, sendPage } = require('../utils/pagination');
 
 const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
 const idempotencyMap = new Map();
@@ -92,8 +93,10 @@ const create = asyncHandler(async (req, res) => {
 
 // GET /api/waterlogs
 const find = asyncHandler(async (req, res) => {
-  const result = await WaterLog.find({ user: req.user._id }).sort({ date: -1 });
-  res.json(result.map((r) => r.toJSON()));
+  const page = parsePageParams(req.query);
+  if (page.error) return sendError(res, 400, page.error);
+  const { docs, nextCursor } = await findPage(WaterLog, { user: req.user._id }, { field: 'date', ...page });
+  sendPage(res, docs.map((r) => r.toJSON()), nextCursor);
 });
 
 // PUT /api/waterlogs/:id — body: { data: { amount } }

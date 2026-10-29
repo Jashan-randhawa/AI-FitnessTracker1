@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const { publishChange } = require('../services/eventBus');
 const FoodLog = require('../models/FoodLog');
 const sendError = require('../utils/sendError');
+const { parsePageParams, findPage, sendPage } = require('../utils/pagination');
 
 const normalizeFoodPayload = (raw) => {
   const body = { ...raw };
@@ -41,8 +42,10 @@ const create = asyncHandler(async (req, res) => {
 
 // GET /api/foodlogs
 const find = asyncHandler(async (req, res) => {
-  const result = await FoodLog.find({ user: req.user._id }).sort({ createdAt: -1 });
-  res.json(result.map((r) => r.toJSON()));
+  const page = parsePageParams(req.query);
+  if (page.error) return sendError(res, 400, page.error);
+  const { docs, nextCursor } = await findPage(FoodLog, { user: req.user._id }, { field: 'createdAt', ...page });
+  sendPage(res, docs.map((r) => r.toJSON()), nextCursor);
 });
 
 // GET /api/foodlogs/:id

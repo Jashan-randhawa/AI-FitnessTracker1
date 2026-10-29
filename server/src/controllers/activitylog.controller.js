@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const { publishChange } = require('../services/eventBus');
 const ActivityLog = require('../models/ActivityLog');
 const sendError = require('../utils/sendError');
+const { parsePageParams, findPage, sendPage } = require('../utils/pagination');
 
 const normalizePayload = (raw) => {
   const body = { ...raw };
@@ -49,15 +50,19 @@ const create = asyncHandler(async (req, res) => {
 
 // GET /api/activitylogs
 const find = asyncHandler(async (req, res) => {
-  const result = await ActivityLog.find({ user: req.user._id }).sort({ createdAt: -1 });
-  res.json(
-    result.map((r) => {
+  const page = parsePageParams(req.query);
+  if (page.error) return sendError(res, 400, page.error);
+  const { docs, nextCursor } = await findPage(ActivityLog, { user: req.user._id }, { field: 'createdAt', ...page });
+  sendPage(
+    res,
+    docs.map((r) => {
       const j = r.toJSON();
       if (j.caloriesBurned === undefined && j.calories !== undefined) {
         j.caloriesBurned = j.calories;
       }
       return j;
-    })
+    }),
+    nextCursor
   );
 });
 
