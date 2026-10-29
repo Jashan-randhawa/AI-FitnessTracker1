@@ -49,6 +49,7 @@ import { useDaySummary, invalidateSummaries } from "../data/summaryStore";
 import { localDayKey } from "../utils/localDay";
 import { getWeatherObservation } from "../data/weatherStore";
 import jsPDF from "jspdf";
+import { getAuthToken, authHeaders } from "../configs/authToken";
 
 interface SpeechRecognitionEventLike {
   resultIndex: number;
@@ -766,7 +767,7 @@ export default function AIAssistant() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "")?.replace(/\/$/, "");
-  const token = localStorage.getItem("token");
+  const token = getAuthToken();
 
   // Cleanup speech synthesis on unmount
   useEffect(() => {
@@ -858,9 +859,7 @@ export default function AIAssistant() {
   useEffect(() => {
     const load = async () => {
       try {
-        const { data } = await api.get("/api/chathistories", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const { data } = await api.get("/api/chathistories");
         const sessions = Array.isArray(data) ? data : data?.data ?? [];
         setPastSessions(sessions);
         setMemoryLoaded(true);
@@ -903,8 +902,7 @@ export default function AIAssistant() {
               summary,
               messages: messagesPayload,
             },
-          },
-          { headers: { Authorization: `Bearer ${token}` } }
+          }
         );
 
         setSaveStatus("saved");
@@ -934,7 +932,7 @@ export default function AIAssistant() {
         }
       }
     },
-    [token]
+    []
   );
 
   // Lets the queued-save path reach the latest saveSession without a self-reference.
@@ -964,7 +962,7 @@ export default function AIAssistant() {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
+              ...authHeaders(),
             },
             body,
             keepalive: true,
@@ -1001,9 +999,7 @@ export default function AIAssistant() {
     }
 
     try {
-      await api.delete("/api/chathistories/all", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete("/api/chathistories/all");
       setPastSessions([]);
       toast.success("FitBot memory cleared");
     } catch {
@@ -1017,9 +1013,7 @@ export default function AIAssistant() {
     if (!targetId) return;
 
     try {
-      await api.delete(`/api/chathistories/session/${targetId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/api/chathistories/session/${targetId}`);
       setPastSessions((prev) =>
         prev.filter((s) => (s.sessionId ? s.sessionId !== targetId : s._id !== targetId))
       );
@@ -1303,7 +1297,7 @@ export default function AIAssistant() {
       // Phase 2: Live state refresh for dashboard macro rings & workout lists
       if (Array.isArray(data.executedActions) && data.executedActions.length > 0) {
         invalidateSummaries();
-        const token = localStorage.getItem("token");
+        const token = getAuthToken();
         if (token) {
           const hasFood = data.executedActions.some((a) => a.action === "logMealItem");
           const hasWorkout = data.executedActions.some(
@@ -1311,7 +1305,7 @@ export default function AIAssistant() {
           );
           if (hasFood) {
             api
-              .get("/api/foodlogs", { headers: { Authorization: `Bearer ${token}` } })
+              .get("/api/foodlogs")
               .then((res) => {
                 const list = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
                 setAllFoodLogs(list);
@@ -1320,7 +1314,7 @@ export default function AIAssistant() {
           }
           if (hasWorkout) {
             api
-              .get("/api/activitylogs", { headers: { Authorization: `Bearer ${token}` } })
+              .get("/api/activitylogs")
               .then((res) => {
                 const list = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
                 setAllActivityLogs(list);

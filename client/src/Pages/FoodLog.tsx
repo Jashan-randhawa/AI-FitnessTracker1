@@ -13,6 +13,7 @@ import { StaggerContainer, StaggerItem } from "../components/animations/StaggerL
 import AnimatedNumber from "../components/AnimatedNumber";
 import { deriveGoals } from "../utils/deriveGoals";
 import { enqueueOfflineMutation } from "../utils/offlineSyncQueue";
+import { getAuthToken } from "../configs/authToken";
 
 type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
@@ -463,11 +464,9 @@ const AddFoodModal = ({
     setAiResult(null);
     setAiFit(null);
     try {
-      const token = localStorage.getItem("token");
       const response = await api.post(
         "/api/food-estimate",
-        { name: foodName.trim() },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { name: foodName.trim() }
       );
       const result = response.data.result;
       const fit = response.data.fit;
@@ -520,11 +519,9 @@ const AddFoodModal = ({
 
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
       const { data: raw } = await api.post(
         "/api/foodlogs",
-        { data: payloadData },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { data: payloadData }
       );
       onAdd(normalizeFoodEntry(raw));
       setShowForm(false);
@@ -954,15 +951,12 @@ export default function FoodLog() {
   const handleDelete = async (id: string) => {
     setAllFoodLogs((prev: FoodEntry[]) => prev.filter((l) => l.id !== id));
     try {
-      const token = localStorage.getItem("token");
-      await api.delete(`/api/foodlogs/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/api/foodlogs/${id}`);
       toast.success("Entry deleted");
     } catch (error: unknown) {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       if (token) {
-        const { data } = await api.get("/api/foodlogs", { headers: { Authorization: `Bearer ${token}` } });
+        const { data } = await api.get("/api/foodlogs");
         const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
         setAllFoodLogs(list);
       }
@@ -993,12 +987,9 @@ export default function FoodLog() {
       const formData = new FormData();
       formData.append("image", file);
 
-      const token = localStorage.getItem("token");
-
       // Phase 1 Single-Roundtrip: request analysis with ?autoSave=true
       const response = await api.post("/api/image-analysis?autoSave=true", formData, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
       });
@@ -1046,11 +1037,9 @@ export default function FoodLog() {
 
   const handleCommitAdjustedSnap = async (payload: LogEntryLike) => {
     try {
-      const token = localStorage.getItem("token");
       const { data: raw } = await api.post(
         "/api/foodlogs",
-        { data: payload },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { data: payload }
       );
       handleAdd(normalizeFoodEntry(raw));
       toast.success(`Logged: ${payload.name} · ${payload.calories} kcal`);

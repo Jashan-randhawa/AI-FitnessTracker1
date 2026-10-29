@@ -71,11 +71,9 @@ const AddActivityModal = ({
     setAiLoading(true);
     setAiResult(null);
     try {
-      const token = localStorage.getItem("token");
       const { data } = await api.post(
         "/api/calorie-estimate",
-        { activity: activityName, duration: Number(durationMin), weight: user?.weight },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { activity: activityName, duration: Number(durationMin), weight: user?.weight }
       );
       if (data.success && data.data) {
         setCalories(String(data.data.calories_burned));
@@ -314,11 +312,9 @@ export default function ActivityLog() {
 
   const handleAdd = async ({ name, duration, caloriesBurned }: { name: string; duration: number; caloriesBurned: number }) => {
     try {
-      const token = localStorage.getItem("token");
       const { data: raw } = await api.post(
         "/api/activitylogs",
-        { data: { name, duration, caloriesBurned, date: new Date().toISOString() } },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { data: { name, duration, caloriesBurned, date: new Date().toISOString() } }
       );
       const entry = normalizeActivityEntry(raw);
       if (!entry) return;
@@ -336,10 +332,7 @@ export default function ActivityLog() {
 
   const handleDelete = async (id: string) => {
     try {
-      const token = localStorage.getItem("token");
-      await api.delete(`/api/activitylogs/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/api/activitylogs/${id}`);
       setAllActivityLogs((prev: ActivityEntry[]) => prev.filter((l) => l.id !== id));
       toast.success("Activity deleted");
     } catch (error: unknown) {

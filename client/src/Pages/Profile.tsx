@@ -1038,9 +1038,8 @@ export default function Profile() {
 
   const handleSave = async (data: Partial<NonNullable<User>>) => {
     try {
-      const token = localStorage.getItem("token");
       const userId = user?.id || (user as { _id?: string })?._id || "me";
-      const res = await api.put(`/api/users/${userId}`, data, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.put(`/api/users/${userId}`, data);
       const updatedUser = res.data;
       setUser((prev) => ({ ...(prev || {}), ...updatedUser } as NonNullable<User>));
       toast.success("Profile updated!");
