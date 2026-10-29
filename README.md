@@ -14,7 +14,7 @@
 [![Express](https://img.shields.io/badge/Express-5.x-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E=20.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Jashan-randhawa/GIST_ID/raw/tests.json&style=for-the-badge)](#-testing--cicd)
+[![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Jashan-randhawa/8daef1b188f84235576ad3707b7aa0ea/raw/tests.json&style=for-the-badge)](#-testing--cicd)
 [![Security Hardened](https://img.shields.io/badge/CodeQL_Audit-0_Vulnerabilities-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://ai-fitness-tracker1.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
