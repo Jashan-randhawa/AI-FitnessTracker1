@@ -518,7 +518,6 @@ export default function Dashboard() {
   }, [allWaterLogs, today, setAllWaterLogs]);
 
   const handleAddWater = useCallback(async (ml: number) => {
-    const token = localStorage.getItem("token");
     const tmpId = `tmp-${Date.now()}`;
     const optimistic = { id: tmpId, amount: ml, date: new Date().toISOString() };
     // Show immediately in UI
@@ -526,8 +525,7 @@ export default function Dashboard() {
     try {
       const { data: raw } = await api.post(
         "/api/waterlogs",
-        { data: { amount: ml, date: new Date().toISOString() } },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { data: { amount: ml, date: new Date().toISOString() } }
       );
       // Normalise response — may be nested under .data or flat
       const saved = raw?.data ?? raw;

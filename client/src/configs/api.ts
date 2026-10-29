@@ -1,5 +1,6 @@
 import axios from "axios";
 import toast from "react-hot-toast";
+import { getAuthToken } from "./authToken";
 
 // Support both modern VITE_API_URL and legacy VITE_STRAPI_API_URL for seamless zero-crash deployment
 const rawApiUrl =
@@ -36,7 +37,7 @@ api.interceptors.request.use((config) => {
   } catch {
     // Older runtimes without Intl timezone support fall back to the server's default.
   }
-  const token = localStorage.getItem("token");
+  const token = getAuthToken();
   if (token) {
     if (config.headers && typeof config.headers.set === "function") {
       config.headers.set("Authorization", `Bearer ${token}`);

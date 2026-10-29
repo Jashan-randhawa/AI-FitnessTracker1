@@ -6,6 +6,7 @@ import api from "../configs/api";
 import toast from "react-hot-toast";
 import { invalidateSummaries, clearSummaries } from "../data/summaryStore";
 import { startLiveUpdates } from "../data/liveStream";
+import { getAuthToken, setAuthToken, clearAuthToken } from "../configs/authToken";
 
 export type WaterEntry = { id: string; amount: number; date: string };
 
@@ -33,7 +34,7 @@ const normalizeCollectionResponse = <T extends Record<string, unknown>>(payload:
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User>(null);
-  const [isUserFetched, setIsUserFetched] = useState(() => !localStorage.getItem("token"));
+  const [isUserFetched, setIsUserFetched] = useState(() => !getAuthToken());
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [allFoodLogs, setAllFoodLogsRaw] = useState<FoodEntry[]>([]);
   const [allActivityLogs, setAllActivityLogsRaw] = useState<ActivityEntry[]>([]);
@@ -53,7 +54,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const signup = async (credentials: Credentials) => {
     try {
       const { data } = await api.post("/api/auth/local/register", credentials);
-      localStorage.setItem("token", data.jwt);
+      setAuthToken(data.jwt);
       setUser({ ...data.user, token: data.jwt });
       if (data?.user?.age && data?.user?.weight && data?.user?.goal) setOnboardingCompleted(true);
     } catch (error: unknown) {
@@ -65,19 +66,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (credentials: Credentials) => {
     try {
-      localStorage.removeItem("token");
+      clearAuthToken();
       setAllFoodLogs([]);
       setAllActivityLogs([]);
       setAllWaterLogs([]);
       setUser(null);
 
       const { data } = await api.post("/api/auth/local", { identifier: credentials.email, password: credentials.password });
-      localStorage.setItem("token", data.jwt);
+      setAuthToken(data.jwt);
 
       const [foodRes, activityRes, waterRes] = await Promise.all([
-        api.get("/api/foodlogs", { headers: { Authorization: `Bearer ${data.jwt}` } }),
-        api.get("/api/activitylogs", { headers: { Authorization: `Bearer ${data.jwt}` } }),
-        api.get("/api/waterlogs", { headers: { Authorization: `Bearer ${data.jwt}` } }),
+        api.get("/api/foodlogs"),
+        api.get("/api/activitylogs"),
+        api.get("/api/waterlogs"),
       ]);
 
       setUser({ ...data.user, token: data.jwt });
@@ -95,7 +96,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const googleLogin = useCallback(async (googleAccessToken: string) => {
     try {
-      localStorage.removeItem("token");
+      clearAuthToken();
       setAllFoodLogs([]);
       setAllActivityLogs([]);
       setAllWaterLogs([]);
@@ -106,22 +107,22 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       });
       const jwtToken = data.jwt;
 
-      localStorage.setItem("token", jwtToken);
+      setAuthToken(jwtToken);
       setUser({ ...data.user, token: jwtToken });
 
       if (data.user?.age && data.user?.weight && data.user?.goal) setOnboardingCompleted(true);
 
       const [foodRes, activityRes, waterRes] = await Promise.allSettled([
-        api.get("/api/foodlogs", { headers: { Authorization: `Bearer ${jwtToken}` } }),
-        api.get("/api/activitylogs", { headers: { Authorization: `Bearer ${jwtToken}` } }),
-        api.get("/api/waterlogs", { headers: { Authorization: `Bearer ${jwtToken}` } }),
+        api.get("/api/foodlogs"),
+        api.get("/api/activitylogs"),
+        api.get("/api/waterlogs"),
       ]);
 
       if (foodRes.status === "fulfilled") setAllFoodLogs(normalizeCollectionResponse<FoodEntry>(foodRes.value.data));
       if (activityRes.status === "fulfilled") setAllActivityLogs(normalizeCollectionResponse<ActivityEntry>(activityRes.value.data));
       if (waterRes.status === "fulfilled") setAllWaterLogs(normalizeCollectionResponse<WaterEntry>(waterRes.value.data));
     } catch (error: unknown) {
-      localStorage.removeItem("token");
+      clearAuthToken();
       const msg = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
       toast.error(msg || "Google login failed. Please try again.");
       throw error;
@@ -132,7 +133,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     let attempt = retries;
     while (attempt >= 0) {
       try {
-        const { data } = await api.get("/api/users/me", { headers: { Authorization: `Bearer ${token}` } });
+        const { data } = await api.get("/api/users/me");
         setUser({ ...data, token });
         if (data?.age && data?.weight && data?.goal) setOnboardingCompleted(true);
         setIsUserFetched(true);
@@ -141,7 +142,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const status = axios.isAxiosError(error) ? error.response?.status : undefined;
         // If token is genuinely invalid, expired, or revoked (401/403), scrub token and show login
         if (status === 401 || status === 403) {
-          localStorage.removeItem("token");
+          clearAuthToken();
           setUser(null);
           setIsUserFetched(true);
           return;
@@ -163,27 +164,27 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  const fetchFoodLogs = useCallback(async (token: string) => {
+  const fetchFoodLogs = useCallback(async () => {
     try {
-      const { data } = await api.get("/api/foodlogs", { headers: { Authorization: `Bearer ${token}` } });
+      const { data } = await api.get("/api/foodlogs");
       setAllFoodLogs(normalizeCollectionResponse<FoodEntry>(data));
     } catch {
       // Ignore background fetch failure
     }
   }, [setAllFoodLogs]);
 
-  const fetchActivityLogs = useCallback(async (token: string) => {
+  const fetchActivityLogs = useCallback(async () => {
     try {
-      const { data } = await api.get("/api/activitylogs", { headers: { Authorization: `Bearer ${token}` } });
+      const { data } = await api.get("/api/activitylogs");
       setAllActivityLogs(normalizeCollectionResponse<ActivityEntry>(data));
     } catch {
       // Ignore background fetch failure
     }
   }, [setAllActivityLogs]);
 
-  const fetchWaterLogs = useCallback(async (token: string) => {
+  const fetchWaterLogs = useCallback(async () => {
     try {
-      const { data } = await api.get("/api/waterlogs", { headers: { Authorization: `Bearer ${token}` } });
+      const { data } = await api.get("/api/waterlogs");
       setAllWaterLogs(normalizeCollectionResponse<WaterEntry>(data));
     } catch {
       // Ignore background fetch failure
@@ -191,7 +192,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, [setAllWaterLogs]);
 
   const logout = () => {
-    localStorage.removeItem("token");
+    clearAuthToken();
     clearSummaries();
     setUser(null);
     setAllFoodLogs([]);
@@ -202,7 +203,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const setSessionToken = (jwt: string, updatedUser?: Partial<NonNullable<User>>) => {
-    localStorage.setItem("token", jwt);
+    setAuthToken(jwt);
     setUser((prev) => {
       const base = prev || { id: "", username: "", email: "", token: jwt };
       return {
@@ -221,7 +222,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       invalidateSummaries();
       if (evt?.kind === "weight") {
         window.dispatchEvent(new CustomEvent("fittrack:weight-change", { detail: evt }));
-        const token = localStorage.getItem("token");
+        const token = getAuthToken();
         if (token) fetchUser(token);
       }
     });
@@ -230,13 +231,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let ignore = false;
     const loadSession = async () => {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       if (!token) return;
       await fetchUser(token);
       if (!ignore) {
-        fetchFoodLogs(token);
-        fetchActivityLogs(token);
-        fetchWaterLogs(token);
+        fetchFoodLogs();
+        fetchActivityLogs();
+        fetchWaterLogs();
       }
     };
     loadSession();

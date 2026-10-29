@@ -21,6 +21,7 @@ import {
 } from "../schemas/aiPlans.schema";
 
 import type { ProposedChatAction } from "../schemas/chatAction.schema";
+import { authHeaders } from "../configs/authToken";
 export type { ProposedChatAction };
 
 export interface ExecutedAction {
@@ -101,14 +102,10 @@ const getApiBaseUrl = (): string => {
  */
 export async function chatAiAssistant(req: AiChatRequest): Promise<AiChatResponse> {
   const baseUrl = getApiBaseUrl();
-  const token = localStorage.getItem("token");
-
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...authHeaders(),
   };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
   // The server uses this for local-time context. Raw fetch skips the axios interceptor,
   // so it is set here explicitly.
   try {
