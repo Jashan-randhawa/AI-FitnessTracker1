@@ -14,7 +14,7 @@
 [![Express](https://img.shields.io/badge/Express-5.x-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E=20.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tests](https://img.shields.io/badge/Tests-642_Passing-brightgreen?style=for-the-badge&logo=node.js&logoColor=white)](#-testing--cicd)
+[![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Jashan-randhawa/GIST_ID/raw/tests.json&style=for-the-badge)](#-testing--cicd)
 [![Security Hardened](https://img.shields.io/badge/CodeQL_Audit-0_Vulnerabilities-brightgreen?style=for-the-badge&logo=dependabot&logoColor=white)](#-security--authentication-hardening)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://ai-fitness-tracker1.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
@@ -274,21 +274,23 @@ graph TD
 
 ## 🧪 Testing & CI/CD
 
-### Automated Test Suite (642 Total Tests)
+### Automated Test Suite
+
+The test count in the badge above is published by the `test-badge` CI job from the actual runs of the server and client suites, so it always reflects the current code.
 FitTrack AI includes a comprehensive test suite covering backend controllers, security boundaries, AI schemas, and client state machines:
 
-- **Backend Unit & Integration Tests (635 Tests across 176 Suites):** Native Node.js test runner (`node --test`), requiring zero external test framework dependencies.
-- **Frontend Unit Tests (7 Tests across 2 Suites):** Vitest test runner validating offline synchronization queues and live workout tracker modal interactions.
+- **Backend Unit & Integration Tests:** Native Node.js test runner (`node --test`), requiring zero external test framework dependencies.
+- **Frontend Unit Tests:** Vitest test runner validating offline synchronization queues and live workout tracker modal interactions.
 
 ```bash
-# Run server test suite (635 tests)
+# Run server test suite
 cd server
 npm test
 
 # Run server smoke test (live boot and endpoint verification)
 npm run test:smoke
 
-# Run client test suite (7 tests)
+# Run client test suite
 cd ../client
 npm test
 ```
@@ -413,7 +415,7 @@ AI-FitnessTracker1/
 │   │   ├── backfill-auth-methods.js     # Auth method migration utility
 │   │   ├── live-model-eval.js           # Model evaluation & guardrail verification
 │   │   └── test-email.js                # Brevo email verification tool
-│   ├── test/                            # Unit tests (node --test - 176 suites / 635 tests)
+│   ├── test/                            # Unit tests (node --test)
 │   └── src/
 │       ├── app.js                       # Express application setup & middleware
 │       ├── config/                      # Database & environment configuration

@@ -38,7 +38,15 @@ jobs:
         run: npm run lint
 
       - name: Run client tests
-        run: npm test
+        run: npx vitest run --reporter=default --reporter=json --outputFile.json=client-tests.json
+
+      - name: Upload client test count
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-test-count
+          path: client/client-tests.json
+          retention-days: 1
 
       - name: Run typecheck & build
         run: npm run build
@@ -84,12 +92,27 @@ jobs:
           CI_DRY_RUN: "true"
 
       - name: Run unit tests
-        run: npm test
+        run: npm test 2>&1 | tee server-tests.log
         env:
           JWT_SECRET: "ci_test_secret_32_characters_long_min"
           NODE_ENV: "test"
           CI: "true"
           CI_DRY_RUN: "true"
+
+      - name: Upload server test count
+        if: always()
+        run: |
+          count=$(grep -E '^# tests ' server-tests.log | awk '{print $3}')
+          printf '{"tests": %s}\n' "${count:-0}" > server-test-count.json
+          cat server-test-count.json
+
+      - name: Save server test count
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-test-count
+          path: server/server-test-count.json
+          retention-days: 1
 
       - name: Run server smoke test
         run: npm run test:smoke
@@ -98,3 +121,45 @@ jobs:
           NODE_ENV: "test"
           CI: "true"
           CI_DRY_RUN: "true"
+
+  test-badge:
+    name: Publish Test Count Badge
+    needs: [client, server]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download client test count
+        uses: actions/download-artifact@v4
+        with:
+          name: client-test-count
+          path: counts/client
+
+      - name: Download server test count
+        uses: actions/download-artifact@v4
+        with:
+          name: server-test-count
+          path: counts/server
+
+      - name: Build badge JSON
+        run: |
+          server=$(jq -r '.tests' counts/server/server-test-count.json)
+          client=$(jq -r '.numPassedTests' counts/client/client-tests.json)
+          total=$((server + client))
+          jq -n --arg msg "${total} passing" '{schemaVersion: 1, label: "tests", message: $msg, color: "brightgreen"}' > tests.json
+          cat tests.json
+
+      - name: Publish badge to gist
+        # Requires repository secret GIST_TOKEN (gist scope) and variable TEST_BADGE_GIST_ID.
+        # Skipped quietly until both are configured.
+        env:
+          GH_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ vars.TEST_BADGE_GIST_ID }}
+        run: |
+          if [ -z "$GH_TOKEN" ] || [ -z "$GIST_ID" ]; then
+            echo "GIST_TOKEN or TEST_BADGE_GIST_ID not set; skipping badge publish."
+            exit 0
+          fi
+          jq -n --rawfile c tests.json '{files: {"tests.json": {content: $c}}}' \
+            | gh api --method PATCH "/gists/$GIST_ID" --input -
