@@ -11,7 +11,7 @@
  * - Phase 2 Gemini Function Calling (executedActions)
  */
 
-import api from "../configs/api";
+import api, { API_URL } from "../configs/api";
 import type { EnvironmentPayload } from "../utils/environmentPayload";
 import {
   safeParseMealPlan,
@@ -92,9 +92,7 @@ const getApiBaseUrl = (): string => {
   if (fromApi && typeof fromApi === "string") {
     return fromApi.replace(/\/$/, "");
   }
-  const envUrl =
-    import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "";
-  return String(envUrl).replace(/\/$/, "");
+  return API_URL;
 };
 
 /**

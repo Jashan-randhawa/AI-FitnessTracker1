@@ -65,6 +65,7 @@ const prepareMessages = (rawMessages) => {
     }
 
     let text = '';
+    // Support legacy format (parts array)
     if (Array.isArray(m.parts)) {
       text = m.parts.map((p) => (p && typeof p.text === 'string' ? p.text : '')).join('');
     } else if (typeof m.content === 'string') {

@@ -62,6 +62,7 @@ const normalizeHistoryDoc = (doc) => {
       } else if (typeof m.content === 'string') {
         text = m.content;
       } else if (Array.isArray(m.parts)) {
+        // Support legacy format (parts array)
         text = m.parts.map((p) => (p && typeof p.text === 'string' ? p.text : '')).join('');
       }
 

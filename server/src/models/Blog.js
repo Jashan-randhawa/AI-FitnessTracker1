@@ -31,8 +31,8 @@ const blogSchema = new mongoose.Schema(
       default: 5,
     },
     tags: String,
-    // Strapi's draftAndPublish flag — every post the app creates is
-    // published immediately, but the field is kept so unpublished drafts
+    // Publication timestamp — every post the app creates is
+    // published immediately, but the field allows unpublished drafts
     // (publishedAt: null) can be filtered out of the public listing.
     publishedAt: {
       type: Date,

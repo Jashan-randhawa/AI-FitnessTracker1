@@ -36,8 +36,7 @@ const ALLOWED_FIELDS = [
 ];
 
 // PUT /api/users/:id
-// Strapi's default users-permissions `user.update` action does NOT restrict
-// this to the caller's own record by default. Scoping it to req.user here
+// Restricts updates strictly to the caller's own record. Scoping it to req.user here
 // is a deliberate hardening — the client only ever calls this with its own
 // id, so behavior for the app is unchanged.
 const updateUser = asyncHandler(async (req, res) => {

@@ -58,7 +58,7 @@ Phase 3 transitions FitBot from loose, arbitrary client string assembly into a *
   - Payload validated against `chatHistoryPayloadSchema` with Zod.
   - Message text must be non-empty (1–8,000 chars), turn count <= 100, aggregate text <= 50,000 chars.
 - **Legacy Normalization**:
-  - Old documents created with Strapi or pre-Phase 2 schema are passed through `normalizeHistoryDoc`.
+  - Historical documents created prior to Phase 2 schema are passed through `normalizeHistoryDoc`.
   - Returned array always conforms to `{ sessionId, revision, summary, messages: [{ role, text }] }`.
   - No database migration or destructive cleanup is required.
 
@@ -94,7 +94,7 @@ cd server && npm test
    - Rejects session turns > 100.
    - Rejects summaries > 2,000 chars.
 3. **Legacy History Normalization Specification** (3 tests):
-   - Normalizes Strapi `{ parts: [{ text }] }` turns into `{ role, text }`.
+   - Normalizes legacy `{ parts: [{ text }] }` turns into `{ role, text }`.
    - Normalizes legacy `{ content }` turns.
    - Safely drops null or corrupt turns.
 4. **User Scoping & Privacy Isolation Tests** (3 tests):

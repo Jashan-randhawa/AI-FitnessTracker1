@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useappcontext } from "../Context/AppContext";
 import { Toaster } from "react-hot-toast";
 
-const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || '')?.replace(/\/$/, '');
+import { API_URL } from "../configs/api";
 
 const Login = () => {
   const [state, setState] = useState('login');

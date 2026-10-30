@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useappcontext } from "../Context/AppContext";
 import type { WaterEntry } from "../assets/types";
-import api from "../configs/api";
+import api, { API_URL } from "../configs/api";
 import toast from "react-hot-toast";
 import { FitBotAvatar } from "../components/FitBotAvatar";
 import { buildWorkoutPlanActionPayload, type WorkoutPlanAction } from "../schemas/aiPlans.schema";
@@ -341,7 +341,6 @@ export default function AIAssistant() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
-  const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "")?.replace(/\/$/, "");
   const token = getAuthToken();
   const { pastSessions, setPastSessions, memoryLoaded } = usePastSessions(token);
 

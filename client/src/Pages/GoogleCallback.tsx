@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useappcontext } from "../Context/AppContext";
 
-const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "").replace(/\/$/, "");
+import { API_URL } from "../configs/api";
 
 const parseOAuthParams = () => {
   if (typeof window === "undefined") return { initialError: "", accessToken: null };

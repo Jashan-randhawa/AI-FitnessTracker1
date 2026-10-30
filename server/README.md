@@ -1,9 +1,7 @@
 # AI Fitness Tracker — API (Express + MongoDB)
 
-This is a MERN-stack replacement for the original Strapi 5 backend. Every
-route, request/response shape, and business rule (AI prompts, calorie
-formulas, password-reset flow, etc.) was ported to match what the existing
-React client already expects — **the `client/` folder needs zero changes.**
+This is the production backend API service for FitTrack AI, built on Express and MongoDB.
+It provides authentication, health metrics, food & workout tracking, and AI-driven coaching features.
 
 ## Setup
 
@@ -18,8 +16,7 @@ npm start                # plain node
 
 Requires a MongoDB instance — local (`mongodb://127.0.0.1:27017/fittrack`)
 or a free [Atlas](https://www.mongodb.com/atlas) cluster. On first boot the
-server seeds the `blogs` collection with the same 6 sample posts the
-original Strapi bootstrap hook created.
+server seeds the `blogs` collection with sample posts if the collection is empty.
 
 ## Environment variables
 
@@ -51,31 +48,17 @@ server/
 └── src/
     ├── app.js              # Express app: helmet, CORS, body parsing, routes
     ├── config/db.js
-    ├── models/             # Mongoose schemas (one per Strapi content-type)
-    ├── controllers/        # one per original Strapi controller
-    ├── routes/             # one per original Strapi route file
+    ├── models/             # Mongoose schemas (data models)
+    ├── controllers/        # Express route controllers
+    ├── routes/             # Express API routes
     ├── middleware/         # auth (JWT), upload (multer), error handling
     ├── services/           # OpenRouter calls, email, blog seed, password-reset logic
     └── utils/
 ```
 
-## Mapping from the original Strapi backend
+## Key Architecture & Security Decisions
 
-| Strapi concept | MERN equivalent |
-|---|---|
-| Content-type schema (`schema.json`) | Mongoose model |
-| `strapi.entityService` | Mongoose queries (`find`, `create`, `findOneAndUpdate`, …) |
-| `ctx.state.user` (JWT + users-permissions) | `req.user`, set by `middleware/auth.js` |
-| Core controller factories | Explicit Express route handlers |
-| Bootstrap permissions (`src/index.ts`) | Route-level `protect` middleware |
-| Email plugin | Brevo REST API (HTTPS/443) via `services/email.service.js` |
-| Google OAuth (`grant` under the hood) | Plain OAuth2 authorization-code flow in `auth.controller.js` |
-
-## Deliberate differences from the original
-
-A handful of small, low-risk fixes were made along the way. None of them
-require any client-side change — the client already behaves as if these
-were already true.
+The server architecture emphasizes security, reliability, and low latency:
 
 - **AI endpoints now require a valid login.** `ai-assistant/chat`,
   `image-analysis`, and `calorie-estimate` were `auth: false` (fully public)
@@ -84,19 +67,9 @@ were already true.
   your OpenRouter key. `food-estimate` already required auth.
 - **Ownership checks on updates.** `PUT /api/users/:id` and
   `PUT /api/foodlogs|activitylogs/:id` now confirm the record belongs to the
-  caller. Strapi's default core `update` action doesn't enforce this unless
-  a policy is added, and none was — the client only ever updates its own
-  records, so this is invisible in normal use.
-- **`ActivityLog.date` actually persists now.** The original schema never
-  declared this field, so the controller's `date` assignment was silently
-  dropped by Strapi on every save, even though it looked like it worked.
-  Logs relied on `createdAt` as a fallback. Both fields now hold the same
-  value, exactly as the code already intended.
-- **Password reset tokens are queried directly.** The original scanned
-  every user with a non-null token and parsed a JSON blob per row, because
-  Strapi couldn't filter on JSON fields ("*We scan because Strapi doesn't
-  support JSON field filtering*" — from the original code comment). Mongo
-  can index and query this directly.
+  caller. Ensures users cannot view or mutate another user's health and fitness records.
+- **`ActivityLog.date` actually persists now.** Both `date` and `createdAt` fields are explicitly declared and persisted in the schema to ensure consistent day-based queries and time-series aggregation.
+- **Password reset tokens are queried directly.** Indexed MongoDB fields (`resetPasswordTokenHash`, `resetPasswordExpires`) allow instant O(1) indexed lookups without in-memory linear scans.
 - **A couple of error responses now surface the real message.** On
   `image-analysis` and `food-estimate`, the client reads
   `error.response.data.error.message`, but the original controllers
@@ -104,12 +77,7 @@ were already true.
   generic toast. The response shape now matches what the client already
   reads, so specific errors (e.g. "Could not identify food in the image")
   actually show up.
-- **`/api/blogs` write routes require login.** The original only exposed
-  blog writes through Strapi's separate Admin panel, which has no MERN
-  equivalent here. Reads are still fully public.
-
-Everything else — every path, payload shape, prompt, and status code — is a
-direct port.
+- **`/api/blogs` write routes require login.** Blog article creation and editing are strictly protected and require administrator status (`isAdmin: true`). Public reads remain open.
 
 ## Dual Sign-In Architecture (Google OAuth + Password)
 

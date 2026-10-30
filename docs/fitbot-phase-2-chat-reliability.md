@@ -16,7 +16,7 @@ Phase 2 addressed critical persistence and concurrency defects identified during
 3. **Double-Submit Prevention**: Enforced a synchronous in-flight request lock (`isSendingRef`) to eliminate race conditions caused by rapid Enter or click submissions before React state updates.
 4. **Pure History Reconstruction**: Extracted pure, unit-tested message reconstruction helpers (`getRetryContext`, `getRegenerateContext`) that strictly exclude error bubbles and preserve prior conversational turns.
 5. **End-to-End Cancellation Pipeline**: Propagated client cancellations through Express connection close events and Node `AbortController` down to OpenRouter `fetch`, preventing wasted LLM tokens and suppressing stale completions from corrupting newer chat state.
-6. **Backward-Compatible Database Indexing**: Added a compound unique index on `{ user, sessionId }` using a partial filter expression (`partialFilterExpression: { sessionId: { $type: 'string' } }`), guaranteeing zero conflicts with legacy Strapi/v1 sessions that lack a `sessionId`.
+6. **Backward-Compatible Database Indexing**: Added a compound unique index on `{ user, sessionId }` using a partial filter expression (`partialFilterExpression: { sessionId: { $type: 'string' } }`), guaranteeing zero conflicts with legacy/v1 sessions that lack a `sessionId`.
 
 ---
 

@@ -1,9 +1,8 @@
 /**
  * Sends a JSON error response. Ships the message both flat (`message`)
  * and nested (`error.message`) because different pages in the existing
- * React client read one or the other from Strapi's original error
- * envelope — this keeps every toast.error(...) call in the frontend
- * working without touching client code.
+ * React client read one or the other — this keeps every toast.error(...) call
+ * in the frontend working reliably.
  *
  * @param {import('express').Response} res
  * @param {number} status HTTP status code

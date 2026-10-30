@@ -180,7 +180,7 @@ describe('Phase 3: Chat History Strict Zod Validation & Caps', () => {
 
 // ── 3. Legacy History Document Normalization Tests ────────────────────
 describe('Phase 3: Legacy History Normalization Specification', () => {
-  it('normalizes legacy Strapi document with parts array into standard text format', () => {
+  it('normalizes legacy document with parts array into standard text format', () => {
     const legacyDoc = {
       _id: new mongoose.Types.ObjectId(),
       user: new mongoose.Types.ObjectId(),

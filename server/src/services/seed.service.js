@@ -386,8 +386,8 @@ Optimal hydration isn't about hitting an arbitrary number — it's about listeni
 ];
 
 /**
- * Seeds the blog collection on first boot, matching the original Strapi
- * bootstrap hook. Safe to call on every startup — it's a no-op once posts exist.
+ * Seeds the blog collection on first boot. Safe to call on every startup —
+ * it's a no-op once posts exist.
  */
 const seedBlogPosts = async () => {
   const existingCount = await Blog.countDocuments();

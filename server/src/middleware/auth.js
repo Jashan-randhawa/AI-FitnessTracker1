@@ -6,7 +6,7 @@ const sendError = require('../utils/sendError');
 /**
  * Requires a valid `Authorization: Bearer <token>` header, matching every
  * page in the client that already sends one. Populates req.user with the
- * full Mongo user document (equivalent of Strapi's ctx.state.user).
+ * full Mongo user document.
  */
 const protect = asyncHandler(async (req, res, next) => {
   const authHeader = req.headers.authorization;

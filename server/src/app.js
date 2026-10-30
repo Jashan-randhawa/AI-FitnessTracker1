@@ -16,15 +16,14 @@ app.set('trust proxy', 1);
 app.use(requestId);
 app.use(httpLogger);
 
-// Roughly equivalent to Strapi's `strapi::security` middleware.
+// HTTP security headers with cross-origin resource policy enabled.
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
 );
 
-// Matches the exact origins/methods/headers from the original
-// config/middlewares.ts `strapi::cors` entry, plus CLIENT_URL from env so
+// Configures CORS for known client origins, plus CLIENT_URL from env so
 // a deployed frontend origin can be added without editing code.
 const allowedOrigins = [
   'https://ai-fitness-tracker1.vercel.app',

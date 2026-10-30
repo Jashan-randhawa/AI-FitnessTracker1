@@ -183,7 +183,7 @@ const chatHistoryPayloadSchema = z.object({
 ## 4. Legacy Data Compatibility & Normalization
 
 When documents are fetched from MongoDB, `normalizeHistoryDoc` ensures that:
-- Messages stored in legacy Strapi format (`parts: [{ text }]` or `content: string`) are normalized to `{ role: "user" | "assistant", text: string }`.
+- Messages stored in legacy format (`parts: [{ text }]` or `content: string`) are normalized to `{ role: "user" | "assistant", text: string }`.
 - Missing `sessionId` fields fall back to `doc._id.toString()`.
 - Missing `revision` defaults to `1`.
 - Missing or malformed `summary` defaults to `""`.

@@ -4,7 +4,7 @@ const toJSONPlugin = require('../utils/toJSONPlugin');
 const foodLogSchema = new mongoose.Schema(
   {
     name: String,
-    // Support both `mealtype` (Strapi compatibility) and `mealType` (camelCase)
+    // Support both `mealtype` (legacy format) and `mealType` (camelCase)
     mealtype: String,
     mealType: String,
     calories: Number,

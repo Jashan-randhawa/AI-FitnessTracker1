@@ -152,7 +152,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // ── Password reset (indexed fields instead of Strapi's scanned JSON blob) ──
+    // ── Password reset (indexed fields for fast and direct lookups) ──
     resetPasswordTokenHash: {
       type: String,
       select: false,

@@ -525,7 +525,7 @@ flowchart TD
 ## 7. Unverified Assumptions & Remaining Questions
 
 1. **Production OpenRouter Key Configuration**: Tests run against mock environments with unset `OPENROUTER_API_KEY`. Live production behavior on OpenRouter requires checking actual latency and provider selection (`provider: { sort: 'latency' }`).
-2. **Strapi Legacy Database Records**: `ChatHistory.js` references legacy Strapi data structures. It must be confirmed whether any existing production database documents have unstructured fields that would fail newly added Zod schemas upon retrieval.
+2. **Legacy Database Records**: `ChatHistory.js` references legacy pre-v2 data structures. It must be confirmed whether any existing production database documents have unstructured fields that would fail newly added Zod schemas upon retrieval.
 3. **Voice Input Browser Compatibility**: SpeechRecognition is verified on Chrome/Edge (Blink). Behavior on Firefox/Safari (which lack native Web Speech Recognition) depends on graceful degradation to text input.
 
 ---
