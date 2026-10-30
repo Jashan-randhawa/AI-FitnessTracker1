@@ -28,21 +28,18 @@ import toast from "react-hot-toast";
 import { FitBotAvatar } from "../components/FitBotAvatar";
 import { } from "../components/MarkdownMessage";
 import { buildWorkoutPlanActionPayload, type WorkoutPlanAction } from "../schemas/aiPlans.schema";
-import { chatAiAssistant } from "../services/aiAssistantClient";
 import type { ProposedChatAction } from "../schemas/chatAction.schema";
 import { FITBOT_CONFIG } from "../constants/fitbot";
 import {
   type FitBotMessage as Message,
   type FitBotActionState,
-  buildGeminiPayload,
   getRetryContext,
   getRegenerateContext,
-  getValidMessages,
   formatMemoryContext,
 } from "../utils/fitbotHistory";
 import { createHandoffState, readHandoff, type HandoffPayload } from "../utils/handoff";
 import { getFitBotSuggestions } from "../utils/fitbotSuggestions";
-import { useDaySummary, invalidateSummaries } from "../data/summaryStore";
+import { useDaySummary } from "../data/summaryStore";
 import { localDayKey } from "../utils/localDay";
 import { getWeatherObservation } from "../data/weatherStore";
 import jsPDF from "jspdf";
@@ -50,6 +47,7 @@ import { getAuthToken } from "../configs/authToken";
 import { useActiveWorkoutPlan } from "../hooks/fitbot/useActiveWorkoutPlan";
 import { usePastSessions } from "../hooks/fitbot/usePastSessions";
 import { useChatSessionPersistence } from "../hooks/fitbot/useChatSessionPersistence";
+import { useFitBotChat } from "../hooks/fitbot/useFitBotChat";
 import { } from "../components/fitbot/ActionConfirmationCard";
 import { ChatMessageItem } from "../components/fitbot/ChatMessageItem";
 import {
@@ -75,7 +73,7 @@ const newSessionId = (): string =>
     : `session-${Date.now()}`;
 
 export default function AIAssistant() {
-  const { user, setAllWaterLogs, setAllFoodLogs, setAllActivityLogs } = useappcontext();
+  const { user, setAllWaterLogs } = useappcontext();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -254,7 +252,6 @@ export default function AIAssistant() {
   }, [setAllWaterLogs]);
 
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [showMemory, setShowMemory] = useState(false);
   const [memorySearch, setMemorySearch] = useState("");
   const memoryBtnRef = useRef<HTMLButtonElement>(null);
@@ -337,8 +334,6 @@ export default function AIAssistant() {
 
 
   // Concurrency synchronous lock & active request identity
-  const isSendingRef = useRef(false);
-  const activeRequestIdRef = useRef<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
@@ -350,7 +345,6 @@ export default function AIAssistant() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "")?.replace(/\/$/, "");
   const token = getAuthToken();
@@ -482,13 +476,7 @@ export default function AIAssistant() {
 
   const loadPastSessionIntoChat = (session: { sessionId?: string; _id?: string; messages?: Array<{ role?: string; text?: string; proposedActions?: FitBotActionState[] }>; updatedAt?: string; createdAt?: string; revision?: number }) => {
     // Invalidate any active generation
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    activeRequestIdRef.current = null;
-    isSendingRef.current = false;
-    setIsLoading(false);
+    cancelActiveRequest();
 
     if (Array.isArray(session.messages) && session.messages.length > 0) {
       const formatted: Message[] = session.messages.map((m: { role?: string; text?: string; proposedActions?: FitBotActionState[] }, i: number) => ({
@@ -561,6 +549,19 @@ export default function AIAssistant() {
       scrollTickingRef.current = false;
     });
   }, []);
+
+  // Chat request lifecycle: sends a turn, handles replies, errors and cancellation.
+  const { sendMessage, isLoading, cancelActiveRequest, isSending } =
+    useFitBotChat({
+      messages,
+      setMessages,
+      setInput,
+      saveSession,
+      scrollToBottom,
+      isNearBottomRef,
+      memoryContext,
+      soundEnabled,
+    });
 
   useEffect(() => {
     if (isNearBottomRef.current) {
@@ -670,157 +671,30 @@ export default function AIAssistant() {
 
   // Stop generation in flight
   const stopGeneration = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    activeRequestIdRef.current = null;
-    isSendingRef.current = false;
-    setIsLoading(false);
+    cancelActiveRequest();
     toast("Stopped generating response", { icon: "⏹️" });
   };
 
   // Send message to AI
-  const sendMessage = async (text: string, customHistory?: Message[], sendOptions?: { regenerate?: boolean }) => {
-    if (!text.trim() || isSendingRef.current) return;
-    isSendingRef.current = true;
-
-    // Unique request ID to ignore stale completions
-    const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    activeRequestIdRef.current = requestId;
-
-    const currentMessages = getValidMessages(customHistory || messages);
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      text: text.trim(),
-      timestamp: new Date(),
-    };
-    const newMessages = [...currentMessages, userMsg];
-    setMessages(newMessages);
-    setInput("");
-    setIsLoading(true);
-    isNearBottomRef.current = true;
-    scrollToBottom(true);
-
-    // Persist snapshot of user turn
-    saveSession(newMessages);
-
-    const historyPayload = buildGeminiPayload(newMessages);
-    abortControllerRef.current = new AbortController();
-
-    try {
-      const data = await chatAiAssistant({
-        messages: historyPayload,
-        memoryContext,
-        options: {
-          regenerate: Boolean(sendOptions?.regenerate),
-        },
-        signal: abortControllerRef.current.signal,
-      });
-
-      // Ignore if superseded or cancelled
-      if (activeRequestIdRef.current !== requestId) return;
-
-      if (activeRequestIdRef.current !== requestId) return;
-
-      const reply = data.reply || "I couldn't generate a response. Please try again.";
-      const assistantMsg: Message = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        text: reply,
-        timestamp: new Date(),
-        executedActions: data.executedActions,
-        proposedActions:
-          Array.isArray(data.proposedActions) && data.proposedActions.length > 0
-            ? data.proposedActions.map((action) => ({
-                action,
-                status: "pending" as const,
-              }))
-            : undefined,
-      };
-      const finalMessages = [...newMessages, assistantMsg];
-      setMessages(finalMessages);
-
-      // Phase 2: Live state refresh for dashboard macro rings & workout lists
-      if (Array.isArray(data.executedActions) && data.executedActions.length > 0) {
-        invalidateSummaries();
-        const token = getAuthToken();
-        if (token) {
-          const hasFood = data.executedActions.some((a) => a.action === "logMealItem");
-          const hasWorkout = data.executedActions.some(
-            (a) => a.action === "logWorkoutSession" || a.action === "swapExerciseInPlan"
-          );
-          if (hasFood) {
-            api
-              .get("/api/foodlogs")
-              .then((res) => {
-                const list = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
-                setAllFoodLogs(list);
-              })
-              .catch(() => {});
-          }
-          if (hasWorkout) {
-            api
-              .get("/api/activitylogs")
-              .then((res) => {
-                const list = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
-                setAllActivityLogs(list);
-              })
-              .catch(() => {});
-          }
-        }
-      }
-
-      if (soundEnabled) playCompletionChime();
-
-      // Persist snapshot of completed turn
-      saveSession(finalMessages);
-    } catch (err: unknown) {
-      if (activeRequestIdRef.current !== requestId) return;
-
-      if (err instanceof DOMException && err.name === "AbortError") {
-        return;
-      }
-      const msg = err instanceof Error ? err.message : "Failed to get response. Check your connection.";
-      const errorMsg: Message = {
-        id: `err-${Date.now()}`,
-        role: "assistant",
-        text: `⚠️ I had trouble connecting (${msg}).`,
-        timestamp: new Date(),
-        isError: true,
-      };
-      setMessages([...newMessages, errorMsg]);
-      toast.error(msg);
-    } finally {
-      if (activeRequestIdRef.current === requestId) {
-        abortControllerRef.current = null;
-        setIsLoading(false);
-        isSendingRef.current = false;
-        activeRequestIdRef.current = null;
-      }
-    }
-  };
-
   const sendMessageRef = useRef(sendMessage);
   useEffect(() => {
     sendMessageRef.current = sendMessage;
   });
 
   const retryLastMessage = useCallback(() => {
-    if (isSendingRef.current || isLoading) return;
+    if (isSending() || isLoading) return;
     const retryCtx = getRetryContext(messages);
     if (!retryCtx) return;
     sendMessageRef.current(retryCtx.prompt, retryCtx.precedingHistory);
-  }, [messages, isLoading]);
+  }, [messages, isLoading, isSending]);
 
   const regenerateLastMessage = useCallback(() => {
-    if (isSendingRef.current || isLoading) return;
+    if (isSending() || isLoading) return;
     const regenCtx = getRegenerateContext(messages);
     if (!regenCtx) return;
     setMessages(regenCtx.trimmedMessages);
     sendMessageRef.current(regenCtx.prompt, regenCtx.precedingHistory, { regenerate: true });
-  }, [isLoading, messages]);
+  }, [isLoading, messages, isSending]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -836,13 +710,7 @@ export default function AIAssistant() {
   };
 
   const startNewChat = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    activeRequestIdRef.current = null;
-    isSendingRef.current = false;
-    setIsLoading(false);
+    cancelActiveRequest();
 
     if (speakingId) {
       window.speechSynthesis?.cancel();
