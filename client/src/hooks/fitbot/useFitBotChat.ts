@@ -47,126 +47,149 @@ export function useFitBotChat({
   const activeRequestIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const sendMessage = async (text: string, customHistory?: Message[], sendOptions?: { regenerate?: boolean }) => {
-    if (!text.trim() || isSendingRef.current) return;
-    isSendingRef.current = true;
+  // Keep options in a ref to provide a stable useCallback identity for sendMessage
+  const optionsRef = useRef({
+    messages,
+    setMessages,
+    setInput,
+    saveSession,
+    scrollToBottom,
+    isNearBottomRef,
+    memoryContext,
+    soundEnabled,
+  });
+  optionsRef.current = {
+    messages,
+    setMessages,
+    setInput,
+    saveSession,
+    scrollToBottom,
+    isNearBottomRef,
+    memoryContext,
+    soundEnabled,
+  };
 
-    // Unique request ID to ignore stale completions
-    const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    activeRequestIdRef.current = requestId;
+  const sendMessage = useCallback(
+    async (text: string, customHistory?: Message[], sendOptions?: { regenerate?: boolean }) => {
+      if (!text.trim() || isSendingRef.current) return;
+      isSendingRef.current = true;
 
-    const currentMessages = getValidMessages(customHistory || messages);
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      text: text.trim(),
-      timestamp: new Date(),
-    };
-    const newMessages = [...currentMessages, userMsg];
-    setMessages(newMessages);
-    setInput("");
-    setIsLoading(true);
-    isNearBottomRef.current = true;
-    scrollToBottom(true);
+      const opts = optionsRef.current;
 
-    // Persist snapshot of user turn
-    saveSession(newMessages);
+      // Unique request ID to ignore stale completions
+      const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      activeRequestIdRef.current = requestId;
 
-    const historyPayload = buildGeminiPayload(newMessages);
-    abortControllerRef.current = new AbortController();
-
-    try {
-      const data = await chatAiAssistant({
-        messages: historyPayload,
-        memoryContext,
-        options: {
-          regenerate: Boolean(sendOptions?.regenerate),
-        },
-        signal: abortControllerRef.current.signal,
-      });
-
-      // Ignore if superseded or cancelled
-      if (activeRequestIdRef.current !== requestId) return;
-
-      if (activeRequestIdRef.current !== requestId) return;
-
-      const reply = data.reply || "I couldn't generate a response. Please try again.";
-      const assistantMsg: Message = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        text: reply,
+      const currentMessages = getValidMessages(customHistory || opts.messages);
+      const userMsg: Message = {
+        id: `user-${Date.now()}`,
+        role: "user",
+        text: text.trim(),
         timestamp: new Date(),
-        executedActions: data.executedActions,
-        proposedActions:
-          Array.isArray(data.proposedActions) && data.proposedActions.length > 0
-            ? data.proposedActions.map((action) => ({
-                action,
-                status: "pending" as const,
-              }))
-            : undefined,
       };
-      const finalMessages = [...newMessages, assistantMsg];
-      setMessages(finalMessages);
+      const newMessages = [...currentMessages, userMsg];
+      opts.setMessages(newMessages);
+      opts.setInput("");
+      setIsLoading(true);
+      opts.isNearBottomRef.current = true;
+      opts.scrollToBottom(true);
 
-      // Phase 2: Live state refresh for dashboard macro rings & workout lists
-      if (Array.isArray(data.executedActions) && data.executedActions.length > 0) {
-        invalidateSummaries();
-        const token = getAuthToken();
-        if (token) {
-          const hasFood = data.executedActions.some((a) => a.action === "logMealItem");
-          const hasWorkout = data.executedActions.some(
-            (a) => a.action === "logWorkoutSession" || a.action === "swapExerciseInPlan"
-          );
-          if (hasFood) {
-            api
-              .get("/api/foodlogs")
-              .then((res) => {
-                const list = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
-                setAllFoodLogs(list);
-              })
-              .catch(() => {});
-          }
-          if (hasWorkout) {
-            api
-              .get("/api/activitylogs")
-              .then((res) => {
-                const list = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
-                setAllActivityLogs(list);
-              })
-              .catch(() => {});
+      // Persist snapshot of user turn
+      opts.saveSession(newMessages);
+
+      const historyPayload = buildGeminiPayload(newMessages);
+      abortControllerRef.current = new AbortController();
+
+      try {
+        const data = await chatAiAssistant({
+          messages: historyPayload,
+          memoryContext: opts.memoryContext,
+          options: {
+            regenerate: Boolean(sendOptions?.regenerate),
+          },
+          signal: abortControllerRef.current.signal,
+        });
+
+        // Ignore if superseded or cancelled
+        if (activeRequestIdRef.current !== requestId) return;
+
+        const reply = data.reply || "I couldn't generate a response. Please try again.";
+        const assistantMsg: Message = {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          text: reply,
+          timestamp: new Date(),
+          executedActions: data.executedActions,
+          proposedActions:
+            Array.isArray(data.proposedActions) && data.proposedActions.length > 0
+              ? data.proposedActions.map((action) => ({
+                  action,
+                  status: "pending" as const,
+                }))
+              : undefined,
+        };
+        const finalMessages = [...newMessages, assistantMsg];
+        opts.setMessages(finalMessages);
+
+        // Phase 2: Live state refresh for dashboard macro rings & workout lists
+        if (Array.isArray(data.executedActions) && data.executedActions.length > 0) {
+          invalidateSummaries();
+          const token = getAuthToken();
+          if (token) {
+            const hasFood = data.executedActions.some((a) => a.action === "logMealItem");
+            const hasWorkout = data.executedActions.some(
+              (a) => a.action === "logWorkoutSession" || a.action === "swapExerciseInPlan"
+            );
+            if (hasFood) {
+              api
+                .get("/api/foodlogs")
+                .then((res) => {
+                  const list = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+                  setAllFoodLogs(list);
+                })
+                .catch(() => {});
+            }
+            if (hasWorkout) {
+              api
+                .get("/api/activitylogs")
+                .then((res) => {
+                  const list = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+                  setAllActivityLogs(list);
+                })
+                .catch(() => {});
+            }
           }
         }
-      }
 
-      if (soundEnabled) playCompletionChime();
+        if (opts.soundEnabled) playCompletionChime();
 
-      // Persist snapshot of completed turn
-      saveSession(finalMessages);
-    } catch (err: unknown) {
-      if (activeRequestIdRef.current !== requestId) return;
+        // Persist snapshot of completed turn
+        opts.saveSession(finalMessages);
+      } catch (err: unknown) {
+        if (activeRequestIdRef.current !== requestId) return;
 
-      if (err instanceof DOMException && err.name === "AbortError") {
-        return;
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
+        const msg = err instanceof Error ? err.message : "Failed to get response. Check your connection.";
+        const errorMsg: Message = {
+          id: `err-${Date.now()}`,
+          role: "assistant",
+          text: `⚠️ I had trouble connecting (${msg}).`,
+          timestamp: new Date(),
+          isError: true,
+        };
+        opts.setMessages([...newMessages, errorMsg]);
+        toast.error(msg);
+      } finally {
+        if (activeRequestIdRef.current === requestId) {
+          abortControllerRef.current = null;
+          setIsLoading(false);
+          isSendingRef.current = false;
+          activeRequestIdRef.current = null;
+        }
       }
-      const msg = err instanceof Error ? err.message : "Failed to get response. Check your connection.";
-      const errorMsg: Message = {
-        id: `err-${Date.now()}`,
-        role: "assistant",
-        text: `⚠️ I had trouble connecting (${msg}).`,
-        timestamp: new Date(),
-        isError: true,
-      };
-      setMessages([...newMessages, errorMsg]);
-      toast.error(msg);
-    } finally {
-      if (activeRequestIdRef.current === requestId) {
-        abortControllerRef.current = null;
-        setIsLoading(false);
-        isSendingRef.current = false;
-        activeRequestIdRef.current = null;
-      }
-    }
-  };
+    }, [setAllFoodLogs, setAllActivityLogs]);
 
   /** Aborts the in-flight request, if any, and resets the request state. */
   const cancelActiveRequest = useCallback(() => {

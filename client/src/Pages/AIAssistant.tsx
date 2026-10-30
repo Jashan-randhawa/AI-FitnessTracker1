@@ -26,7 +26,6 @@ import type { WaterEntry } from "../assets/types";
 import api from "../configs/api";
 import toast from "react-hot-toast";
 import { FitBotAvatar } from "../components/FitBotAvatar";
-import { } from "../components/MarkdownMessage";
 import { buildWorkoutPlanActionPayload, type WorkoutPlanAction } from "../schemas/aiPlans.schema";
 import type { ProposedChatAction } from "../schemas/chatAction.schema";
 import { FITBOT_CONFIG } from "../constants/fitbot";
@@ -48,7 +47,6 @@ import { useActiveWorkoutPlan } from "../hooks/fitbot/useActiveWorkoutPlan";
 import { usePastSessions } from "../hooks/fitbot/usePastSessions";
 import { useChatSessionPersistence } from "../hooks/fitbot/useChatSessionPersistence";
 import { useFitBotChat } from "../hooks/fitbot/useFitBotChat";
-import { } from "../components/fitbot/ActionConfirmationCard";
 import { ChatMessageItem } from "../components/fitbot/ChatMessageItem";
 import {
   parseMarkdownIntoWorkoutDays,
@@ -67,10 +65,20 @@ import {
 
 // Creates a fresh chat session id. Kept outside the component so render-time
 // analysis never sees the impure Date.now() fallback.
-const newSessionId = (): string =>
-  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `session-${Date.now()}`;
+const newSessionId = (): string => {
+  if (typeof crypto !== "undefined") {
+    if (typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    if (typeof crypto.getRandomValues === "function") {
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      const randomHex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+      return `session-${Date.now()}-${randomHex}`;
+    }
+  }
+  return `session-${Date.now()}-fallback`;
+};
 
 export default function AIAssistant() {
   const { user, setAllWaterLogs } = useappcontext();
@@ -313,20 +321,7 @@ export default function AIAssistant() {
     }
   }, [showMemory, updateFlyoutPosition]);
   // Stable session identifier & revision tracking (FitBot Phase 2)
-  const [sessionId, setSessionId] = useState<string>(() => {
-    if (typeof crypto !== "undefined") {
-      if (typeof crypto.randomUUID === "function") {
-        return crypto.randomUUID();
-      }
-      if (typeof crypto.getRandomValues === "function") {
-        const bytes = new Uint8Array(16);
-        crypto.getRandomValues(bytes);
-        const randomHex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-        return `session-${Date.now()}-${randomHex}`;
-      }
-    }
-    return `session-${Date.now()}-fallback`;
-  });
+  const [sessionId, setSessionId] = useState<string>(() => newSessionId());
   const sessionIdRef = useRef<string>(sessionId);
   useEffect(() => {
     sessionIdRef.current = sessionId;
@@ -675,26 +670,20 @@ export default function AIAssistant() {
     toast("Stopped generating response", { icon: "⏹️" });
   };
 
-  // Send message to AI
-  const sendMessageRef = useRef(sendMessage);
-  useEffect(() => {
-    sendMessageRef.current = sendMessage;
-  });
-
   const retryLastMessage = useCallback(() => {
     if (isSending() || isLoading) return;
     const retryCtx = getRetryContext(messages);
     if (!retryCtx) return;
-    sendMessageRef.current(retryCtx.prompt, retryCtx.precedingHistory);
-  }, [messages, isLoading, isSending]);
+    sendMessage(retryCtx.prompt, retryCtx.precedingHistory);
+  }, [messages, isLoading, isSending, sendMessage]);
 
   const regenerateLastMessage = useCallback(() => {
     if (isSending() || isLoading) return;
     const regenCtx = getRegenerateContext(messages);
     if (!regenCtx) return;
     setMessages(regenCtx.trimmedMessages);
-    sendMessageRef.current(regenCtx.prompt, regenCtx.precedingHistory, { regenerate: true });
-  }, [isLoading, messages, isSending]);
+    sendMessage(regenCtx.prompt, regenCtx.precedingHistory, { regenerate: true });
+  }, [isLoading, messages, isSending, sendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -721,20 +710,7 @@ export default function AIAssistant() {
       saveSession(messages);
     }
 
-    const newId = (() => {
-      if (typeof crypto !== "undefined") {
-        if (typeof crypto.randomUUID === "function") {
-          return crypto.randomUUID();
-        }
-        if (typeof crypto.getRandomValues === "function") {
-          const bytes = new Uint8Array(16);
-          crypto.getRandomValues(bytes);
-          const randomHex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-          return `session-${Date.now()}-${randomHex}`;
-        }
-      }
-      return `session-${Date.now()}-fallback`;
-    })();
+    const newId = newSessionId();
     setSessionId(newId);
     sessionIdRef.current = newId;
     saveRevisionRef.current = 0;
