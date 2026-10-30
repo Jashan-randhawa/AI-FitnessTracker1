@@ -48,6 +48,8 @@ import { localDayKey } from "../utils/localDay";
 import { getWeatherObservation } from "../data/weatherStore";
 import jsPDF from "jspdf";
 import { getAuthToken, authHeaders } from "../configs/authToken";
+import { useActiveWorkoutPlan } from "../hooks/fitbot/useActiveWorkoutPlan";
+import { usePastSessions } from "../hooks/fitbot/usePastSessions";
 import { } from "../components/fitbot/ActionConfirmationCard";
 import { ChatMessageItem } from "../components/fitbot/ChatMessageItem";
 import {
@@ -253,8 +255,6 @@ export default function AIAssistant() {
 
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [pastSessions, setPastSessions] = useState<Array<Record<string, unknown> & { sessionId?: string; _id?: string; summary?: string; createdAt?: string; updatedAt?: string; revision?: number; messages?: Array<{ role?: string; text?: string; proposedActions?: FitBotActionState[] }> }>>([]);
-  const [memoryLoaded, setMemoryLoaded] = useState(false);
   const [showMemory, setShowMemory] = useState(false);
   const [memorySearch, setMemorySearch] = useState("");
   const memoryBtnRef = useRef<HTMLButtonElement>(null);
@@ -358,6 +358,7 @@ export default function AIAssistant() {
 
   const API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_STRAPI_API_URL || "")?.replace(/\/$/, "");
   const token = getAuthToken();
+  const { pastSessions, setPastSessions, memoryLoaded } = usePastSessions(token);
 
   // Cleanup speech synthesis on unmount
   useEffect(() => {
@@ -378,22 +379,7 @@ export default function AIAssistant() {
   };
 
   // Active workout plan for plan-scheduled chip suggestions (Phase G / N7)
-  const [activePlan, setActivePlan] = useState<Record<string, unknown> | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    api
-      .get("/api/workout-plans/active")
-      .then((res) => {
-        if (isMounted && res.data?.plan) {
-          setActivePlan(res.data.plan);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const activePlan = useActiveWorkoutPlan();
 
   const todayPlanDay = useMemo(() => {
     if (!activePlan?.days || !Array.isArray(activePlan.days) || activePlan.days.length === 0) {
@@ -444,21 +430,6 @@ export default function AIAssistant() {
       inputRef.current.style.overflowY = scrollH > maxHeight ? "auto" : "hidden";
     }
   }, [input]);
-
-  // Load past sessions from backend
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { data } = await api.get("/api/chathistories");
-        const sessions = Array.isArray(data) ? data : data?.data ?? [];
-        setPastSessions(sessions);
-        setMemoryLoaded(true);
-      } catch {
-        setMemoryLoaded(true);
-      }
-    };
-    if (token) load();
-  }, [token]);
 
   // Save session idempotently using stable sessionId
   const saveSession = useCallback(
@@ -522,7 +493,7 @@ export default function AIAssistant() {
         }
       }
     },
-    []
+    [setPastSessions]
   );
 
   // Lets the queued-save path reach the latest saveSession without a self-reference.
