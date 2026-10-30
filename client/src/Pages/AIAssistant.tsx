@@ -37,7 +37,6 @@ import {
   buildGeminiPayload,
   getRetryContext,
   getRegenerateContext,
-  buildSessionSummary,
   getValidMessages,
   formatMemoryContext,
 } from "../utils/fitbotHistory";
@@ -47,9 +46,10 @@ import { useDaySummary, invalidateSummaries } from "../data/summaryStore";
 import { localDayKey } from "../utils/localDay";
 import { getWeatherObservation } from "../data/weatherStore";
 import jsPDF from "jspdf";
-import { getAuthToken, authHeaders } from "../configs/authToken";
+import { getAuthToken } from "../configs/authToken";
 import { useActiveWorkoutPlan } from "../hooks/fitbot/useActiveWorkoutPlan";
 import { usePastSessions } from "../hooks/fitbot/usePastSessions";
+import { useChatSessionPersistence } from "../hooks/fitbot/useChatSessionPersistence";
 import { } from "../components/fitbot/ActionConfirmationCard";
 import { ChatMessageItem } from "../components/fitbot/ChatMessageItem";
 import {
@@ -335,10 +335,6 @@ export default function AIAssistant() {
     sessionIdRef.current = sessionId;
   }, [sessionId]);
 
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const saveRevisionRef = useRef(0);
-  const isSavingRef = useRef(false);
-  const pendingSaveRef = useRef<{ msgs: Message[]; revision: number } | null>(null);
 
   // Concurrency synchronous lock & active request identity
   const isSendingRef = useRef(false);
@@ -431,124 +427,15 @@ export default function AIAssistant() {
     }
   }, [input]);
 
-  // Save session idempotently using stable sessionId
-  const saveSession = useCallback(
-    async (msgs: Message[]) => {
-      const validMsgs = getValidMessages(msgs);
-      if (validMsgs.length < 1) return;
-
-      saveRevisionRef.current += 1;
-      const currentRevision = saveRevisionRef.current;
-      const currentSessionId = sessionIdRef.current;
-
-      // Queue latest snapshot if another save is already in-flight
-      if (isSavingRef.current) {
-        pendingSaveRef.current = { msgs, revision: currentRevision };
-        return;
-      }
-
-      isSavingRef.current = true;
-      setSaveStatus("saving");
-
-      const summary = buildSessionSummary(validMsgs, 6);
-      const messagesPayload = validMsgs.map((m) => ({ role: m.role, text: m.text }));
-
-      try {
-        const { data: savedDoc } = await api.post(
-          "/api/chathistories",
-          {
-            data: {
-              sessionId: currentSessionId,
-              revision: currentRevision,
-              summary,
-              messages: messagesPayload,
-            },
-          }
-        );
-
-        setSaveStatus("saved");
-
-        if (savedDoc) {
-          setPastSessions((prev) => {
-            const existingIdx = prev.findIndex(
-              (s) => (s.sessionId && s.sessionId === currentSessionId) || s._id === savedDoc._id
-            );
-            if (existingIdx >= 0) {
-              const updated = [...prev];
-              updated[existingIdx] = { ...updated[existingIdx], ...savedDoc };
-              return updated;
-            }
-            return [savedDoc, ...prev];
-          });
-        }
-      } catch (err) {
-        console.warn("[FitBot] Session snapshot save failed:", err);
-        setSaveStatus("error");
-      } finally {
-        isSavingRef.current = false;
-        if (pendingSaveRef.current) {
-          const next = pendingSaveRef.current;
-          pendingSaveRef.current = null;
-          saveSessionRef.current(next.msgs);
-        }
-      }
-    },
-    [setPastSessions]
-  );
-
-  // Lets the queued-save path reach the latest saveSession without a self-reference.
-  const saveSessionRef = useRef(saveSession);
-  useEffect(() => {
-    saveSessionRef.current = saveSession;
-  }, [saveSession]);
-
-  // Guaranteed persistence on navigation/refresh via pagehide
-  useEffect(() => {
-    const handlePageHide = () => {
-      const valid = getValidMessages(messages);
-      if (valid.length >= 1 && token) {
-        const currentSessionId = sessionIdRef.current;
-        const summary = buildSessionSummary(valid, 6);
-        const messagesPayload = valid.map((m) => ({ role: m.role, text: m.text }));
-        const body = JSON.stringify({
-          data: {
-            sessionId: currentSessionId,
-            revision: saveRevisionRef.current + 1,
-            summary,
-            messages: messagesPayload,
-          },
-        });
-        try {
-          fetch(`${API_URL}/api/chathistories`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...authHeaders(),
-            },
-            body,
-            keepalive: true,
-          }).catch(() => {});
-        } catch {
-          // ignore pagehide network error
-        }
-      }
-    };
-
-    window.addEventListener("pagehide", handlePageHide);
-    return () => {
-      window.removeEventListener("pagehide", handlePageHide);
-    };
-  }, [messages, token, API_URL]);
-
-  // Save when unmounting inside SPA navigation
-  useEffect(() => {
-    return () => {
-      const valid = getValidMessages(messages);
-      if (valid.length >= 1) {
-        saveSession(messages);
-      }
-    };
-  }, [messages, saveSession]);
+  // Save session idempotently and keep it in sync on pagehide / unmount
+  const getSessionId = useCallback(() => sessionIdRef.current, []);
+  const { saveSession, saveStatus, setSaveStatus, saveRevisionRef } = useChatSessionPersistence({
+    getSessionId,
+    messages,
+    token,
+    apiUrl: API_URL,
+    setPastSessions,
+  });
 
   const clearMemory = async () => {
     if (
