@@ -177,11 +177,11 @@ const setUserPassword = asyncHandler(async (req, res) => {
   // Case A: User has no password (first-time password add on OAuth account)
   if (!user.hasPassword) {
     const now = Math.floor(Date.now() / 1000);
-    const iat = req.auth?.iat || Math.floor(Date.now() / 1000);
-    const tokenAge = now - iat;
+    const iat = typeof req.auth?.iat === 'number' ? req.auth.iat : null;
+    const tokenAge = iat !== null ? now - iat : Infinity;
     const MAX_STEP_UP_AGE = 900; // 15 minutes
 
-    if (tokenAge > MAX_STEP_UP_AGE) {
+    if (iat === null || tokenAge > MAX_STEP_UP_AGE) {
       return res.status(403).json({
         status: 'fail',
         code: 'reauth_required',

@@ -166,10 +166,17 @@ export const replayOfflineQueue = async (
         await removeOfflineMutation(item.id);
         replayedCount++;
         onItemReplayed?.(item, res?.data);
-      } catch {
+      } catch (err: unknown) {
         // Stop replay if network is truly down
-        if (!navigator.onLine) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
           break;
+        }
+
+        // Drop invalid mutations (e.g. 400 Bad Request, 404 Not Found, 422 Unprocessable)
+        // so they do not poison the offline queue indefinitely. Keep 429 and 5xx to retry later.
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status && status >= 400 && status < 500 && status !== 429) {
+          await removeOfflineMutation(item.id);
         }
       }
     }

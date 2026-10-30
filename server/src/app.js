@@ -40,7 +40,7 @@ app.use(
       callback(new Error(`Not allowed by CORS: ${origin}`));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Request-Id', 'X-Timezone'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Request-Id', 'X-Timezone', 'Idempotency-Key', 'X-Idempotency-Key'],
     exposedHeaders: ['X-Request-Id', 'X-Next-Cursor'],
   })
 );

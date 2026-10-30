@@ -80,6 +80,12 @@ const findOne = asyncHandler(async (req, res) => {
 // PUT /api/activitylogs/:id
 const update = asyncHandler(async (req, res) => {
   const body = normalizePayload(req.body.data || req.body || {});
+  delete body.user;
+  delete body._id;
+  delete body.id;
+  delete body.createdAt;
+  delete body.updatedAt;
+  delete body.__v;
 
   const entry = await ActivityLog.findOneAndUpdate({ _id: req.params.id, user: req.user._id }, body, {
     new: true,

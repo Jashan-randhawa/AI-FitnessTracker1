@@ -68,6 +68,9 @@ const validateEnvironment = (rawEnv = process.env) => {
       errors.push('JWT_SECRET is strictly required in production.');
     } else {
       warnings.push('JWT_SECRET not set; using development fallback.');
+      if (rawEnv === process.env && !process.env.JWT_SECRET) {
+        process.env.JWT_SECRET = 'dev-insecure-secret-key-32chars!!';
+      }
     }
   }
 

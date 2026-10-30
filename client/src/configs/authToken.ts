@@ -14,11 +14,19 @@ export const getAuthToken = (): string | null => {
 export const hasAuthToken = (): boolean => Boolean(getAuthToken());
 
 export const setAuthToken = (jwt: string): void => {
-  localStorage.setItem(TOKEN_KEY, jwt);
+  try {
+    localStorage.setItem(TOKEN_KEY, jwt);
+  } catch {
+    // Ignore localStorage write quota/security errors
+  }
 };
 
 export const clearAuthToken = (): void => {
-  localStorage.removeItem(TOKEN_KEY);
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // Ignore localStorage write quota/security errors
+  }
 };
 
 // For raw fetch() calls, which bypass the axios interceptor in configs/api.ts.

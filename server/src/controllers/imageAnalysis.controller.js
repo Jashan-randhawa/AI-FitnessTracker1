@@ -6,6 +6,7 @@ const { buildFitnessContext } = require('../services/fitnessContext.service');
 const { computeEstimateFit } = require('../utils/estimateFit');
 const FoodLog = require('../models/FoodLog');
 const { publishChange } = require('../services/eventBus');
+const { isValidTimeZone } = require('../utils/localDay');
 
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4 MB cap
 
@@ -61,7 +62,19 @@ const analyze = asyncHandler(async (req, res) => {
 
     // Single-Roundtrip Persistence: persist directly to FoodLog collection if autoSave=true and overallConfidence >= 0.75
     if (autoSaveRequested && isHighConfidence && req.user) {
-      const hour = new Date().getHours();
+      const tzHeader = req.headers ? req.headers['x-timezone'] : null;
+      const tz = isValidTimeZone(tzHeader) ? tzHeader : null;
+      let hour = new Date().getHours();
+      if (tz) {
+        try {
+          const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' }).formatToParts(new Date());
+          const hPart = parts.find((p) => p.type === 'hour');
+          if (hPart) hour = parseInt(hPart.value, 10);
+        } catch {
+          hour = new Date().getHours();
+        }
+      }
+
       let defaultMealType = 'snack';
       if (hour >= 0 && hour < 12) defaultMealType = 'breakfast';
       else if (hour >= 12 && hour < 16) defaultMealType = 'lunch';

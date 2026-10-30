@@ -17,7 +17,7 @@ const protect = asyncHandler(async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-insecure-secret-key-32chars!!');
     // Short-lived purpose-bound tokens (e.g. SSE stream tickets) are never login tokens.
     if (decoded.purpose) {
       return sendError(res, 401, 'Invalid or expired token');

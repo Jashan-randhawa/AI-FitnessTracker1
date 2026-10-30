@@ -84,8 +84,8 @@ const AddActivityModal = ({
         });
       }
     } catch (err: unknown) {
-      const errData = err && typeof err === "object" && "response" in err ? (err as { response?: { data?: { error?: string } } }).response?.data : undefined;
-      const msg = errData?.error || (err instanceof Error ? err.message : "AI estimate failed");
+      const errData = err && typeof err === "object" && "response" in err ? (err as { response?: { data?: any } }).response?.data : undefined;
+      const msg = (typeof errData?.error === "string" ? errData.error : errData?.error?.message) || errData?.message || (err instanceof Error ? err.message : "AI estimate failed");
       toast.error(`AI: ${msg}`);
       console.error("calorie-estimate error:", errData ?? err);
     } finally {

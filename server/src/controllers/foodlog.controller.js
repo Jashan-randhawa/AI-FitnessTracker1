@@ -58,6 +58,13 @@ const findOne = asyncHandler(async (req, res) => {
 // PUT /api/foodlogs/:id
 const update = asyncHandler(async (req, res) => {
   const body = normalizeFoodPayload(req.body.data || req.body || {});
+  delete body.user;
+  delete body._id;
+  delete body.id;
+  delete body.createdAt;
+  delete body.updatedAt;
+  delete body.__v;
+
   const entry = await FoodLog.findOneAndUpdate({ _id: req.params.id, user: req.user._id }, body, {
     new: true,
     runValidators: true,

@@ -107,4 +107,22 @@ describe('offlineSyncQueue unit tests', () => {
     expect(count).toBe(0);
     expect(api.post).not.toHaveBeenCalled();
   });
+
+  it('removes invalid mutations on 4xx client errors (excluding 429) to prevent queue poisoning', async () => {
+    vi.mocked(api.post).mockRejectedValueOnce({
+      response: { status: 400, data: { error: 'Validation failed: calories must be positive' } },
+    });
+
+    const item = await enqueueOfflineMutation({
+      endpoint: '/api/foodlogs',
+      method: 'POST',
+      data: { name: 'Bad Food', calories: -100 },
+    });
+
+    const count = await replayOfflineQueue();
+    expect(count).toBe(0);
+
+    const remaining = await getOfflineQueue();
+    expect(remaining.some((q) => q.id === item.id)).toBe(false);
+  });
 });

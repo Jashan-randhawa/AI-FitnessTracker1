@@ -73,7 +73,7 @@ const publishChange = (userId, kind, date = null) => {
 const issueTicket = (userId) =>
   jwt.sign(
     { id: String(userId), purpose: 'sse', jti: crypto.randomUUID() },
-    process.env.JWT_SECRET,
+    process.env.JWT_SECRET || 'dev-insecure-secret-key-32chars!!',
     { expiresIn: TICKET_TTL_SECONDS }
   );
 
@@ -92,7 +92,7 @@ const consumeTicket = (ticket) => {
   if (typeof ticket !== 'string' || ticket.length === 0) {
     throw new Error('missing ticket');
   }
-  const decoded = jwt.verify(ticket, process.env.JWT_SECRET);
+  const decoded = jwt.verify(ticket, process.env.JWT_SECRET || 'dev-insecure-secret-key-32chars!!');
   if (decoded.purpose !== 'sse' || !decoded.jti || !decoded.id) {
     throw new Error('wrong ticket purpose');
   }

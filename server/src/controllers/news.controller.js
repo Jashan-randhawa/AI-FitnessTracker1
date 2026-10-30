@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const asyncHandler = require('express-async-handler');
 
 const NEWS_API_BASE = 'https://newsapi.org/v2';
@@ -44,7 +45,7 @@ const getHeadlines = asyncHandler(async (req, res) => {
     const articles = (data.articles ?? [])
       .filter((a) => a.title && a.title !== '[Removed]' && a.url)
       .map((a, idx) => ({
-        id: `${a.source?.id ?? 'src'}-${idx}-${Date.now()}`,
+        id: crypto.createHash('md5').update(a.url || a.title).digest('hex'),
         title: a.title,
         excerpt: a.description ?? '',
         content: a.content ?? a.description ?? '',

@@ -7,13 +7,11 @@ const {
   setActivePlan,
   deletePlan,
 } = require('../controllers/workoutPlan.controller');
-const { getRecommendations } = require('../controllers/workout.controller');
 
 const router = express.Router();
 
 router.use(protect);
 
-router.get('/recommendations', getRecommendations);
 router.get('/active', getActivePlan);
 router.route('/').get(getPlans).post(savePlan);
 router.put('/:id/active', setActivePlan);

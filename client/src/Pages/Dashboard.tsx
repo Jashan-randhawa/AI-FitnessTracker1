@@ -30,9 +30,9 @@ import {
 import { createHandoffState } from "../utils/handoff";
 
 // ── Helpers ────────────────────────────────────────────────
-const getLastSevenDays = (_refDate?: string) =>
+const getLastSevenDays = (refDate?: string) =>
   Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
+    const d = refDate ? new Date(refDate) : new Date();
     d.setDate(d.getDate() - (6 - i));
     return { dateStr: d.toDateString(), day: d.toLocaleDateString("en-US", { weekday: "short" }) };
   });

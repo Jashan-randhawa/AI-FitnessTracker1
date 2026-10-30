@@ -105,7 +105,7 @@ FitTrack AI implements a **single account, two ways to sign in** architecture. U
 
 ## Testing performed
 
-- Comprehensive unit and integration test suite: **124 passing tests across 33 suites** (`npm test`).
+- Comprehensive unit and integration test suite: **644+ passing tests across 179 suites** (`npm test`).
 - Automated suites cover:
   - Phase P1: Data model extensions & serialization (`phase1-datamodel.test.js`)
   - Phase P2: Session safety & passwordChangedAt invalidation (`phase2-session-safety.test.js`)

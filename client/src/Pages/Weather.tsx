@@ -297,7 +297,11 @@ async function fetchOpenMeteoWeather(
   if (!res.ok) throw new Error(`Open-Meteo: ${res.status}`);
   const data = await res.json();
 
-  const nowHourIndex: number = data.hourly.time.findIndex((t: string) => t === data.current.time) ?? 0;
+  const rawHourIdx = data.hourly?.time?.findIndex((t: string) => t === data.current.time);
+  const nowHourIndex: number =
+    rawHourIdx !== undefined && rawHourIdx >= 0
+      ? rawHourIdx
+      : Math.max(0, data.hourly?.time?.findIndex((t: string) => new Date(t) >= new Date()) ?? 0);
   const uvNow = data.hourly.uv_index?.[nowHourIndex] ?? 0;
   const visibilityKm = (data.current.visibility ?? data.hourly.visibility?.[nowHourIndex] ?? 10000) / 1000;
 
