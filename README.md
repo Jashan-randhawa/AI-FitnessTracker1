@@ -22,7 +22,9 @@
 ## ✨ Highlights
 
 - 🧠 **Context-Aware AI Coaching:** FitBot leverages server-built, privacy-scoped biometric context, multi-model failover (OpenRouter & Gemini 2.5), and Zod plan schemas.
+- 🤖 **Per-User Daily AI Budgets:** Server-enforced daily caps across FitBot, planners, Food Snap, and voice, with UTC-day ledger tracking, HTTP 429 backoff, and Prometheus metrics.
 - 📸 **Food Snap v2 Vision Engine:** Multimodal meal photo recognition with single-roundtrip auto-logging and automatic macronutrient breakdown.
+- 📶 **Offline Logging & Write Idempotency:** Queue water, weight, meals, and workout sets locally in IndexedDB; background FIFO replay with replay-safe idempotency and real-time sync status UI.
 - ⚡ **High-Performance Analytics:** $O(N)$ single-pass daily totals calculation, live midnight rollover hook, and real-time Server-Sent Events (SSE).
 - 🎙️ **Workout Studio & Voice Logging:** Hands-free speech-to-metrics set transcription, audio cues, rest timers, and exercise video streaming.
 - 🔐 **Hardened Security & Privacy:** Single-flight Refresh Token Rotation (RTR), CSRF/origin checks, rolling 5-password history, secret scrubber, and zero-leakage tarballs.
@@ -55,9 +57,13 @@ cp .env.example .env
 # Generate a secure JWT secret: openssl rand -base64 48
 # Edit .env to set your JWT_SECRET and MongoDB URI
 
+# Upgrading an existing deployment? Run the one-time idempotency index migration:
+node scripts/migrate-idempotency-index.js
+
 npm run dev
 ```
-> Server boots on `http://localhost:1337` and seeds initial blog posts automatically.
+> Server boots on `http://localhost:1337` and seeds initial blog posts automatically.  
+> AI budget and offline retention settings live in `server/.env.example` with defaults documented in [`docs/getting-started.md`](docs/getting-started.md) and [`docs/offline-sync.md`](docs/offline-sync.md).
 
 ### 3. Configure & Run Frontend Client
 
@@ -75,12 +81,12 @@ npm run dev
 ### 4. Run Automated Test Suite
 
 ```bash
-# Backend suite (661 tests via native Node runner)
+# Backend suite (778 tests across 220 suites via native Node runner)
 cd ../server
 npm test
 npm run test:smoke
 
-# Frontend suite (20 tests via Vitest)
+# Frontend suite (94 tests across 12 suites via Vitest)
 cd ../client
 npm test
 ```
@@ -98,6 +104,8 @@ Complete architecture blueprints, API schemas, and deployment guides are maintai
 - 🧪 [**Testing & CI/CD**](docs/testing.md) — Test breakdown, smoke testing, and GitHub Actions workflow specs.
 - 🚢 [**Deployment Guide**](docs/deployment.md) — Production hosting on Vercel, Render, Railway, Fly.io, and Atlas.
 - ✨ [**Features & Core Capabilities**](docs/features.md) — Deep dives into AI coaching, analytics, workout studio, and planners.
+- 📶 [**Offline Logging & Sync**](docs/offline-sync.md) — Offline queue engine, IndexedDB storage, write idempotency, and UI status indicator.
+- 📊 [**Prometheus Metrics & Alerting**](docs/monitoring-alerts.md) — Prometheus metrics dictionary, scrape configuration, and Grafana alerting rules.
 - 📦 [**Modular Packages Ecosystem**](docs/packages.md) — The 7 decoupled libraries published under `@jashan-randhawa/*`.
 - 📋 [**Release Changelog**](docs/changelog.md) — Version milestone history and platform evolution.
 - 🤝 [**Contributing Guidelines**](docs/contributing.md) — Coding conventions, git branch workflow, and PR standards.
