@@ -212,6 +212,39 @@ describe('AI Assistant Service Caching & Regenerate Logic', () => {
     assert.notEqual(key1, key2, 'Cache keys must differ when models differ');
     assert.notEqual(key1, key3, 'Cache keys must differ when maxTokens differ');
   });
+
+  it('clamps client maxTokens to prevent output inflation past server ceilings', async () => {
+    let capturedParams = null;
+    const fakeFetch = async (url, init) => {
+      capturedParams = JSON.parse(init.body);
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        text: async () =>
+          JSON.stringify({
+            choices: [{ message: { content: 'Capped reply' } }],
+            usage: { prompt_tokens: 5, completion_tokens: 5, total_tokens: 10 },
+          }),
+      };
+    };
+
+    const originalKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = 'test-key';
+
+    try {
+      await chatWithAssistant(
+        [{ role: 'user', content: 'Inflated query' }],
+        undefined,
+        { fetchFn: fakeFetch, maxTokens: 99999, skipCache: true }
+      );
+
+      assert.ok(capturedParams, 'Expected fetch to be called');
+      assert.equal(capturedParams.max_tokens, 2500, 'max_tokens must be clamped to DEFAULT_MAX_OUTPUT_TOKENS');
+    } finally {
+      process.env.OPENROUTER_API_KEY = originalKey;
+    }
+  });
 });
 
 describe('Phase 4: Concurrency Limit & Throttling Tests', () => {

@@ -14,6 +14,13 @@ const EnvSchema = z.object({
   GOOGLE_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   BREVO_API_KEY: z.string().optional(),
+  GEMINI_TIMEOUT_MS: z.any().optional(),
+  AI_DAILY_TOKEN_BUDGET: z.any().optional(),
+  AI_DAILY_CALL_BUDGET: z.any().optional(),
+  AI_FEATURE_BUDGETS: z.any().optional(),
+  AI_DAILY_BUDGET_ADMIN_MULTIPLIER: z.any().optional(),
+  AI_FALLBACK_COST_TOKENS: z.any().optional(),
+  AI_BUDGET_FAIL_MODE: z.any().optional(),
 });
 
 /**
@@ -77,6 +84,55 @@ const validateEnvironment = (rawEnv = process.env) => {
       if (rawEnv === process.env && !process.env.JWT_SECRET) {
         process.env.JWT_SECRET = 'dev-insecure-secret-key-32chars!!';
       }
+    }
+  }
+
+  // AI Daily Budget configuration validation (warnings only, never crashes boot)
+  if (rawEnv.GEMINI_TIMEOUT_MS !== undefined && rawEnv.GEMINI_TIMEOUT_MS !== '') {
+    const parsed = Number(rawEnv.GEMINI_TIMEOUT_MS);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      warnings.push(`GEMINI_TIMEOUT_MS should be a positive number; received "${rawEnv.GEMINI_TIMEOUT_MS}" (will fall back to default).`);
+    }
+  }
+
+  if (rawEnv.AI_DAILY_TOKEN_BUDGET !== undefined && rawEnv.AI_DAILY_TOKEN_BUDGET !== '') {
+    const parsed = Number(rawEnv.AI_DAILY_TOKEN_BUDGET);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      warnings.push(`AI_DAILY_TOKEN_BUDGET should be a positive number; received "${rawEnv.AI_DAILY_TOKEN_BUDGET}" (will fall back to default).`);
+    }
+  }
+
+  if (rawEnv.AI_DAILY_CALL_BUDGET !== undefined && rawEnv.AI_DAILY_CALL_BUDGET !== '') {
+    const parsed = Number(rawEnv.AI_DAILY_CALL_BUDGET);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      warnings.push(`AI_DAILY_CALL_BUDGET should be a positive number; received "${rawEnv.AI_DAILY_CALL_BUDGET}" (will fall back to default).`);
+    }
+  }
+
+  if (rawEnv.AI_DAILY_BUDGET_ADMIN_MULTIPLIER !== undefined && rawEnv.AI_DAILY_BUDGET_ADMIN_MULTIPLIER !== '') {
+    const parsed = Number(rawEnv.AI_DAILY_BUDGET_ADMIN_MULTIPLIER);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      warnings.push(`AI_DAILY_BUDGET_ADMIN_MULTIPLIER should be a positive number; received "${rawEnv.AI_DAILY_BUDGET_ADMIN_MULTIPLIER}" (will fall back to default).`);
+    }
+  }
+
+  if (rawEnv.AI_FEATURE_BUDGETS) {
+    try {
+      const parsed = typeof rawEnv.AI_FEATURE_BUDGETS === 'string'
+        ? JSON.parse(rawEnv.AI_FEATURE_BUDGETS)
+        : rawEnv.AI_FEATURE_BUDGETS;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        warnings.push('AI_FEATURE_BUDGETS should be a valid JSON object mapping feature keys to token limits.');
+      }
+    } catch (_err) {
+      warnings.push('AI_FEATURE_BUDGETS is not valid JSON; per-feature caps will be ignored.');
+    }
+  }
+
+  if (rawEnv.AI_BUDGET_FAIL_MODE !== undefined && rawEnv.AI_BUDGET_FAIL_MODE !== '') {
+    const mode = String(rawEnv.AI_BUDGET_FAIL_MODE).toLowerCase();
+    if (mode !== 'open' && mode !== 'closed') {
+      warnings.push(`AI_BUDGET_FAIL_MODE should be "open" or "closed"; received "${rawEnv.AI_BUDGET_FAIL_MODE}".`);
     }
   }
 

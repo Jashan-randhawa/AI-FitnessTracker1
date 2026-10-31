@@ -1,4 +1,4 @@
-const { chatCompletion } = require('./openrouter.service');
+const { chatCompletionDetailed } = require('./openrouter.service');
 const logger = require('../utils/logger');
 
 const SYSTEM_PROMPT = `You are a nutrition estimation assistant.
@@ -57,16 +57,17 @@ const parseResult = (raw, fallbackName) => {
  */
 const estimateFood = async (foodText) => {
   logger.info('[AI] Using OpenRouter for food estimate...');
-  const content = await chatCompletion({
+  const result = await chatCompletionDetailed({
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: `Food entry: ${foodText}` },
     ],
     title: 'FitTrack Food Estimate',
     maxTokens: 200,
+    returnUsage: true,
   });
 
-  return parseResult(content, foodText);
+  return parseResult(result.content, foodText);
 };
 
 module.exports = { estimateFood };

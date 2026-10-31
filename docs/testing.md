@@ -81,6 +81,10 @@ Current enforcement thresholds (configured in `server/package.json`):
 - **Nutrition & Calorie Estimation (`test/estimates.test.js`):** Input validation for duration, activity name, food items, and numeric boundaries.
 - **Password Reset (`test/passwordReset.test.js`):** Email format verification and non-string/missing payload handling.
 - **Workout Plans & ActivityLog Extensions (`test/workoutPlan.test.js`):** WorkoutPlan model initialization, additive ActivityLog schema fields (type, intensity, source, exercises with nested sets), and savePlan validation.
+- **Daily AI Budget Foundation (`test/aiBudget.test.js`):** `AiUsageDaily` compound indexing and TTL expiration, multi-provider token normalization (OpenRouter snake_case, Gemini usageMetadata, camelCase), cost estimation floors (`estimateCost`), UTC midnight rollover, fail-closed policy, and atomic upsert retry on race conditions.
+- **AI Budget Enforcement & Provider Metering (`test/aiBudgetEnforcement.test.js`):** Route-level pre-execution gate returning HTTP 429 (`AI_DAILY_BUDGET_EXCEEDED`), multi-attempt collection across retries and repair loops via `AsyncLocalStorage`, Gemini bounded timeouts with minimum charge, and zero-cost verification for cache hits and regex fallbacks.
+- **AI Budget Monitoring, Logs & Visibility (`test/aiBudgetMonitoring.test.js`):** Prometheus metrics exposition (`ai_requests_total`, `ai_tokens_total`, `ai_provider_calls_total`, latency histogram, missing usage counter), cheap zero-cardinality gauge updates (`ai_budget_users_status`), deduplicated 80%/100% structured logging, AuditLog persistence on initial block, `/api/ai/usage` data sanitization, and admin top-consumers keyset pagination.
+- **Client AI Quota Banner & States (`client/src/test/aiUsageBanner.test.tsx`):** FitBot interface banner rendering for 80% warning and 100% exhaustion with disabled textarea and submission button.
 
 ### Continuous Integration (GitHub Actions)
 The repository includes a GitHub Actions CI workflow ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) running on Node.js 22 with strict permissions:

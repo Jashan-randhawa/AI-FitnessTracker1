@@ -4,6 +4,61 @@ const ActivityLog = require('../models/ActivityLog');
 const WorkoutPlan = require('../models/WorkoutPlan');
 const { publishChange } = require('../services/eventBus');
 const { dayKey } = require('./localDay');
+const { recordProviderCall } = require('../middleware/aiBudget');
+const logger = require('./logger');
+
+const DEFAULT_GEMINI_TIMEOUT_MS = parseInt(process.env.GEMINI_TIMEOUT_MS, 10) || 20000;
+
+const createGeminiTimeoutError = (timeoutMs) => {
+  const err = new Error(`Gemini request timed out after ${timeoutMs}ms`);
+  err.name = 'TimeoutError';
+  err.code = 'ETIMEDOUT';
+  err.status = 504;
+  err.isTimeout = true;
+  return err;
+};
+
+const withGeminiTimeout = async (promiseFn, { timeoutMs = DEFAULT_GEMINI_TIMEOUT_MS, signal } = {}) => {
+  if (signal?.aborted) {
+    const err = new Error('Request aborted by client');
+    err.name = 'AbortError';
+    err.status = 499;
+    throw err;
+  }
+
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(createGeminiTimeoutError(timeoutMs));
+    }, timeoutMs);
+  });
+
+  const abortPromise = signal
+    ? new Promise((_, reject) => {
+        signal.addEventListener(
+          'abort',
+          () => {
+            const err = new Error('Request aborted by client');
+            err.name = 'AbortError';
+            err.status = 499;
+            reject(err);
+          },
+          { once: true }
+        );
+      })
+    : null;
+
+  try {
+    const promises = [promiseFn(), timeoutPromise];
+    if (abortPromise) promises.push(abortPromise);
+    const result = await Promise.race(promises);
+    clearTimeout(timer);
+    return result;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+};
 
 /**
  * Native Gemini responseSchema for deterministic JSON food analysis output.
@@ -370,10 +425,27 @@ const normalizeVisionOutput = (raw) => {
 /**
  * Analyzes a food image buffer using Gemini Vision with deterministic responseSchema.
  */
-const analyzeFoodImage = async (buffer, mimeType = 'image/jpeg') => {
+const analyzeFoodImage = async (buffer, mimeType = 'image/jpeg', options = {}) => {
+  const modelName = process.env.GEMINI_VISION_MODEL || 'gemini-2.5-flash';
   if (mockVisionHandler) {
-    const mockRaw = await mockVisionHandler(buffer, mimeType);
-    return normalizeVisionOutput(mockRaw);
+    try {
+      const mockRaw = await mockVisionHandler(buffer, mimeType);
+      recordProviderCall({
+        provider: 'gemini',
+        model: modelName,
+        usage: mockRaw?.usageMetadata || null,
+        status: 'success',
+      });
+      return normalizeVisionOutput(mockRaw);
+    } catch (err) {
+      recordProviderCall({
+        provider: 'gemini',
+        model: modelName,
+        status: err.isTimeout ? 'timeout' : 'failure',
+        timedOut: Boolean(err.isTimeout),
+      });
+      throw err;
+    }
   }
 
   const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
@@ -381,8 +453,8 @@ const analyzeFoodImage = async (buffer, mimeType = 'image/jpeg') => {
     throw new Error('Google Gemini API key not configured. Please set GOOGLE_API_KEY.');
   }
 
+  const timeoutMs = parseInt(process.env.GEMINI_TIMEOUT_MS, 10) || DEFAULT_GEMINI_TIMEOUT_MS;
   const genAI = new GoogleGenerativeAI(apiKey);
-  const modelName = process.env.GEMINI_VISION_MODEL || 'gemini-2.5-flash';
 
   const model = genAI.getGenerativeModel({
     model: modelName,
@@ -397,15 +469,41 @@ const analyzeFoodImage = async (buffer, mimeType = 'image/jpeg') => {
     'break down each detected food item with estimated portion weight in grams and confidence score (0.0 to 1.0), ' +
     'and provide an overall confidence score.';
 
-  const response = await model.generateContent([
-    {
-      inlineData: {
-        data: buffer.toString('base64'),
-        mimeType,
-      },
-    },
-    prompt,
-  ]);
+  let response;
+  try {
+    const callStart = Date.now();
+    response = await withGeminiTimeout(
+      () =>
+        model.generateContent([
+          {
+            inlineData: {
+              data: buffer.toString('base64'),
+              mimeType,
+            },
+          },
+          prompt,
+        ]),
+      { timeoutMs, signal: options?.signal }
+    );
+    const latencyMs = Date.now() - callStart;
+
+    const usageMetadata = response?.response?.usageMetadata || null;
+    recordProviderCall({
+      provider: 'gemini',
+      model: modelName,
+      usage: usageMetadata,
+      status: 'success',
+      latencyMs,
+    });
+  } catch (err) {
+    recordProviderCall({
+      provider: 'gemini',
+      model: modelName,
+      status: err.isTimeout ? 'timeout' : 'failure',
+      timedOut: Boolean(err.isTimeout),
+    });
+    throw err;
+  }
 
   const text = response.response.text();
   let parsed;
@@ -698,13 +796,29 @@ const runFitBotAgentSession = async ({
   const fullSystemInstruction = `${systemPrompt || 'You are FitBot, an encouraging and expert AI fitness and nutrition coach.'}${statusBlock}`;
 
   if (mockFitBotHandler) {
-    const mockRes = await mockFitBotHandler({
-      messages: boundedMessages,
-      user,
-      systemInstruction: fullSystemInstruction,
-      todayStatus,
-    });
-    return mockRes;
+    try {
+      const mockRes = await mockFitBotHandler({
+        messages: boundedMessages,
+        user,
+        systemInstruction: fullSystemInstruction,
+        todayStatus,
+      });
+      recordProviderCall({
+        provider: 'gemini',
+        model: mockRes?.model || process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash',
+        usage: mockRes?.usage || mockRes?.usageMetadata || null,
+        status: 'success',
+      });
+      return mockRes;
+    } catch (err) {
+      recordProviderCall({
+        provider: 'gemini',
+        model: process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash',
+        status: err.isTimeout ? 'timeout' : 'failure',
+        timedOut: Boolean(err.isTimeout),
+      });
+      throw err;
+    }
   }
 
   const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
@@ -757,8 +871,35 @@ const runFitBotAgentSession = async ({
     history: geminiHistory,
   });
 
-  const response = await chat.sendMessage(lastMsgText);
+  const timeoutMs = parseInt(process.env.GEMINI_TIMEOUT_MS, 10) || DEFAULT_GEMINI_TIMEOUT_MS;
+  let response;
+  const turn1Start = Date.now();
+  try {
+    response = await withGeminiTimeout(
+      () => chat.sendMessage(lastMsgText),
+      { timeoutMs, signal: options?.signal }
+    );
+  } catch (err) {
+    recordProviderCall({
+      provider: 'gemini',
+      model: modelName,
+      status: err.isTimeout ? 'timeout' : 'failure',
+      timedOut: Boolean(err.isTimeout),
+      attempt: 1,
+      latencyMs: Date.now() - turn1Start,
+    });
+    throw err;
+  }
+
   const candidate = response.response;
+  recordProviderCall({
+    provider: 'gemini',
+    model: modelName,
+    usage: candidate.usageMetadata || null,
+    status: 'success',
+    attempt: 1,
+    latencyMs: Date.now() - turn1Start,
+  });
 
   // Check if Gemini invoked any function calls
   const functionCalls = candidate.functionCalls ? candidate.functionCalls() : [];
@@ -779,21 +920,71 @@ const runFitBotAgentSession = async ({
     }
 
     // Feed function responses back to Gemini to generate natural confirmation message
-    const followUp = await chat.sendMessage(functionResponses);
+    let followUp;
+    const turn2Start = Date.now();
+    try {
+      followUp = await withGeminiTimeout(
+        () => chat.sendMessage(functionResponses),
+        { timeoutMs, signal: options?.signal }
+      );
+    } catch (err) {
+      recordProviderCall({
+        provider: 'gemini',
+        model: modelName,
+        status: err.isTimeout ? 'timeout' : 'failure',
+        timedOut: Boolean(err.isTimeout),
+        attempt: 2,
+        latencyMs: Date.now() - turn2Start,
+      });
+      throw err;
+    }
+
+    recordProviderCall({
+      provider: 'gemini',
+      model: modelName,
+      usage: followUp.response?.usageMetadata || null,
+      status: 'success',
+      attempt: 2,
+      latencyMs: Date.now() - turn2Start,
+    });
+
     const reply = followUp.response.text();
+
+    const pTokens = (candidate.usageMetadata?.promptTokenCount || 0) + (followUp.response?.usageMetadata?.promptTokenCount || 0);
+    const cTokens = (candidate.usageMetadata?.candidatesTokenCount || 0) + (followUp.response?.usageMetadata?.candidatesTokenCount || 0);
+    const tTokens = (candidate.usageMetadata?.totalTokenCount || 0) + (followUp.response?.usageMetadata?.totalTokenCount || 0);
+
+    const usage = tTokens > 0 ? {
+      promptTokens: pTokens,
+      completionTokens: cTokens,
+      totalTokens: tTokens,
+      tokens: tTokens,
+    } : null;
 
     return {
       reply,
       executedActions,
       model: modelName,
+      usage,
     };
   }
 
-  // Standard text response without tool calls
+  const pTokens = candidate.usageMetadata?.promptTokenCount || 0;
+  const cTokens = candidate.usageMetadata?.candidatesTokenCount || 0;
+  const tTokens = candidate.usageMetadata?.totalTokenCount || 0;
+
+  const usage = tTokens > 0 ? {
+    promptTokens: pTokens,
+    completionTokens: cTokens,
+    totalTokens: tTokens,
+    tokens: tTokens,
+  } : null;
+
   return {
     reply: candidate.text(),
     executedActions: [],
     model: modelName,
+    usage,
   };
 };
 
@@ -872,9 +1063,30 @@ const parseVoiceSetRegex = (text) => {
  * Parses natural gym speech (or audio buffer) into a structured workout set log
  * using Gemini Flash responseSchema or deterministic regex fallback.
  */
-const parseVoiceGymSet = async ({ speechText, audioBuffer, mimeType = 'audio/webm' }) => {
+const parseVoiceGymSet = async ({ speechText, audioBuffer, mimeType = 'audio/webm', signal }) => {
+  const modelName = process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash';
   if (mockVoiceSetHandler) {
-    return mockVoiceSetHandler({ speechText, audioBuffer, mimeType });
+    try {
+      const mockRes = await mockVoiceSetHandler({ speechText, audioBuffer, mimeType });
+      recordProviderCall({
+        provider: 'gemini',
+        model: modelName,
+        usage: mockRes?.usageMetadata || null,
+        status: 'success',
+      });
+      return mockRes;
+    } catch (err) {
+      recordProviderCall({
+        provider: 'gemini',
+        model: modelName,
+        status: err.isTimeout ? 'timeout' : 'failure',
+        timedOut: Boolean(err.isTimeout),
+      });
+      if (speechText) {
+        return parseVoiceSetRegex(speechText);
+      }
+      throw err;
+    }
   }
 
   const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
@@ -885,9 +1097,10 @@ const parseVoiceGymSet = async ({ speechText, audioBuffer, mimeType = 'audio/web
     throw new Error('Google Gemini API key not configured for audio transcription');
   }
 
+  const timeoutMs = parseInt(process.env.GEMINI_TIMEOUT_MS, 10) || DEFAULT_GEMINI_TIMEOUT_MS;
+
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash';
     const model = genAI.getGenerativeModel({
       model: modelName,
       generationConfig: {
@@ -913,7 +1126,22 @@ const parseVoiceGymSet = async ({ speechText, audioBuffer, mimeType = 'audio/web
       throw new Error('Either speechText or audioBuffer must be provided');
     }
 
-    const result = await model.generateContent(promptParts);
+    const callStart = Date.now();
+    const result = await withGeminiTimeout(
+      () => model.generateContent(promptParts),
+      { timeoutMs, signal }
+    );
+    const latencyMs = Date.now() - callStart;
+
+    const usageMetadata = result.response?.usageMetadata || null;
+    recordProviderCall({
+      provider: 'gemini',
+      model: modelName,
+      usage: usageMetadata,
+      status: 'success',
+      latencyMs,
+    });
+
     const text = result.response.text();
     const parsed = JSON.parse(text);
 
@@ -925,6 +1153,12 @@ const parseVoiceGymSet = async ({ speechText, audioBuffer, mimeType = 'audio/web
       startRestTimer: true,
     };
   } catch (err) {
+    recordProviderCall({
+      provider: 'gemini',
+      model: modelName,
+      status: err.isTimeout ? 'timeout' : 'failure',
+      timedOut: Boolean(err.isTimeout),
+    });
     logger.warn(`[Gemini Voice] Model error: ${err.message}; falling back to regex parser...`);
     if (speechText) {
       return parseVoiceSetRegex(speechText);

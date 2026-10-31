@@ -22,6 +22,18 @@ class MetricsRegistry {
     this.register('password_reset_email_failures_total', 'counter', 'Total email dispatch failures by failure reason');
     this.register('password_reset_email_duration_seconds', 'histogram', 'Email dispatch duration in seconds', [0.1, 0.25, 0.5, 1, 2.5, 5, 10]);
     this.register('email_webhook_events_total', 'counter', 'Total Brevo webhook delivery events ingested');
+
+    // AI Budget & Provider Observability Metrics
+    this.register('ai_requests_total', 'counter', 'Total AI requests initiated by feature and outcome');
+    this.register('ai_tokens_total', 'counter', 'Total AI tokens processed by feature, provider, token type, and estimation status');
+    this.register('ai_provider_calls_total', 'counter', 'Total backend AI provider invocations by provider, model, and status');
+    this.register('ai_provider_latency_seconds', 'histogram', 'AI provider invocation latency in seconds', [1, 2.5, 5, 10, 15, 20, 30]);
+    this.register('ai_usage_missing_total', 'counter', 'Total AI provider responses where token usage metadata was omitted');
+    this.register('ai_budget_exhausted_total', 'counter', 'Total daily AI budget rejections by feature');
+    this.register('ai_budget_store_errors_total', 'counter', 'Total errors communicating with the daily budget storage layer');
+    this.register('ai_budget_users_status', 'gauge', 'Count of unique users currently near or exceeding daily AI budget');
+    this.register('ai_users_near_budget', 'gauge', 'Count of unique users currently at or above 80% of daily AI budget');
+    this.register('ai_users_over_budget', 'gauge', 'Count of unique users currently at or above 100% of daily AI budget');
   }
 
   register(name, type, help, buckets = [0.1, 0.5, 1, 2.5, 5, 10]) {

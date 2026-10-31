@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const { protect } = require('../middleware/auth');
+const { enforceAiBudget } = require('../middleware/aiBudget');
 const {
   getRecommendations,
   parseVoiceSet,
@@ -17,6 +18,6 @@ const router = express.Router();
 router.use(protect);
 
 router.get('/recommendations', getRecommendations);
-router.post('/parse-voice-set', audioUpload.single('audio'), parseVoiceSet);
+router.post('/parse-voice-set', audioUpload.single('audio'), enforceAiBudget('voice_set'), parseVoiceSet);
 
 module.exports = router;

@@ -144,6 +144,15 @@ const logger = {
     success = true,
     error,
   }) => {
+    const rawPrompt = usage?.prompt_tokens ?? usage?.promptTokens;
+    const rawCompletion = usage?.completion_tokens ?? usage?.completionTokens;
+    const rawTotal = usage?.total_tokens ?? usage?.totalTokens ?? usage?.tokens;
+
+    const promptTokens = typeof rawPrompt === 'number' && Number.isFinite(rawPrompt) ? rawPrompt : null;
+    const completionTokens = typeof rawCompletion === 'number' && Number.isFinite(rawCompletion) ? rawCompletion : null;
+    const totalTokens = typeof rawTotal === 'number' && Number.isFinite(rawTotal) ? rawTotal : null;
+    const usageEstimated = Boolean(usage?.estimated || (totalTokens === null && success));
+
     logger.info('ai_assistant_request_completed', {
       type: 'ai_metrics',
       requestId,
@@ -152,9 +161,10 @@ const logger = {
       inputChars,
       model,
       latencyMs,
-      promptTokens: usage.prompt_tokens ?? usage.promptTokens ?? 0,
-      completionTokens: usage.completion_tokens ?? usage.completionTokens ?? 0,
-      totalTokens: usage.total_tokens ?? usage.totalTokens ?? 0,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      usageEstimated,
       httpStatus: status,
       success,
       ...(error ? { error: error.message || String(error) } : {}),

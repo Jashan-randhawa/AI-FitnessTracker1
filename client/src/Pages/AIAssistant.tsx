@@ -104,6 +104,51 @@ export default function AIAssistant() {
 
   const [messages, setMessages] = useState<Message[]>([]);
 
+  const [aiUsage, setAiUsage] = useState<{
+    percentUsed: number;
+    isExhausted: boolean;
+    remainingTokens: number;
+    remainingCalls: number;
+    resetAt: string;
+  } | null>(null);
+
+  const refreshAiUsage = useCallback(() => {
+    api
+      .get("/api/ai/usage")
+      .then((res) => {
+        if (!res.data) return;
+        setAiUsage({
+          percentUsed: res.data.percentUsed ?? 0,
+          isExhausted: Boolean(res.data.isExhausted),
+          remainingTokens: res.data.remainingTokens ?? 0,
+          remainingCalls: res.data.remainingCalls ?? 0,
+          resetAt: res.data.resetAt ?? "",
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    api
+      .get("/api/ai/usage")
+      .then((res) => {
+        if (!isMounted || !res.data) return;
+        setAiUsage({
+          percentUsed: res.data.percentUsed ?? 0,
+          isExhausted: Boolean(res.data.isExhausted),
+          remainingTokens: res.data.remainingTokens ?? 0,
+          remainingCalls: res.data.remainingCalls ?? 0,
+          resetAt: res.data.resetAt ?? "",
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleOpenPlanConfirm = useCallback((title: string, markdown: string) => {
     const days = parseMarkdownIntoWorkoutDays(markdown);
     const result = buildWorkoutPlanActionPayload(title, days, {
@@ -1340,17 +1385,63 @@ export default function AIAssistant() {
       {/* Chat Input Section */}
       <div className={`${cardCls} px-2.5 py-2 sm:px-4 sm:py-2.5 shrink-0 border-t shadow-sm sticky bottom-0 z-30 lg:safe-area-pb bg-white/95 dark:bg-slate-900/95 backdrop-blur-md`}>
         <div className="max-w-2xl mx-auto">
+          {/* AI Daily Budget Banner */}
+          {aiUsage?.isExhausted ? (
+            <div
+              role="alert"
+              aria-live="polite"
+              data-testid="ai-budget-exhausted-banner"
+              className="mb-2 p-2.5 sm:p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 flex items-center justify-between text-xs"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base" aria-hidden="true">⏳</span>
+                <div>
+                  <span className="font-semibold">Daily AI budget reached:</span>{" "}
+                  <span>
+                    You have reached your daily AI usage limit. Quota resets at{" "}
+                    {aiUsage.resetAt ? formatTime(new Date(aiUsage.resetAt)) : "midnight UTC"}.
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : aiUsage && aiUsage.percentUsed >= 80 ? (
+            <div
+              role="status"
+              aria-live="polite"
+              data-testid="ai-budget-warning-banner"
+              className="mb-2 p-2 sm:p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 flex items-center justify-between text-xs"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm" aria-hidden="true">⚠️</span>
+                <div>
+                  <span className="font-semibold">AI usage today:</span>{" "}
+                  <span>
+                    {aiUsage.percentUsed}% used ({aiUsage.remainingTokens.toLocaleString()} tokens remaining). Resets at{" "}
+                    {aiUsage.resetAt ? formatTime(new Date(aiUsage.resetAt)) : "midnight UTC"}.
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex gap-1.5 sm:gap-2.5 items-end">
             <textarea
               ref={inputRef}
               value={input}
+              disabled={Boolean(aiUsage?.isExhausted)}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               onFocus={() => {
                 isNearBottomRef.current = true;
                 setTimeout(() => scrollToBottom(true), 150);
               }}
-              placeholder={isListening ? "Listening… speak now" : ""}
+              placeholder={
+                aiUsage?.isExhausted
+                  ? "Daily AI quota reached. Resets at midnight UTC."
+                  : isListening
+                    ? "Listening… speak now"
+                    : ""
+              }
               rows={1}
               className={`chat-input-scrollable flex-1 resize-none bg-slate-100 dark:bg-slate-700/60 border rounded-xl px-3 py-2 text-[16px] sm:text-sm text-gray-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all leading-snug ${
                 isListening
@@ -1368,14 +1459,15 @@ export default function AIAssistant() {
               <motion.button
                 whileTap={{ scale: 0.90 }}
                 onClick={toggleListening}
+                disabled={Boolean(aiUsage?.isExhausted)}
                 type="button"
                 className={`shrink-0 w-9 h-9 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors cursor-pointer border ${
                   isListening
                     ? "bg-rose-500 text-white border-rose-600 animate-pulse shadow-md"
-                    : "bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:text-emerald-500"
+                    : "bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:text-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"
                 }`}
-                title={isListening ? "Stop listening" : "Speak to FitBot"}
-                aria-label={isListening ? "Stop listening" : "Speak to FitBot"}
+                title={aiUsage?.isExhausted ? "Daily AI budget exceeded" : (isListening ? "Stop listening" : "Speak to FitBot")}
+                aria-label={aiUsage?.isExhausted ? "Daily AI budget exceeded" : (isListening ? "Stop listening" : "Speak to FitBot")}
               >
                 {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </motion.button>
@@ -1396,11 +1488,14 @@ export default function AIAssistant() {
             ) : (
               <motion.button
                 whileTap={{ scale: 0.90 }}
-                onClick={() => sendMessage(input)}
-                disabled={!input.trim()}
+                onClick={() => {
+                  sendMessage(input);
+                  refreshAiUsage();
+                }}
+                disabled={Boolean(aiUsage?.isExhausted) || !input.trim()}
                 className="shrink-0 w-9 h-9 sm:w-9 sm:h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center text-white transition-colors cursor-pointer shadow-xs"
-                title="Send message"
-                aria-label="Send message"
+                title={aiUsage?.isExhausted ? "Daily AI budget exceeded" : "Send message"}
+                aria-label={aiUsage?.isExhausted ? "Daily AI budget exceeded" : "Send message"}
               >
                 <Send className="w-4 h-4" />
               </motion.button>

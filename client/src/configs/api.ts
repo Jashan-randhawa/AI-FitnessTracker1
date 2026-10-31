@@ -70,14 +70,41 @@ interface RetriableConfig extends InternalAxiosRequestConfig {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    // Phase 5: Friendly cooldown toast on HTTP 429 AI rate limit
+    // HTTP 429: AI rate limit or daily AI budget exceeded
     if (error.response?.status === 429) {
+      const errData = error.response.data;
+      const isDailyBudget =
+        errData?.error?.code === "AI_DAILY_BUDGET_EXCEEDED" ||
+        errData?.code === "AI_DAILY_BUDGET_EXCEEDED";
+
+      if (isDailyBudget) {
+        const resetAtRaw = errData?.error?.resetAt || errData?.resetAt;
+        let formattedTime = "midnight UTC";
+        if (resetAtRaw) {
+          try {
+            const date = new Date(resetAtRaw);
+            formattedTime = date.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZoneName: "short",
+            });
+          } catch {
+            formattedTime = "midnight UTC";
+          }
+        }
+        toast.error(`Daily AI limit reached: resets at ${formattedTime} ⏳`, {
+          id: "ai-daily-budget-limit",
+        });
+        return Promise.reject(error);
+      }
+
       const retryAfter = error.response.data?.retryAfterSeconds || 60;
       const minutes = Math.ceil(retryAfter / 60);
       toast.error(
         `AI Rate limit reached: please cooldown for ${minutes} minute${minutes > 1 ? "s" : ""} ⏳`,
         { id: "ai-rate-limit" }
       );
+      return Promise.reject(error);
     }
 
     const config = error.config as RetriableConfig | undefined;

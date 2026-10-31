@@ -54,7 +54,30 @@ graph TD
 - **Caching & Rate Limiting:** ioredis 6.0.0 with automatic in-memory fallback
 - **Logging & Tracing:** Structured JSON Logger (`LOG_LEVEL`), automated secret scrubber (passwords, tokens, API keys), request ID correlation middleware (`X-Request-Id`), and HTTP access logging
 - **Health & Monitoring:** Production uptime monitoring endpoint (`GET /api/health`) with live MongoDB connection state inspection
+- **Per-User Daily AI Budgets & Metering:** Request-scoped `AsyncLocalStorage` collector tracking token usage across retries, fallbacks, and repair attempts, flushing into an atomic Mongoose daily ledger (`AiUsageDaily`) on response completion.
 - **External Providers:** Google Gemini API (`@google/generative-ai` 0.24.1 for Food Snap vision and voice set logging), OpenRouter (GPT-4o-mini & fallback models), Brevo HTTP API (transactional email), NewsAPI, RapidAPI
+
+### 📊 Daily AI Budget & Usage Metering Architecture
+
+```mermaid
+flowchart TD
+    Req["Incoming AI Request\n(/api/ai/*)"] --> Auth["Auth & Rate Limiting\n(protect + rateLimiter)"]
+    Auth --> BudgetMW["enforceAiBudget Middleware\n(Read-Only checkBudget Gate)"]
+    
+    BudgetMW -->|Exhausted| Reject["HTTP 429 Too Many Requests\n(AI_DAILY_BUDGET_EXCEEDED)\nNo Provider Call"]
+    
+    BudgetMW -->|Quota Available| ALS["AsyncLocalStorage Context\n(Open Request Collector)"]
+    ALS --> Dispatch["Call Upstream Provider\n(OpenRouter / Gemini)"]
+    
+    Dispatch -->|Turn 1 / Retries / Fallbacks| Record["recordProviderCall\n(Collect In-Memory Attempts)"]
+    Record -.->|Missing Usage| Est["estimateCost\n(Conservative Fallback Floor)"]
+    
+    Dispatch --> ResSent["Response Sent to Client\n(Headers: X-AI-Budget-*)"]
+    ResSent --> Flush["res.once('finish' / 'close')\nFlush Collector to Ledger"]
+    
+    Flush --> Ledger[("AiUsageDaily Ledger\n(Atomic $inc + E11000 Retry)")]
+    Ledger --> Metrics["Prometheus Metrics & Alerts\n(ai_tokens_total, etc.)"]
+```
 
 ---
 

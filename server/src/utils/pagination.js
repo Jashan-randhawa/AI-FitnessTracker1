@@ -18,15 +18,32 @@ const CURSOR_SEPARATOR = '|';
 
 const INVALID = Symbol('invalid');
 
-const encodeCursor = (sortValue, id) =>
-  Buffer.from(`${new Date(sortValue).toISOString()}${CURSOR_SEPARATOR}${String(id)}`).toString('base64url');
+const encodeCursor = (sortValue, id) => {
+  const serialized =
+    typeof sortValue === 'number'
+      ? `num:${sortValue}`
+      : sortValue instanceof Date
+        ? sortValue.toISOString()
+        : !Number.isNaN(new Date(sortValue).getTime())
+          ? new Date(sortValue).toISOString()
+          : String(sortValue);
+  return Buffer.from(`${serialized}${CURSOR_SEPARATOR}${String(id)}`).toString('base64url');
+};
 
 const decodeCursor = (raw) => {
   const text = Buffer.from(String(raw), 'base64url').toString('utf8');
-  const [iso, id] = text.split(CURSOR_SEPARATOR);
-  const date = new Date(iso);
-  if (!id || Number.isNaN(date.getTime()) || !mongoose.isValidObjectId(id)) return INVALID;
-  return { date, id };
+  const [val, id] = text.split(CURSOR_SEPARATOR);
+  if (!id || !mongoose.isValidObjectId(id)) return INVALID;
+
+  if (val.startsWith('num:')) {
+    const num = Number(val.slice(4));
+    if (!Number.isFinite(num)) return INVALID;
+    return { value: num, id };
+  }
+
+  const date = new Date(val);
+  if (Number.isNaN(date.getTime())) return INVALID;
+  return { date, value: date, id };
 };
 
 /**
@@ -54,17 +71,18 @@ const parsePageParams = (query = {}) => {
  * Runs a paginated, newest-first query.
  * @param {import('mongoose').Model} Model
  * @param {object} filter Base filter (e.g. { user })
- * @param {{ field: string, limit: number|null, cursor: object|null }} opts
+ * @param {{ field: string, limit: number|null, cursor: object|null, populate?: any }} opts
  * @returns {Promise<{ docs: object[], nextCursor: string|null }>}
  */
-const findPage = async (Model, filter, { field, limit, cursor }) => {
+const findPage = async (Model, filter, { field, limit, cursor, populate }) => {
   let scoped = filter;
   if (cursor) {
+    const compareVal = cursor.value !== undefined ? cursor.value : cursor.date;
     scoped = {
       ...filter,
       $or: [
-        { [field]: { $lt: cursor.date } },
-        { [field]: cursor.date, _id: { $lt: cursor.id } },
+        { [field]: { $lt: compareVal } },
+        { [field]: compareVal, _id: { $lt: cursor.id } },
       ],
     };
   }
@@ -72,12 +90,16 @@ const findPage = async (Model, filter, { field, limit, cursor }) => {
   const sort = { [field]: -1, _id: -1 };
 
   if (limit === null) {
-    const docs = await Model.find(scoped).sort(sort);
+    let query = Model.find(scoped).sort(sort);
+    if (populate) query = query.populate(populate);
+    const docs = await query;
     return { docs, nextCursor: null };
   }
 
   // Fetch one extra document to know whether another page exists.
-  const fetched = await Model.find(scoped).sort(sort).limit(limit + 1);
+  let query = Model.find(scoped).sort(sort).limit(limit + 1);
+  if (populate) query = query.populate(populate);
+  const fetched = await query;
   const hasMore = fetched.length > limit;
   const docs = hasMore ? fetched.slice(0, limit) : fetched;
   const last = docs[docs.length - 1];

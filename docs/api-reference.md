@@ -119,12 +119,51 @@ All requests requiring authorization must include the header:
 ### Generative AI & Media
 | Method | Endpoint | Description | Rate Limit | Access |
 |---|---|---|---|---|
+| `GET` | `/api/ai/usage` | Fetch current user's daily AI budget status (tokens and calls used/remaining, per-feature breakdown, resetAt) | — | Private |
+| `GET` | `/api/ai/admin/top-consumers` | List top token consumers for a given UTC day with keyset pagination (`?day=YYYY-MM-DD&limit=&cursor=`) | — | Admin Only (`isAdmin: true`) |
 | `POST` | `/api/ai-assistant/chat` | Send message to FitBot Coach or run a planner (server-built context from `X-Timezone`; model fallback & retry) | 30 req/m (IP) + 20 req/m (User) | Private |
 | `POST` | `/api/ai/chat` | Playbook alias for `/api/ai-assistant/chat` | 30 req/m (IP) + 20 req/m (User) | Private |
 | `POST` | `/api/image-analysis` | Analyze meal photo for nutrition (multimodal Food Snap) | 10 req / 1h + 30 req / 1m | Private |
 | `POST` | `/api/food-estimate` | Natural language text nutrition estimator | 30 req / 1m | Private |
 | `POST` | `/api/calorie-estimate` | Estimate calories burned from exercise | 30 req / 1m | Private |
 | `GET` | `/api/youtube/search` | Search workout videos via RapidAPI proxy (24h TTL cache) | 30 req / 1m | Private |
+
+#### ⏱️ Per-User Daily AI Budgets & Rate Limit Response Contract
+All AI endpoints enforce per-user daily token and call ceilings. Budget evaluation occurs **before** dispatching calls to external providers (Gemini or OpenRouter).
+
+##### Successful Requests
+Successful responses from any AI route return standard remaining quota headers:
+- `X-AI-Budget-Remaining-Tokens`: Integer remaining tokens for the current UTC day.
+- `X-AI-Budget-Remaining-Calls`: Integer remaining calls for the current UTC day.
+- `X-AI-Budget-Reset`: ISO timestamp of next UTC midnight rollover (e.g. `2026-11-01T00:00:00.000Z`).
+
+##### Quota Rejection (`HTTP 429 Too Many Requests`)
+When a user's daily token, call, or feature quota is exhausted:
+- **Status**: `429 Too Many Requests`
+- **Headers**:
+  - `Retry-After`: Integer seconds until next UTC midnight reset.
+  - `X-RateLimit-Reset`: ISO timestamp of next UTC midnight.
+  - `X-AI-Budget-Remaining-Tokens`: `0`
+  - `X-AI-Budget-Remaining-Calls`: `0` (or remaining count)
+- **JSON Body Contract**:
+  ```json
+  {
+    "message": "Daily AI budget exceeded (TOKEN_BUDGET_EXCEEDED). Your budget will reset at midnight UTC.",
+    "retryAfterSeconds": 41250,
+    "remainingTokens": 0,
+    "remainingCalls": 85,
+    "resetAt": "2026-11-01T00:00:00.000Z",
+    "error": {
+      "message": "Daily AI budget exceeded (TOKEN_BUDGET_EXCEEDED). Your budget will reset at midnight UTC.",
+      "code": "AI_DAILY_BUDGET_EXCEEDED",
+      "retryAfterSeconds": 41250,
+      "remainingTokens": 0,
+      "remainingCalls": 85,
+      "reason": "TOKEN_BUDGET_EXCEEDED",
+      "resetAt": "2026-11-01T00:00:00.000Z"
+    }
+  }
+  ```
 
 #### 📸 Food Snap Image Ingestion & Validation (`POST /api/image-analysis`)
 - **Transport**: Ingested via `multipart/form-data` (form field: `image`) streamed directly into in-memory buffer via Multer. (Fallback JSON payload with `{ image: "<base64>" }` is supported with pre-decode length checks).

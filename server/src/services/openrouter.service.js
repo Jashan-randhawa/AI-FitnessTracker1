@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const { recordProviderCall } = require('../middleware/aiBudget');
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -269,6 +270,7 @@ const callWithRetry = async ({
   maxRetries,
   signal,
   fetchFn,
+  isFallback = false,
 }) => {
   let lastError = null;
 
@@ -278,6 +280,7 @@ const callWithRetry = async ({
       throw createClientAbortError(signal.reason);
     }
 
+    const callStart = Date.now();
     const result = await attemptRequest({
       messages,
       title,
@@ -288,10 +291,20 @@ const callWithRetry = async ({
       signal,
       fetchFn,
     });
+    const latencyMs = Date.now() - callStart;
 
     if (result.ok && result.data) {
       try {
         const validatedContent = extractAndValidateContent(result.data);
+        recordProviderCall({
+          provider: 'openrouter',
+          model,
+          usage: result.data.usage || null,
+          status: 'success',
+          attempt: attempt + 1,
+          latencyMs,
+          isFallback,
+        });
         return {
           data: result.data,
           content: validatedContent,
@@ -300,12 +313,33 @@ const callWithRetry = async ({
         };
       } catch (validationErr) {
         lastError = validationErr;
+        recordProviderCall({
+          provider: 'openrouter',
+          model,
+          usage: result.data?.usage || null,
+          status: 'failure',
+          attempt: attempt + 1,
+          latencyMs,
+          isFallback,
+        });
         // Do not retry empty or malformed model responses on the same model if retries exhausted
         if (attempt >= maxRetries) {
           throw validationErr;
         }
       }
     } else {
+      const isTimeout = Boolean(result.error?.isTimeout || result.status === 504);
+      recordProviderCall({
+        provider: 'openrouter',
+        model,
+        usage: result.data?.usage || null,
+        status: isTimeout ? 'timeout' : 'failure',
+        timedOut: isTimeout,
+        attempt: attempt + 1,
+        latencyMs,
+        isFallback,
+      });
+
       const currentError =
         result.error ||
         new Error(`OpenRouter HTTP ${result.status}: ${result.responseText?.slice(0, 300) || 'Unknown error'}`);
@@ -417,6 +451,7 @@ const chatCompletionDetailed = async ({
         maxRetries: MAX_FALLBACK_RETRIES,
         signal,
         fetchFn,
+        isFallback: true,
       });
       totalAttempts += finalResult.attempts;
     } catch (fallbackErr) {

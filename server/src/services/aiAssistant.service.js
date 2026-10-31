@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { chatCompletionDetailed, DEFAULT_MODEL } = require('./openrouter.service');
+const { chatCompletionDetailed, DEFAULT_MODEL, DEFAULT_FALLBACK_MODEL } = require('./openrouter.service');
 const { buildFitBotPrompt, PROMPT_VERSION } = require('../prompts/fitbot.prompt');
 const {
   safeParseMealPlan,
@@ -196,7 +196,7 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
       return {
         reply: agentRes.reply,
         executedActions: agentRes.executedActions || [],
-        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        usage: agentRes.usage || null,
         model: agentRes.model || 'gemini-2.5-flash',
         cached: false,
       };
@@ -218,8 +218,11 @@ const chatWithAssistant = async (messages, userContext, options = {}) => {
     }
   }
 
-  // Determine token ceiling based on request type
-  const maxTokens = isJsonRequest ? 4000 : (options.maxTokens || DEFAULT_MAX_OUTPUT_TOKENS);
+  // Determine token ceiling based on request type and clamp to prevent output inflation
+  const tokenCeiling = isJsonRequest ? 4000 : DEFAULT_MAX_OUTPUT_TOKENS;
+  const maxTokens = options.maxTokens
+    ? Math.min(options.maxTokens, tokenCeiling)
+    : tokenCeiling;
   const targetModel = options.model || DEFAULT_MODEL;
 
   const skipCache = Boolean(options.skipCache || options.regenerate);

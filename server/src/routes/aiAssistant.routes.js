@@ -1,13 +1,23 @@
 const express = require('express');
-const { protect } = require('../middleware/auth');
+const { protect, requireAdmin } = require('../middleware/auth');
 const { aiLimiter, aiUserLimiter } = require('../middleware/rateLimiter');
 const { fitbotRateLimiter } = require('../middleware/aiRateLimiter');
 const { validateChatPayload } = require('../middleware/aiValidation');
+const { enforceAiBudget, resolveChatFeature } = require('../middleware/aiBudget');
 const { chat } = require('../controllers/aiAssistant.controller');
+const { getAiUsage, getTopAiConsumers } = require('../controllers/aiBudget.controller');
 
 const router = express.Router();
 
-// Protected with JWT auth, token-bucket rate limiter (30 req/hr), validation, and legacy limiters.
+// User daily AI budget status (read-only)
+router.get('/ai/usage', protect, getAiUsage);
+router.get('/ai-assistant/usage', protect, getAiUsage);
+
+// Admin-only top AI token consumers for a given day (keyset pagination)
+router.get('/ai/admin/top-consumers', protect, requireAdmin, getTopAiConsumers);
+router.get('/admin/ai-usage/top-consumers', protect, requireAdmin, getTopAiConsumers);
+
+// Protected with JWT auth, token-bucket rate limiter (30 req/hr), validation, legacy limiters, and daily budget.
 router.post(
   '/ai-assistant/chat',
   protect,
@@ -15,6 +25,7 @@ router.post(
   aiLimiter,
   aiUserLimiter,
   validateChatPayload,
+  enforceAiBudget(resolveChatFeature),
   chat
 );
 
@@ -26,6 +37,7 @@ router.post(
   aiLimiter,
   aiUserLimiter,
   validateChatPayload,
+  enforceAiBudget(resolveChatFeature),
   chat
 );
 
