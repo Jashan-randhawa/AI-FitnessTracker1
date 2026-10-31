@@ -311,6 +311,7 @@ npm test
 - **Adaptive Planners (`test/plannerContext.test.js`):** Remaining calorie and macro budgets, exceeded or missing targets, active-plan and streak rules, fail-closed behaviour, and planner limits.
 - **Release Gate & Safety Boundaries (`test/phase6Release.test.js`):** Multi-user authorization boundaries, adversarial prompt injection defense, clinical safety safe harbor, and LRU cache isolation.
 - **Auth & JWT (`test/auth.test.js`):** Token generation, signature validation, payload integrity, username/email/password registration validators, and login validation.
+- **Refresh Tokens & Session Security (`test/refreshToken.test.js`):** Single-flight refresh token rotation (RTR), token family reuse detection and instant family revocation, logout cookie invalidation, `verifyCsrfAndOrigin` cross-origin protection, and backwards-compatible Bearer token verification.
 - **Dual Sign-In Matrix & Password Policy (`test/phase3-google-linking.test.js`, `test/phase4-password-management.test.js`):** Google OAuth 6-case automated linking matrix, squat account protection, password setting/updating with step-up verification (`requireRecentLogin`), and rolling 5-password history prevention.
 - **Signup & Verification Token Flows (`test/phase6-email-verification.test.js`):** 64-character token crypto hashing, 24-hour expiration, anti-enumeration behavior, and state updates.
 - **Email Resilience & Debouncing (`test/brevoEmailService.test.js`):** 5-layer transactional email tests (F1–F5), 60s cooldown debouncing, Brevo 429/5xx retry handling, and timeout safeguards.
@@ -470,6 +471,10 @@ MONGODB_URI=mongodb://127.0.0.1:27017/fittrack
 # Security
 JWT_SECRET=your_super_secret_random_jwt_key
 JWT_EXPIRES_IN=30d
+JWT_ACCESS_EXPIRES_IN=15m
+REFRESH_TOKEN_SAMESITE=lax
+REFRESH_TOKEN_EXPIRES_DAYS=30
+REFRESH_TOKEN_SECURE=false
 
 # AI & APIs
 OPENROUTER_API_KEY=your_openrouter_api_key

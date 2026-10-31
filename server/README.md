@@ -29,6 +29,11 @@ See `.env.example` for the full list with comments. Summary:
 | `LOG_LEVEL` | Logging level (`debug`, `info`, `warn`, `error`) | `info` |
 | `MONGODB_URI` | MongoDB connection string | Required in production |
 | `JWT_SECRET` / `JWT_EXPIRES_IN` | Token signature secret & expiry | Required in production (expires `30d`) |
+| `JWT_ACCESS_EXPIRES_IN` | Expiration time for short-lived access JWTs | `15m` (Optional) |
+| `REFRESH_TOKEN_SAMESITE` | SameSite attribute for refresh token cookie (`lax`, `strict`, `none`) | `lax` (Optional) |
+| `REFRESH_TOKEN_EXPIRES_DAYS` | Refresh token lifespan in days | `30` (Optional) |
+| `REFRESH_TOKEN_SECURE` | Force secure HTTPS cookie flag | `false` in dev, `true` in prod (Optional) |
+| `REFRESH_TOKEN_COOKIE_PATH` | Scoped cookie URL path for refresh tokens | `/api/auth` (Optional) |
 | `CLIENT_URL` | Allowed frontend origin for CORS & email links | `http://localhost:5173` |
 | `GEMINI_API_KEY` | Powers Food Snap v2 vision, FitBot tools & voice set logging | Required for Gemini features |
 | `GEMINI_CHAT_MODEL` / `GEMINI_VISION_MODEL` | Gemini models for chat & vision | `gemini-2.5-flash` (Optional) |
