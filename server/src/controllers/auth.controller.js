@@ -83,7 +83,7 @@ const register = asyncHandler(async (req, res) => {
   });
   setRefreshTokenCookie(res, refreshToken);
 
-  res.json({ jwt, accessToken: jwt, user: user.toJSON() });
+  res.json({ jwt, accessToken: jwt, refreshToken, user: user.toJSON() });
 });
 
 // POST /api/auth/local
@@ -114,7 +114,7 @@ const login = asyncHandler(async (req, res) => {
   });
   setRefreshTokenCookie(res, refreshToken);
 
-  res.json({ jwt, accessToken: jwt, user: user.toJSON() });
+  res.json({ jwt, accessToken: jwt, refreshToken, user: user.toJSON() });
 });
 
 // GET /api/users/me
@@ -336,7 +336,7 @@ const googleAuthCallback = asyncHandler(async (req, res) => {
   });
   setRefreshTokenCookie(res, refreshToken);
 
-  res.json({ jwt, accessToken: jwt, user: user.toJSON() });
+  res.json({ jwt, accessToken: jwt, refreshToken, user: user.toJSON() });
 });
 
 // POST /api/auth/refresh
@@ -366,7 +366,12 @@ const refresh = asyncHandler(async (req, res) => {
   const jwt = generateToken(result.user._id);
   setRefreshTokenCookie(res, result.newPlainToken);
 
-  res.json({ jwt, accessToken: jwt, user: result.user.toJSON() });
+  res.json({
+    jwt,
+    accessToken: jwt,
+    refreshToken: result.newPlainToken,
+    user: result.user.toJSON(),
+  });
 });
 
 // POST /api/auth/logout

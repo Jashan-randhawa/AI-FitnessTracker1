@@ -1,7 +1,7 @@
 import axios from "axios";
 import type { InternalAxiosRequestConfig } from "axios";
 import toast from "react-hot-toast";
-import { getAuthToken, setAuthToken, clearAuthToken } from "./authToken";
+import { getAuthToken, getRefreshToken, setAuthToken, clearAuthToken } from "./authToken";
 
 const rawApiUrl = import.meta.env.VITE_API_URL;
 
@@ -181,15 +181,16 @@ api.interceptors.response.use(
 
       isRefreshing = true;
 
+      const storedRefreshToken = getRefreshToken();
       return axios
-        .post<{ jwt: string; accessToken?: string }>(
+        .post<{ jwt: string; accessToken?: string; refreshToken?: string }>(
           `${API_BASE_URL}/api/auth/refresh`,
-          {},
+          storedRefreshToken ? { refreshToken: storedRefreshToken } : {},
           { withCredentials: true }
         )
         .then(({ data }) => {
           const newToken = data.accessToken || data.jwt;
-          setAuthToken(newToken);
+          setAuthToken(newToken, data.refreshToken);
           processQueue(null, newToken);
 
           if (config.headers && typeof config.headers.set === "function") {

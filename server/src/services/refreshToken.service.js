@@ -9,12 +9,12 @@ const hashToken = (plainToken) =>
 const generatePlainToken = () => crypto.randomBytes(40).toString('hex');
 
 const getRefreshTokenCookieOptions = () => {
-  const sameSite = (process.env.REFRESH_TOKEN_SAMESITE || 'lax').toLowerCase();
   const isProd = process.env.NODE_ENV === 'production';
+  const sameSite = (process.env.REFRESH_TOKEN_SAMESITE || (isProd ? 'none' : 'lax')).toLowerCase();
   const secure =
     process.env.REFRESH_TOKEN_SECURE !== undefined
       ? process.env.REFRESH_TOKEN_SECURE === 'true'
-      : isProd;
+      : (isProd || sameSite === 'none');
   const cookiePath = process.env.REFRESH_TOKEN_COOKIE_PATH || '/api/auth';
   const days = parseInt(process.env.REFRESH_TOKEN_EXPIRES_DAYS, 10) || 30;
 

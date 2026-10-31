@@ -6,7 +6,7 @@ import api from "../configs/api";
 import toast from "react-hot-toast";
 import { invalidateSummaries, clearSummaries } from "../data/summaryStore";
 import { startLiveUpdates } from "../data/liveStream";
-import { getAuthToken, setAuthToken, clearAuthToken } from "../configs/authToken";
+import { getAuthToken, getRefreshToken, setAuthToken, clearAuthToken } from "../configs/authToken";
 import {
   purgeOfflineQueue,
   startOfflineSync,
@@ -61,7 +61,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { data } = await api.post("/api/auth/local/register", credentials);
       const token = data.accessToken || data.jwt;
-      setAuthToken(token);
+      setAuthToken(token, data.refreshToken);
       setUser({ ...data.user, token });
       if (data?.user?.age && data?.user?.weight && data?.user?.goal) setOnboardingCompleted(true);
     } catch (error: unknown) {
@@ -81,7 +81,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
       const { data } = await api.post("/api/auth/local", { identifier: credentials.email, password: credentials.password });
       const token = data.accessToken || data.jwt;
-      setAuthToken(token);
+      setAuthToken(token, data.refreshToken);
 
       const [foodRes, activityRes, waterRes] = await Promise.all([
         api.get("/api/foodlogs"),
@@ -115,7 +115,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       });
       const jwtToken = data.accessToken || data.jwt;
 
-      setAuthToken(jwtToken);
+      setAuthToken(jwtToken, data.refreshToken);
       setUser({ ...data.user, token: jwtToken });
 
       if (data.user?.age && data.user?.weight && data.user?.goal) setOnboardingCompleted(true);
@@ -270,16 +270,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     let ignore = false;
     const restoreSession = async () => {
       try {
-        const legacyToken = getAuthToken();
+        const storedRefreshToken = getRefreshToken();
         const { data } = await api.post<{
           jwt: string;
           accessToken?: string;
+          refreshToken?: string;
           user: NonNullable<User>;
-        }>("/api/auth/refresh", legacyToken ? { refreshToken: legacyToken } : {});
+        }>("/api/auth/refresh", storedRefreshToken ? { refreshToken: storedRefreshToken } : {});
 
         if (ignore) return;
         const freshJwt = data.accessToken || data.jwt;
-        setAuthToken(freshJwt);
+        setAuthToken(freshJwt, data.refreshToken);
         setUser({ ...data.user, token: freshJwt });
         if (data.user?.age && data.user?.weight && data.user?.goal) {
           setOnboardingCompleted(true);
@@ -288,7 +289,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         fetchFoodLogs();
         fetchActivityLogs();
         fetchWaterLogs();
-      } catch {
+      } catch (err: unknown) {
         if (ignore) return;
         const legacyToken = getAuthToken();
         if (legacyToken) {
@@ -304,8 +305,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             clearAuthToken();
           }
         }
-        clearAuthToken();
-        setUser(null);
+        // Only clear credentials if the refresh was an explicit auth rejection (401/403)
+        const isAuthError = axios.isAxiosError(err) && (err.response?.status === 401 || err.response?.status === 403);
+        if (isAuthError || !getRefreshToken()) {
+          clearAuthToken();
+          setUser(null);
+        }
       } finally {
         if (!ignore) {
           setIsUserFetched(true);
