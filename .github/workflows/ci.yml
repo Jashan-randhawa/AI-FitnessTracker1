@@ -126,18 +126,30 @@ jobs:
           CI: "true"
           CI_DRY_RUN: "true"
 
-      - name: Run unit tests
-        run: npm test 2>&1 | tee server-tests.log
+      - name: Run unit tests with coverage
+        run: npm run test:coverage 2>&1 | tee server-tests.log
         env:
           JWT_SECRET: "ci_test_secret_32_characters_long_min"
           NODE_ENV: "test"
           CI: "true"
           CI_DRY_RUN: "true"
 
+      - name: Publish coverage summary
+        if: always()
+        run: node scripts/coverage-summary.js server-tests.log >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload server coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-coverage-report
+          path: server/coverage/
+          retention-days: 14
+
       - name: Upload server test count
         if: always()
         run: |
-          count=$(grep -E '^# tests ' server-tests.log | awk '{print $3}')
+          count=$(grep -E '^[#ℹ] tests ' server-tests.log | awk '{print $3}')
           printf '{"tests": %s}\n' "${count:-0}" > server-test-count.json
           cat server-test-count.json
 
