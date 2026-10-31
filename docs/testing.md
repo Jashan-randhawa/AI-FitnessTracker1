@@ -17,6 +17,9 @@ FitTrack AI includes a comprehensive test suite covering backend controllers, se
 cd server
 npm test
 
+# Run server test suite with coverage & threshold enforcement
+npm run test:coverage
+
 # Run server smoke test (live boot and endpoint verification)
 npm run test:smoke
 
@@ -24,6 +27,31 @@ npm run test:smoke
 cd ../client
 npm test
 ```
+
+### Server Code Coverage Policy
+
+FitTrack AI enforces automated code coverage reporting and minimum quality gates for the server test suite using native Node.js test coverage (`--experimental-test-coverage`).
+
+#### Current Active Thresholds
+Server test coverage is evaluated strictly over production source code (`server/src/**`), explicitly excluding tests (`test/**`), operational/migration scripts (`scripts/**`), cross-boundary client files, live DB connection setup (`src/config/db.js`), and seeding utilities (`src/services/seed.service.js`).
+
+Current enforcement thresholds (configured in `server/package.json`):
+- **Line Coverage:** Minimum **82%** (Baseline: ~86.6%)
+- **Branch Coverage:** Minimum **72%** (Baseline: ~76.5%)
+- **Function Coverage:** Minimum **72%** (Baseline: ~77.8%)
+
+#### Non-Regression Rule (Ratchet Principle)
+- **Thresholds may only go up, never down.**
+- No pull request or refactor may lower the required line, branch, or function threshold percentages.
+- Any new or modified server endpoint, middleware, schema, or service must include unit or integration tests to ensure coverage does not slip below active gates.
+
+#### Ratchet Roadmap & Milestones
+- **Milestone 1 (Initial Lock-In - Active):** Lines: 82% | Branches: 72% | Functions: 72%
+  - Establishes automated baseline enforcement in CI; catches regressions and untested additions while providing a safe 2–3% buffer.
+- **Milestone 2 (CRUD Controller Coverage):** Lines: 85% | Branches: 77% | Functions: 77%
+  - Target: Add unit test suites for handlers currently lacking direct function invocation: `activitylog.controller.js`, `foodlog.controller.js`, `events.controller.js`, and `summary.controller.js`.
+- **Milestone 3 (AI Services & Error Recovery):** Lines: 90% | Branches: 82% | Functions: 82%
+  - Target: Expand branch tests for `calorieEstimate.service.js`, `foodEstimate.service.js`, `auth.controller.js` edge cases, and `redisClient.js` reconnect branches.
 
 ### Backend Test Coverage Highlights
 - **Blog Admin Authorization & Field Whitelisting (`test/blogAdminAuthz.test.js`):** Role-based access control (RBAC), `requireAdmin` middleware verification, strict `isAdmin: true` database flag enforcement, and field whitelisting for blog write operations.
@@ -57,7 +85,7 @@ npm test
 ### Continuous Integration (GitHub Actions)
 The repository includes a GitHub Actions CI workflow ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) running on Node.js 22 with strict permissions:
 - **Client Job:** Dependency installation (`npm ci`), high-level security audit (`npm audit --omit=dev --audit-level=high`), ESLint validation (`npm run lint`), client unit testing (`npm test`), TypeScript typecheck, and Vite production build (`npm run build`).
-- **Server Job:** Dependency installation, high-level security audit, JavaScript syntax validation (`node -c`), module loading check, CI email guard (`npm run ci:guard`), automated test execution (`npm test`), and live smoke test execution (`npm run test:smoke`).
+- **Server Job:** Dependency installation, high-level security audit, JavaScript syntax validation (`node -c`), module loading check, CI email guard (`npm run ci:guard`), automated test execution and coverage enforcement (`npm run test:coverage`), and live smoke test execution (`npm run test:smoke`).
 
 ---
 

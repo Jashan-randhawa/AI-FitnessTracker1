@@ -9,6 +9,7 @@ We welcome contributions to FitTrack AI! To ensure consistency, reliability, and
 When submitting a pull request, verify and check off the following items:
 
 - [ ] **Tests Passing:** All unit, integration, and smoke tests pass locally (`npm test` in client and server, `npm run test:smoke` in server).
+- [ ] **Coverage Thresholds:** New or changed server code has tests; coverage thresholds still pass (`npm run test:coverage` in server).
 - [ ] **Documentation Sync:** **If I renamed, moved, or added an endpoint, environment variable, script, or file, I updated `docs/` and `docs/README.md` (index).**
 - [ ] **README Size Boundary:** `README.md` remains a lean entry point and does not exceed **8 KB** (`npm run docs:check`).
 - [ ] **Link Integrity:** All relative markdown links and anchors resolve cleanly without broken paths (`npm run docs:check`).

@@ -11,6 +11,7 @@ Contributions are welcome! To ensure consistency, documentation accuracy, and sa
 Before opening a pull request, verify each of the following:
 
 - [ ] **Tests Pass:** Native Node runner tests in `server` and Vitest tests in `client` execute and pass cleanly.
+- [ ] **Coverage Thresholds:** New or changed server code has tests; coverage thresholds still pass (`npm run test:coverage` in server).
 - [ ] **Documentation Sync:** **If I renamed/moved/added an endpoint, env var, script, or file, I updated `docs/` and `docs/README.md` (index).**
 - [ ] **Docs Guardrails:** Verified via `npm run docs:check` (ensures `README.md` is under 8 KB and zero broken relative links or anchors).
 - [ ] **No Secrets:** Sample environment files and docs use `<placeholder>` values and follow the `openssl rand -base64 48` generation recipe.
