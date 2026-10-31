@@ -8,11 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### 🧹 Legacy Strapi Cleanup & Configuration Standardization
-- **Client API URL Unification**: Removed `VITE_STRAPI_API_URL` fallbacks across `client/src/configs/api.ts`, `Login.tsx`, `GoogleCallback.tsx`, `AIAssistant.tsx`, and `aiAssistantClient.ts`. Made `configs/api.ts` the single source of truth for `API_URL` via `VITE_API_URL`.
-- **Server Comment & Architecture Cleanups**: Cleaned up historical Strapi comparisons across server middleware (`auth.js`), models (`User.js`, `Blog.js`), controllers (`user.controller.js`), services (`seed.service.js`), `app.js`, and utilities (`generateToken.js`, `sendError.js`, `toJSONPlugin.js`), retaining clear explanations of why the code exists.
+### 🧹 Legacy Architecture Cleanup & Configuration Standardization
+- **Client API URL Unification**: Removed legacy API URL fallbacks across `client/src/configs/api.ts`, `Login.tsx`, `GoogleCallback.tsx`, `AIAssistant.tsx`, and `aiAssistantClient.ts`. Made `configs/api.ts` the single source of truth for `API_URL` via `VITE_API_URL`.
+- **Server Comment & Architecture Cleanups**: Cleaned up historical comparisons across server middleware (`auth.js`), models (`User.js`, `Blog.js`), controllers (`user.controller.js`), services (`seed.service.js`), `app.js`, and utilities (`generateToken.js`, `sendError.js`, `toJSONPlugin.js`), retaining clear explanations of why the code exists.
 - **Legacy Compatibility Relabeling**: Preserved backward-compatible data handling for existing MongoDB records (`FoodLog.mealtype` and chat history `parts: [{ text }]` turns) and relabeled all references to "legacy format".
-- **Documentation & Test Updates**: Removed legacy Strapi mapping sections from `server/README.md`, updated architecture reports in `docs/`, and updated `server/test/fitbotContextPrivacy.test.js` test names to reference generic legacy document normalization.
+- **Documentation & Test Updates**: Removed legacy backend mapping sections from `server/README.md`, updated architecture reports in `docs/`, and updated `server/test/fitbotContextPrivacy.test.js` test names to reference generic legacy format document normalization.
 
 ## [[2.6.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.6.0)] — 2026-10-27
 

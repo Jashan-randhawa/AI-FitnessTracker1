@@ -3,6 +3,7 @@ const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 const sendError = require('../utils/sendError');
+const { validatePasswordPolicy } = require('../utils/passwordPolicy');
 const { sendSecurityNoticeEmail, sendVerificationEmail } = require('../services/email.service');
 const { generateVerificationToken } = require('../services/emailVerification.service');
 
@@ -32,6 +33,11 @@ const register = asyncHandler(async (req, res) => {
   }
   if (!password || password.length < 6) {
     return sendError(res, 400, 'password must be at least 6 characters');
+  }
+
+  const passwordValidation = validatePasswordPolicy(password);
+  if (!passwordValidation.valid) {
+    return sendError(res, 400, passwordValidation.message);
   }
 
   const existing = await User.findOne({

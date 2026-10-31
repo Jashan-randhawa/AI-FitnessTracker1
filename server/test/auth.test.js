@@ -65,6 +65,16 @@ describe('Auth & Token Unit Tests', () => {
       assert.equal(res.statusCode, 400);
       assert.ok(res.body?.error?.message?.includes('password must be at least 6 characters'));
     });
+
+    it('rejects registration when password does not satisfy unified complexity policy', async () => {
+      const req = { body: { username: 'validuser', email: 'user@example.com', password: 'password123' } };
+      const res = createMockRes();
+
+      await register(req, res, () => {});
+
+      assert.equal(res.statusCode, 400);
+      assert.ok(res.body?.error?.message?.includes('Password must contain'));
+    });
   });
 
   describe('login validation', () => {

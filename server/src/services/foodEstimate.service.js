@@ -1,4 +1,5 @@
 const { chatCompletion } = require('./openrouter.service');
+const logger = require('../utils/logger');
 
 const SYSTEM_PROMPT = `You are a nutrition estimation assistant.
 Given a food entry text, estimate nutrition for one realistic serving.
@@ -55,7 +56,7 @@ const parseResult = (raw, fallbackName) => {
  * @param {string} foodText
  */
 const estimateFood = async (foodText) => {
-  console.log('[AI] Using OpenRouter for food estimate...');
+  logger.info('[AI] Using OpenRouter for food estimate...');
   const content = await chatCompletion({
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },

@@ -43,10 +43,16 @@ const validateEnvironment = (rawEnv = process.env) => {
   const env = parsed.success ? parsed.data : rawEnv;
 
   // Database credentials check
-  const hasDb = Boolean(rawEnv.MONGO_URI || rawEnv.MONGODB_URI);
+  if (!rawEnv.MONGODB_URI && rawEnv.MONGO_URI) {
+    if (rawEnv === process.env) {
+      process.env.MONGODB_URI = rawEnv.MONGO_URI;
+    }
+    warnings.push('MONGO_URI is deprecated; please use MONGODB_URI.');
+  }
+  const hasDb = Boolean(rawEnv.MONGODB_URI || rawEnv.MONGO_URI);
   if (!hasDb) {
     if (isProd && !isCiOrTest) {
-      errors.push('MONGO_URI or MONGODB_URI is required in production.');
+      errors.push('MONGODB_URI is required in production.');
     } else {
       warnings.push('Database URI not specified; using memory or localhost fallback.');
     }

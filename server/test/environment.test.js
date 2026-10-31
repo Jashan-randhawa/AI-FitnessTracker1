@@ -3,6 +3,8 @@ process.env.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || 'test-key';
 
 const { describe, it, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const { parseEnvironment } = require('../src/schemas/environment.schema');
 const {
@@ -445,5 +447,60 @@ describe('controller: request contract', () => {
     assert.equal(res.statusCode, 200);
     assert.notEqual(seen.body.model, 'attacker/model');
     assert.notEqual(seen.body.max_tokens, 999999);
+  });
+});
+
+describe('client environment hygiene', () => {
+  it('fails if client/.env.example contains a secret-style VITE_ key', () => {
+    const clientEnvExamplePath = path.resolve(__dirname, '../../client/.env.example');
+    assert.ok(fs.existsSync(clientEnvExamplePath), 'client/.env.example must exist');
+
+    const content = fs.readFileSync(clientEnvExamplePath, 'utf8');
+    const lines = content.split('\n');
+
+    const secretStyleRegex = /^VITE_.*(?:KEY|SECRET|TOKEN)/i;
+    const violations = [];
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      const key = line.split('=')[0].trim();
+      if (secretStyleRegex.test(key)) {
+        violations.push(key);
+      }
+    }
+
+    assert.deepEqual(
+      violations,
+      [],
+      `client/.env.example must not expose secret-style VITE_ keys (found: ${violations.join(', ')})`
+    );
+  });
+});
+
+describe('startup environment validation and legacy normalization', () => {
+  const { validateEnvironment } = require('../src/config/envValidator');
+
+  it('normalizes legacy MONGO_URI to MONGODB_URI and warns', () => {
+    const testEnv = {
+      NODE_ENV: 'development',
+      MONGO_URI: 'mongodb://localhost:27017/test_legacy',
+      JWT_SECRET: 'a_very_long_valid_jwt_secret_string_123',
+    };
+    const res = validateEnvironment(testEnv);
+    assert.equal(res.valid, true);
+    assert.ok(res.warnings.some((w) => w.includes('MONGO_URI is deprecated')));
+  });
+
+  it('enforces AI API keys in production when STRICT_AI_KEYS is enabled', () => {
+    const testEnv = {
+      NODE_ENV: 'production',
+      MONGODB_URI: 'mongodb://localhost:27017/prod_db',
+      JWT_SECRET: 'a_very_long_valid_jwt_secret_string_123',
+      STRICT_AI_KEYS: 'true',
+    };
+    const res = validateEnvironment(testEnv);
+    assert.equal(res.valid, false);
+    assert.ok(res.errors.some((e) => e.includes('STRICT_AI_KEYS')));
   });
 });

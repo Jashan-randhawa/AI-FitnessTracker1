@@ -462,6 +462,7 @@ Edit `server/.env` with your credentials:
 HOST=0.0.0.0
 PORT=1337
 NODE_ENV=development
+LOG_LEVEL=info
 
 # Database
 MONGODB_URI=mongodb://127.0.0.1:27017/fittrack
@@ -472,8 +473,12 @@ JWT_EXPIRES_IN=30d
 
 # AI & APIs
 OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_MODEL=openai/gpt-4o-mini
 OPENROUTER_FALLBACK_MODEL=google/gemini-2.0-flash-001
+OPENROUTER_TIMEOUT_MS=15000
 GEMINI_API_KEY=your_gemini_api_key
+GEMINI_CHAT_MODEL=gemini-2.5-flash
+GEMINI_VISION_MODEL=gemini-2.5-flash
 NEWS_API_KEY=your_newsapi_key
 RAPIDAPI_KEY=your_rapidapi_key
 
@@ -484,6 +489,7 @@ GOOGLE_CALLBACK_URL=http://localhost:1337/api/connect/google/callback
 BREVO_API_KEY=your_brevo_api_key
 BREVO_WEBHOOK_KEY=your_brevo_webhook_secret_key
 EMAIL_FROM="FitTrack AI <no-reply@fittrack.app>"
+BREVO_SANDBOX=false
 
 # Optional Distributed Rate Limiting (Automatic in-memory fallback if omitted)
 REDIS_URL=redis://default:password@your-redis-host:6379
@@ -492,6 +498,16 @@ REDIS_URL=redis://default:password@your-redis-host:6379
 METRICS_TOKEN=your_secret_metrics_token
 
 CLIENT_URL=http://localhost:5173
+
+# Optional AI Caching, Token & Concurrency Tuning
+AI_CACHE_TTL_MS=300000
+AI_CACHE_MAX_ENTRIES=200
+AI_MAX_OUTPUT_TOKENS=2500
+MAX_CONCURRENT_AI_REQUESTS=25
+MAX_USER_CONCURRENT_AI_REQUESTS=2
+AQI_STANDARD=us_epa
+STRICT_AI_KEYS=false
+CI_DRY_RUN=false
 ```
 
 Start the server:

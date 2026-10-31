@@ -1,4 +1,5 @@
 const Blog = require('../models/Blog');
+const logger = require('../utils/logger');
 
 const SAMPLE_POSTS = [
   {
@@ -393,9 +394,9 @@ const seedBlogPosts = async () => {
   const existingCount = await Blog.countDocuments();
   if (existingCount > 0) return;
 
-  console.log('Bootstrap: seeding blog posts...');
+  logger.info('Bootstrap: seeding blog posts...');
   await Blog.insertMany(SAMPLE_POSTS.map((post) => ({ ...post, publishedAt: new Date() })));
-  console.log(`Bootstrap: seeded ${SAMPLE_POSTS.length} blog posts`);
+  logger.info(`Bootstrap: seeded ${SAMPLE_POSTS.length} blog posts`);
 };
 
 module.exports = { seedBlogPosts, SAMPLE_POSTS };

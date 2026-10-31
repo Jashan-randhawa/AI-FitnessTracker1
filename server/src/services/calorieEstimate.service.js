@@ -1,4 +1,5 @@
 const { chatCompletion } = require('./openrouter.service');
+const logger = require('../utils/logger');
 
 const SYSTEM_PROMPT = `You are a fitness calorie estimation assistant.
 
@@ -50,7 +51,7 @@ const parseResult = (raw, activity, durationMinutes, weightKg) => {
 const estimateCalories = async (activity, durationMinutes, weightKg) => {
   const userPrompt = `Activity: ${activity}\nDuration: ${durationMinutes} minutes\nWeight: ${weightKg} kg`;
 
-  console.log('[AI] Using OpenRouter for calorie estimate...');
+  logger.info('[AI] Using OpenRouter for calorie estimate...');
   const content = await chatCompletion({
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },

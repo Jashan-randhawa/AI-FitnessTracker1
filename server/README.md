@@ -22,18 +22,33 @@ server seeds the `blogs` collection with sample posts if the collection is empty
 
 See `.env.example` for the full list with comments. Summary:
 
-| Variable | Purpose |
-|---|---|
-| `MONGODB_URI` | MongoDB connection string |
-| `JWT_SECRET` / `JWT_EXPIRES_IN` | Auth token signing |
-| `OPENROUTER_API_KEY` | Powers AI chat, image analysis, calorie/food estimation |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_CALLBACK_URL` | Google sign-in |
-| `NEWS_API_KEY` | Health news headlines |
-| `RAPIDAPI_KEY` | YouTube workout video search |
-| `BREVO_API_KEY` / `EMAIL_FROM` | Password reset & security notice emails via Brevo HTTPS REST API (Port 443) |
-| `BREVO_WEBHOOK_KEY` | Optional HMAC key for `/api/webhooks/email` |
-| `REDIS_URL` | Optional Redis URL for distributed rate limiting & token store |
-| `METRICS_TOKEN` | Optional bearer token for Prometheus `/metrics` |
+| Variable | Purpose | Default / Requirement |
+|---|---|---|
+| `HOST` / `PORT` | Network binding interface and port | `0.0.0.0:1337` |
+| `NODE_ENV` | Environment mode (`development`, `production`, `test`) | `development` |
+| `LOG_LEVEL` | Logging level (`debug`, `info`, `warn`, `error`) | `info` |
+| `MONGODB_URI` | MongoDB connection string | Required in production |
+| `JWT_SECRET` / `JWT_EXPIRES_IN` | Token signature secret & expiry | Required in production (expires `30d`) |
+| `CLIENT_URL` | Allowed frontend origin for CORS & email links | `http://localhost:5173` |
+| `GEMINI_API_KEY` | Powers Food Snap v2 vision, FitBot tools & voice set logging | Required for Gemini features |
+| `GEMINI_CHAT_MODEL` / `GEMINI_VISION_MODEL` | Gemini models for chat & vision | `gemini-2.5-flash` (Optional) |
+| `OPENROUTER_API_KEY` | Upstream LLM chat completions & meal planning | Required for OpenRouter features |
+| `OPENROUTER_MODEL` / `OPENROUTER_FALLBACK_MODEL` | Primary & fallback OpenRouter models | `openai/gpt-4o-mini` / `google/gemini-2.0-flash-001` |
+| `OPENROUTER_TIMEOUT_MS` | HTTP timeout for OpenRouter API | `15000` ms (Optional) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_CALLBACK_URL` | Google OAuth sign-in credentials | Required for Google Auth |
+| `NEWS_API_KEY` | Health news headline aggregation | Required for News feed |
+| `RAPIDAPI_KEY` | YouTube workout video search (`youtube138.p.rapidapi.com`) | Required for YouTube video search |
+| `BREVO_API_KEY` / `EMAIL_FROM` | Transactional email delivery via HTTPS REST API | Required for password resets & alerts |
+| `BREVO_SANDBOX` | Drop test emails (`X-Sib-Sandbox: drop`) | `false` (Optional) |
+| `BREVO_WEBHOOK_KEY` | HMAC key to authenticate incoming email webhooks | Optional |
+| `REDIS_URL` | Redis URL for distributed rate limiting & token store | Optional (in-memory fallback) |
+| `METRICS_TOKEN` | Bearer token securing Prometheus `/metrics` endpoint | Optional |
+| `AI_CACHE_TTL_MS` / `AI_CACHE_MAX_ENTRIES` | FitBot in-memory response cache TTL & capacity | `300000` ms / `200` entries (Optional) |
+| `AI_MAX_OUTPUT_TOKENS` | Max output tokens for AI completions | `2500` (Optional) |
+| `MAX_CONCURRENT_AI_REQUESTS` / `MAX_USER_CONCURRENT_AI_REQUESTS` | Global and per-user AI concurrency gates | `25` / `2` (Optional) |
+| `AQI_STANDARD` | Air Quality Index calculation standard | `us_epa` (Optional) |
+| `STRICT_AI_KEYS` | Strictly enforce AI key presence in production | `false` (Optional) |
+| `CI_DRY_RUN` | Bypass database & service checks during CI smoke testing | `false` (Optional) |
 
 `GOOGLE_CALLBACK_URL` must point at **this server** (e.g.
 `http://localhost:1337/api/connect/google/callback`), and that exact URL

@@ -118,13 +118,13 @@ A dedicated release gate test suite (`server/test/phase6Release.test.js`) was ad
 
 ### 7.1 Required Environment Variables (Names Only)
 The application requires the following environment variables for production deployment. **Never log or commit their secret values**:
-- `PORT`: Server listening port (default `5000`).
+- `PORT`: Server listening port (default `1337`).
 - `NODE_ENV`: Runtime environment (`production` | `development` | `test`).
-- `MONGO_URI`: MongoDB connection string.
+- `MONGODB_URI`: MongoDB connection string.
 - `JWT_SECRET`: 256-bit secret key for signing user authentication tokens.
 - `OPENROUTER_API_KEY`: API key for upstream OpenRouter LLM completions.
 - `OPENROUTER_MODEL`: (Optional) Primary model name (defaults to `openai/gpt-4o-mini`).
-- `OPENROUTER_FALLBACK_MODEL`: (Optional) Backup model name (defaults to `meta-llama/llama-3.1-8b-instruct`).
+- `OPENROUTER_FALLBACK_MODEL`: (Optional) Backup model name (defaults to `google/gemini-2.0-flash-001`).
 - `BREVO_API_KEY`: API key for transactional email delivery.
 - `EMAIL_FROM`: Verified sender email address.
 

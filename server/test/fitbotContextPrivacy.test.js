@@ -178,9 +178,9 @@ describe('Phase 3: Chat History Strict Zod Validation & Caps', () => {
   });
 });
 
-// ── 3. Legacy History Document Normalization Tests ────────────────────
-describe('Phase 3: Legacy History Normalization Specification', () => {
-  it('normalizes legacy document with parts array into standard text format', () => {
+// ── 3. Legacy Format History Document Normalization Tests ────────────
+describe('Phase 3: Legacy Format History Normalization Specification', () => {
+  it('normalizes legacy format document with parts array into standard text format', () => {
     const legacyDoc = {
       _id: new mongoose.Types.ObjectId(),
       user: new mongoose.Types.ObjectId(),
@@ -204,7 +204,7 @@ describe('Phase 3: Legacy History Normalization Specification', () => {
     });
   });
 
-  it('normalizes legacy document with content field', () => {
+  it('normalizes legacy format document with content field', () => {
     const legacyDoc = {
       id: 'legacy-id-string',
       messages: [
