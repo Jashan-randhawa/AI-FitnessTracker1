@@ -16,9 +16,11 @@ describe('API 401 Refresh Interceptor Tests', () => {
     vi.spyOn(axios, 'post').mockImplementation(async (url) => {
       if (typeof url === 'string' && url.includes('/api/auth/refresh')) {
         refreshCalls++;
-        return { data: { jwt: 'new-rotated-token', accessToken: 'new-rotated-token' } } as any;
+        return { data: { jwt: 'new-rotated-token', accessToken: 'new-rotated-token' } } as unknown as Awaited<
+          ReturnType<typeof axios.post>
+        >;
       }
-      return { data: {} } as any;
+      return { data: {} } as unknown as Awaited<ReturnType<typeof axios.post>>;
     });
 
     const originalInterceptor = api.interceptors.response;
