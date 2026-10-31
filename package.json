@@ -1,0 +1,9 @@
+{
+  "name": "ai-fitnesstracker1",
+  "version": "2.6.0",
+  "private": true,
+  "description": "AI-FitnessTracker1 monorepo root",
+  "scripts": {
+    "docs:check": "node scripts/check-docs.js"
+  }
+}

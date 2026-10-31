@@ -10,6 +10,41 @@ permissions:
   contents: read
 
 jobs:
+  docs-guardrails:
+    name: Docs & Markdown Guardrails
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check README.md file size (< 8 KB)
+        run: |
+          size=$(wc -c < README.md)
+          max_bytes=8192
+          echo "README.md size: $size bytes (limit: $max_bytes bytes)"
+          if [ "$size" -gt "$max_bytes" ]; then
+            echo "::error::README.md is $size bytes, exceeding the 8 KB limit ($max_bytes bytes)."
+            echo "Keep README.md as a lean entry point. Move comprehensive technical documentation to docs/ and link it in docs/README.md."
+            exit 1
+          fi
+          echo "README.md size check passed!"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run local link & anchor validator (docs:check)
+        run: npm run docs:check
+
+      - name: Lychee Markdown Link Checker
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --verbose --no-progress './README.md' './docs/**/*.md' --exclude-all-private --max-retries 3 --exclude 'https://ai-fitness-tracker1.vercel.app.*' --exclude 'https://github.com/Jashan-randhawa/.*' --exclude 'https://gist.githubusercontent.com/.*'
+          fail: true
+
   client:
     name: Client Lint & Build
     runs-on: ubuntu-latest

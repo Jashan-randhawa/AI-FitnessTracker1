@@ -96,17 +96,17 @@ All three quality gates were executed against the updated codebase:
 
 | File | Change Type | Summary of Changes |
 |---|---|---|
-| [`client/src/utils/fitbotHistory.ts`](file:///C:/Users/jasha/.gemini/antigravity/scratch/AI-FitnessTracker1/client/src/utils/fitbotHistory.ts) | **Created** | Pure helper module: `getRetryContext`, `getRegenerateContext`, `buildGeminiPayload`, `buildSessionSummary`, `getValidMessages`. |
-| [`client/src/Pages/AIAssistant.tsx`](file:///C:/Users/jasha/.gemini/antigravity/scratch/AI-FitnessTracker1/client/src/Pages/AIAssistant.tsx) | **Modified** | Integrated stable `sessionId`, `saveStatus`, queueing, `pagehide` beacon, `isSendingRef`, `activeRequestIdRef`, and header status badge. |
-| [`server/src/models/ChatHistory.js`](file:///C:/Users/jasha/.gemini/antigravity/scratch/AI-FitnessTracker1/server/src/models/ChatHistory.js) | **Modified** | Added `sessionId`, `revision`, `summary` limits, unique compound partial index `{ user: 1, sessionId: 1 }`, and sorting indexes. |
-| [`server/src/controllers/chathistory.controller.js`](file:///C:/Users/jasha/.gemini/antigravity/scratch/AI-FitnessTracker1/server/src/controllers/chathistory.controller.js) | **Modified** | Zod payload validation, idempotent session upsert, revision checks, user scoping, and single session endpoints. |
-| [`server/src/routes/chathistory.routes.js`](file:///C:/Users/jasha/.gemini/antigravity/scratch/AI-FitnessTracker1/server/src/routes/chathistory.routes.js) | **Modified** | Mounted `/session/:sessionId` and `/:id` routes with `protect` and `chatHistoryLimiter`. |
-| [`server/src/middleware/rateLimiter.js`](file:///C:/Users/jasha/.gemini/antigravity/scratch/AI-FitnessTracker1/server/src/middleware/rateLimiter.js) | **Modified** | Added `chatHistoryLimiter` (60 req/min per user) to safeguard history endpoints. |
-| [`server/src/controllers/aiAssistant.controller.js`](file:///C:/Users/jasha/.gemini/antigravity/scratch/AI-FitnessTracker1/server/src/controllers/aiAssistant.controller.js) | **Modified** | Client disconnect detection (`req.on('close')`), `AbortController` propagation, and closed connection response suppression. |
-| [`server/src/services/aiAssistant.service.js`](file:///C:/Users/jasha/.gemini/antigravity/scratch/AI-FitnessTracker1/server/src/services/aiAssistant.service.js) | **Modified** | Forwarded `options.signal` into primary and repair `chatCompletionDetailed` calls. |
-| [`server/src/services/openrouter.service.js`](file:///C:/Users/jasha/.gemini/antigravity/scratch/AI-FitnessTracker1/server/src/services/openrouter.service.js) | **Modified** | Signal abort handling, `isClientAbort` detection, non-retry of client cancellations, timeout reduction to 15s. |
-| [`server/test/chatHistory.test.js`](file:///C:/Users/jasha/.gemini/antigravity/scratch/AI-FitnessTracker1/server/test/chatHistory.test.js) | **Created** | 13 integration and unit tests covering schema validation, partial indexes, idempotency, revisions, and scoping. |
-| [`server/test/fitbotReliability.test.js`](file:///C:/Users/jasha/.gemini/antigravity/scratch/AI-FitnessTracker1/server/test/fitbotReliability.test.js) | **Created** | 6 unit tests covering pure history helpers, client cancellation rejection, and controller response suppression. |
+| [`client/src/utils/fitbotHistory.ts`](../client/src/utils/fitbotHistory.ts) | **Created** | Pure helper module: `getRetryContext`, `getRegenerateContext`, `buildGeminiPayload`, `buildSessionSummary`, `getValidMessages`. |
+| [`client/src/Pages/AIAssistant.tsx`](../client/src/Pages/AIAssistant.tsx) | **Modified** | Integrated stable `sessionId`, `saveStatus`, queueing, `pagehide` beacon, `isSendingRef`, `activeRequestIdRef`, and header status badge. |
+| [`server/src/models/ChatHistory.js`](../server/src/models/ChatHistory.js) | **Modified** | Added `sessionId`, `revision`, `summary` limits, unique compound partial index `{ user: 1, sessionId: 1 }`, and sorting indexes. |
+| [`server/src/controllers/chathistory.controller.js`](../server/src/controllers/chathistory.controller.js) | **Modified** | Zod payload validation, idempotent session upsert, revision checks, user scoping, and single session endpoints. |
+| [`server/src/routes/chathistory.routes.js`](../server/src/routes/chathistory.routes.js) | **Modified** | Mounted `/session/:sessionId` and `/:id` routes with `protect` and `chatHistoryLimiter`. |
+| [`server/src/middleware/rateLimiter.js`](../server/src/middleware/rateLimiter.js) | **Modified** | Added `chatHistoryLimiter` (60 req/min per user) to safeguard history endpoints. |
+| [`server/src/controllers/aiAssistant.controller.js`](../server/src/controllers/aiAssistant.controller.js) | **Modified** | Client disconnect detection (`req.on('close')`), `AbortController` propagation, and closed connection response suppression. |
+| [`server/src/services/aiAssistant.service.js`](../server/src/services/aiAssistant.service.js) | **Modified** | Forwarded `options.signal` into primary and repair `chatCompletionDetailed` calls. |
+| [`server/src/services/openrouter.service.js`](../server/src/services/openrouter.service.js) | **Modified** | Signal abort handling, `isClientAbort` detection, non-retry of client cancellations, timeout reduction to 15s. |
+| [`server/test/chatHistory.test.js`](../server/test/chatHistory.test.js) | **Created** | 13 integration and unit tests covering schema validation, partial indexes, idempotency, revisions, and scoping. |
+| [`server/test/fitbotReliability.test.js`](../server/test/fitbotReliability.test.js) | **Created** | 6 unit tests covering pure history helpers, client cancellation rejection, and controller response suppression. |
 
 ---
 

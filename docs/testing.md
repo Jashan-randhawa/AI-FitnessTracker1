@@ -1,0 +1,63 @@
+# 🧪 Testing & CI/CD Specification
+
+[← Back to Documentation Index](README.md)
+
+## 🧪 Testing & CI/CD
+
+### Automated Test Suite
+
+The automated test suite runs on every pull request and push to `main` via GitHub Actions. As of v2.6.0, the platform verifies **681 passing tests** (661 server unit/integration tests across 185 suites, and 20 client tests across 6 suites).
+FitTrack AI includes a comprehensive test suite covering backend controllers, security boundaries, AI schemas, and client state machines:
+
+- **Backend Unit & Integration Tests:** Native Node.js test runner (`node --test`), requiring zero external test framework dependencies.
+- **Frontend Unit Tests:** Vitest test runner validating offline synchronization queues and live workout tracker modal interactions.
+
+```bash
+# Run server test suite
+cd server
+npm test
+
+# Run server smoke test (live boot and endpoint verification)
+npm run test:smoke
+
+# Run client test suite
+cd ../client
+npm test
+```
+
+### Backend Test Coverage Highlights
+- **Blog Admin Authorization & Field Whitelisting (`test/blogAdminAuthz.test.js`):** Role-based access control (RBAC), `requireAdmin` middleware verification, strict `isAdmin: true` database flag enforcement, and field whitelisting for blog write operations.
+- **User Macro & Water Goals (`test/userGoals.test.js`):** Numeric validation, non-negative constraints (`min: 0`), and non-numeric casting guards for `dailyproteingoal`, `dailycarbsgoal`, `dailyfatgoal`, and `dailywatergoal`.
+- **WeightLog Migration & Safe Indexing (`test/weightlogMigration.test.js` & `test/phaseF-weightlog.test.js`):** Timezone-aware `localDay` derivation, unique partial compound indexes, de-duplication, and dry-run backfill simulation.
+- **Hands-Free Voice Gym Logging (`test/voiceSetLogger.test.js`):** Strict `VoiceSetSchema`, deterministic regex fallback, imperial-to-metric weight conversion, and multimodal Gemini parser endpoints.
+- **Server-Sent Events & Ticket Auth (`test/events.test.js`):** SSE ticket creation, streaming connection handshake, and stream authorization.
+- **Daily & Range Summary Aggregations (`test/summary.test.js`):** Aggregation calculations for day summary and multi-day range analytics.
+- **AI Structured Plans & Schemas (`test/aiPlans.test.js`):** Zod validation contracts for meal and workout plan JSON payloads, rejecting negative macros or unrealistic durations.
+- **FitBot Reliability & Cancellation (`test/fitbotReliability.test.js`):** Idempotent persistence, request deduplication, and client abort handling.
+- **FitBot Context, Memory & Privacy (`test/fitbotContextPrivacy.test.js`):** Per-user memory scoping, context injection, and privacy controls.
+- **Shared Fitness Context (`test/fitnessContext.test.js`):** Complete and partial profiles, empty logs, missing plans, invalid timezones, day rollovers, user isolation, and prompt-size limits.
+- **Weather & Local-Time Context (`test/environment.test.js`):** Range and enum validation, malformed or stale observations, missing fields, and conservative outdoor risk handling.
+- **FitBot Contextual Coaching (`test/fitbotCoaching.test.js`):** Server-built context in prompts, prompt-version and cache-key behaviour, and cross-user cache isolation.
+- **Adaptive Planners (`test/plannerContext.test.js`):** Remaining calorie and macro budgets, exceeded or missing targets, active-plan and streak rules, fail-closed behaviour, and planner limits.
+- **Release Gate & Safety Boundaries (`test/phase6Release.test.js`):** Multi-user authorization boundaries, adversarial prompt injection defense, clinical safety safe harbor, and LRU cache isolation.
+- **Auth & JWT (`test/auth.test.js`):** Token generation, signature validation, payload integrity, username/email/password registration validators, and login validation.
+- **Refresh Tokens & Session Security (`test/refreshToken.test.js`):** Single-flight refresh token rotation (RTR), token family reuse detection and instant family revocation, logout cookie invalidation, `verifyCsrfAndOrigin` cross-origin protection, and backwards-compatible Bearer token verification.
+- **Dual Sign-In Matrix & Password Policy (`test/phase3-google-linking.test.js`, `test/phase4-password-management.test.js`):** Google OAuth 6-case automated linking matrix, squat account protection, password setting/updating with step-up verification (`requireRecentLogin`), and rolling 5-password history prevention.
+- **Signup & Verification Token Flows (`test/phase6-email-verification.test.js`):** 64-character token crypto hashing, 24-hour expiration, anti-enumeration behavior, and state updates.
+- **Email Resilience & Debouncing (`test/brevoEmailService.test.js`):** 5-layer transactional email tests (F1–F5), 60s cooldown debouncing, Brevo 429/5xx retry handling, and timeout safeguards.
+- **AI Assistant Guardrails & Truncation (`test/aiAssistant.test.js`):** Message array boundary checks, maximum character length limits, graceful sliding-window history truncation, and friendly outage responses (`503`).
+- **OpenRouter Resilience & Prompts (`test/openrouter.test.js`):** Transient error detection (429/5xx/timeouts), primary/fallback model defaults, JSON code fence extraction, and versioned FitBot prompt generation.
+- **Structured Logger & Secret Scrubber (`test/logger.test.js`):** Automated redaction of passwords, tokens, API keys, Bearer tokens, and JWTs while preserving token usage metrics.
+- **Health Endpoint & Request ID (`test/health.test.js`):** `GET /api/health` status, database connection state, uptime tracking, and UUID `X-Request-Id` assignment and preservation.
+- **Error Handling & Production Masking (`test/errorHandler.test.js`):** Multer errors, Mongoose validation/cast/duplicate key errors, and production internal database error masking.
+- **Nutrition & Calorie Estimation (`test/estimates.test.js`):** Input validation for duration, activity name, food items, and numeric boundaries.
+- **Password Reset (`test/passwordReset.test.js`):** Email format verification and non-string/missing payload handling.
+- **Workout Plans & ActivityLog Extensions (`test/workoutPlan.test.js`):** WorkoutPlan model initialization, additive ActivityLog schema fields (type, intensity, source, exercises with nested sets), and savePlan validation.
+
+### Continuous Integration (GitHub Actions)
+The repository includes a GitHub Actions CI workflow ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) running on Node.js 22 with strict permissions:
+- **Client Job:** Dependency installation (`npm ci`), high-level security audit (`npm audit --omit=dev --audit-level=high`), ESLint validation (`npm run lint`), client unit testing (`npm test`), TypeScript typecheck, and Vite production build (`npm run build`).
+- **Server Job:** Dependency installation, high-level security audit, JavaScript syntax validation (`node -c`), module loading check, CI email guard (`npm run ci:guard`), automated test execution (`npm test`), and live smoke test execution (`npm run test:smoke`).
+
+---
+

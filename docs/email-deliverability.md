@@ -119,7 +119,7 @@ This tests the exact HTTPS REST payload against the Brevo endpoint and verifies 
 
 ## 🔄 4. Automated Retry & Failure Queue
 
-The backend service [`server/src/services/email.service.js`](file:///server/src/services/email.service.js) includes automated exponential backoff:
+The backend service [`server/src/services/email.service.js`](../server/src/services/email.service.js) includes automated exponential backoff:
 - **Attempts**: 3 attempts (immediate, +1s, +3s).
 - **Transient failures handled**: HTTP 429, 500, 502, 503, 504, network timeouts.
 - **Permanent failure handling**: When all retries are exhausted, the event is saved to the `FailedEmail` MongoDB collection for manual administrator review.

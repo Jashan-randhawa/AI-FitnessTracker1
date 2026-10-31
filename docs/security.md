@@ -1,0 +1,41 @@
+# 🔐 Security & Hardening Architecture
+
+[← Back to Documentation Index](README.md)
+
+### 🔐 6. Security, Authentication Hardening & CodeQL Remediation
+- **Admin-Only Blog Operations & Field Whitelisting:** Creating, updating, or deleting blog posts is strictly restricted to accounts with `isAdmin: true` via `requireAdmin` middleware. Non-admin requests receive `403 Forbidden`. In addition, create and update controllers accept only an explicit whitelist of allowed fields.
+- **GitHub CodeQL Remediation:** Audited and resolved GitHub code scanning alerts across the codebase, enforcing strict HTML entity escaping against DOM text XSS, cryptographically secure random token generation, complete string escaping, and scoped GitHub Actions workflow permissions (`permissions: contents: read`).
+- **React Compiler Compliance:** Frontend views and hooks (including `AIAssistant.tsx`) refactored to satisfy React Compiler rules, ensuring deterministic memoization and eliminating unnecessary re-renders.
+- **Unified Dual Sign-In Architecture (Google OAuth + Password):** Allows users to seamlessly authenticate with Google OAuth, standard password credentials, or both on a single shared account. Features a 6-case automated linking matrix, squat account protection, and cross-provider security alerts.
+- **Resilient Google OAuth Callback Handling:** Frontend `GoogleCallback` utilizes a single-execution `useRef` lifecycle guard to eliminate duplicate OAuth code exchange triggers, timing-safe fragment scrubbing before React state changes, explicit URL parameter error code mapping (`access_denied`, `google_state_invalid`, `oauth_failed`), and an interactive fallback retry screen.
+- **Session Safety & Instant Revocation:** Tokens are verified against `user.passwordChangedAt` on every protected request, immediately invalidating active JWTs across devices upon password change or reset. Step-up authentication (`requireRecentLogin`) enforces a 15-minute window for password changes.
+- **Unified Password Policy & History Prevention:** Enforces 8+ character passwords with uppercase, numbers, and special characters. Maintains a rolling 5-password history hash to strictly block password reuse.
+- **Signup & Profile Email Verification:** Built-in cryptographic verification tokens with 24-hour expiration, anti-enumeration endpoints, 60-second rate-limited resend debouncing with live UI countdown timer, unverified account warning banners, and dedicated verification screens.
+- **Brevo HTTPS Transactional Email with 5-Layer Resilience (F1–F5):**
+  - **F1 (Double-Click Interceptor):** Synchronous `inFlightRef` guard blocks duplicate API triggers before React state updates.
+  - **F2 (60s Token Debouncing):** Suppresses duplicate dispatches within 60s cooldown, keeping the existing reset link valid.
+  - **F3 (Retry Hardening):** Strict timeout handling breaks retry loops immediately to eliminate duplicate sends after remote acceptance.
+  - **F4 (Distributed Rate Limiting):** Distributed atomic Redis rate limiting with automatic in-memory fallback.
+  - **F5 (Request Tracing):** Correlates `requestId` end-to-end across controllers, background workers, and audit logs.
+- **Zero-Vulnerability Security Baseline:** Continuous dependency audits with `npm audit` ensuring 0 known vulnerabilities across client and server packages.
+- **Anti-Enumeration Password Recovery:** Uniform responses across all scenarios — including non-existent accounts, third-party OAuth providers, and upstream email delivery errors — ensuring no observable timing or oracle leaks exist.
+- **Production Error Masking:** All database errors (`MongoServerError`, Mongoose internals) and unhandled 5xx exceptions are strictly masked with generic client messages in production (`NODE_ENV === 'production'`), shielding database topologies and credentials from client disclosure.
+
+
+### Generating Cryptographic Secrets
+
+For production environments, never commit secrets to version control. Generate secure, cryptographically random strings using OpenSSL or Node.js crypto:
+
+```bash
+# Generate 256-bit base64-encoded secret for JWT_SECRET
+openssl rand -base64 48
+
+# Alternatively using Node.js
+node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+```
+
+### Environment Security Best Practices
+- Store all secrets in `server/.env` (never in client or public source control).
+- Keep `REFRESH_TOKEN_SECURE=true` in production to enforce HTTPS-only cookies.
+- Set `REFRESH_TOKEN_COOKIE_PATH=/api/auth` to limit cookie transmission scope to auth endpoints.
+- Configure `BREVO_WEBHOOK_KEY` to authenticate incoming transactional email webhooks and prevent spoofed delivery status injections.

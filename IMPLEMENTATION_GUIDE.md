@@ -1,11 +1,13 @@
 # FitTrack AI — Architecture & Developer Guide
 
+> 📖 **Documentation Gateway:** For the full documentation suite, see the [Documentation Index](docs/README.md) and [REST API Reference](docs/api-reference.md).
+
 ## Overview
 
 **FitTrack AI** is a full-stack, AI-powered health and fitness operating system built on a modern MERN-like stack:
-- **Frontend**: React 19, TypeScript, Tailwind CSS v4, Framer Motion, Recharts, Vite 7
-- **Backend**: Node.js (>=20.0.0), Express 4.19, MongoDB & Mongoose 8
-- **AI & Integrations**: OpenRouter LLMs (FitBot & meal planners), Open-Meteo API (weather & AQI), RapidAPI (YouTube workout streaming)
+- **Frontend**: React 19, TypeScript, Tailwind CSS v4, Framer Motion, Recharts, Vite 8
+- **Backend**: Node.js (>=20.0.0), Express 5, MongoDB & Mongoose 9
+- **AI & Integrations**: OpenRouter LLMs (FitBot & meal planners), Google Gemini 2.5 Flash (Food Snap v2 vision & voice set logging), Open-Meteo API (weather & AQI), RapidAPI (YouTube workout streaming)
 
 ---
 
