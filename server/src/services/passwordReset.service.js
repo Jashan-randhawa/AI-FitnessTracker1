@@ -513,6 +513,14 @@ const resetPassword = async (token, newPassword, context = {}) => {
   user.resetPasswordExpires = undefined;
   await user.save();
 
+  // Revoke all active refresh token families on password reset
+  try {
+    const { revokeAllUserRefreshTokens } = require('./refreshToken.service');
+    await revokeAllUserRefreshTokens(user._id);
+  } catch (err) {
+    logger.error('[password-reset] Failed to revoke refresh tokens on reset', { error: err.message });
+  }
+
   // Async security notice
   sendSecurityNoticeEmail({
     to: user.email,

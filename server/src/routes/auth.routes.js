@@ -1,10 +1,13 @@
 const express = require('express');
 const { protect } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimiter');
+const { verifyCsrfAndOrigin } = require('../middleware/csrfProtection');
 const {
   register,
   login,
   me,
+  refresh,
+  logout,
   googleConnect,
   googleConnectCallback,
   googleAuthCallback,
@@ -14,6 +17,8 @@ const router = express.Router();
 
 router.post('/auth/local/register', authLimiter, register);
 router.post('/auth/local', authLimiter, login);
+router.post('/auth/refresh', authLimiter, verifyCsrfAndOrigin, refresh);
+router.post('/auth/logout', verifyCsrfAndOrigin, logout);
 router.get('/users/me', protect, me);
 
 // Google OAuth flow
