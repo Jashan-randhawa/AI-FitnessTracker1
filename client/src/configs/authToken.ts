@@ -1,31 +1,60 @@
-// Single place that touches the stored session token. Everything else in the
-// client goes through these helpers, so the storage mechanism can change (for
-// example to an httpOnly cookie) without editing every page.
+// In-memory access token storage (short-lived 15m JWT).
+// Never persisted to localStorage or sessionStorage.
+let inMemoryAccessToken: string | null = null;
+
 const TOKEN_KEY = "token";
 
-export const getAuthToken = (): string | null => {
+/**
+ * One-time migration helper: if an old localStorage or sessionStorage token exists,
+ * uses it once for session recovery, then immediately purges it from storage.
+ */
+const migrateLegacyToken = (): string | null => {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    if (typeof window !== "undefined") {
+      const legacy = localStorage.getItem(TOKEN_KEY) || sessionStorage?.getItem(TOKEN_KEY);
+      if (legacy) {
+        inMemoryAccessToken = legacy;
+        localStorage.removeItem(TOKEN_KEY);
+        sessionStorage?.removeItem(TOKEN_KEY);
+        return legacy;
+      }
+    }
   } catch {
-    return null;
+    // Ignore storage access errors (e.g. sandboxed iframe or strict private browsing)
   }
+  return null;
+};
+
+export const getAuthToken = (): string | null => {
+  if (inMemoryAccessToken) {
+    return inMemoryAccessToken;
+  }
+  return migrateLegacyToken();
 };
 
 export const hasAuthToken = (): boolean => Boolean(getAuthToken());
 
 export const setAuthToken = (jwt: string): void => {
+  inMemoryAccessToken = jwt;
   try {
-    localStorage.setItem(TOKEN_KEY, jwt);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage?.removeItem(TOKEN_KEY);
+    }
   } catch {
-    // Ignore localStorage write quota/security errors
+    // Ignore storage errors
   }
 };
 
 export const clearAuthToken = (): void => {
+  inMemoryAccessToken = null;
   try {
-    localStorage.removeItem(TOKEN_KEY);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage?.removeItem(TOKEN_KEY);
+    }
   } catch {
-    // Ignore localStorage write quota/security errors
+    // Ignore storage errors
   }
 };
 

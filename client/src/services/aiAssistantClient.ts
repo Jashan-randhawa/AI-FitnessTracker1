@@ -21,7 +21,7 @@ import {
 } from "../schemas/aiPlans.schema";
 
 import type { ProposedChatAction } from "../schemas/chatAction.schema";
-import { authHeaders } from "../configs/authToken";
+import { authHeaders, setAuthToken } from "../configs/authToken";
 export type { ProposedChatAction };
 
 export interface ExecutedAction {
@@ -122,12 +122,33 @@ export async function chatAiAssistant(req: AiChatRequest): Promise<AiChatRespons
   // Added only when given, so other requests keep their existing shape.
   if (req.environment) payload.environment = req.environment;
 
-  const response = await fetch(`${baseUrl}/api/ai-assistant/chat`, {
+  let response = await fetch(`${baseUrl}/api/ai-assistant/chat`, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
     signal: req.signal,
+    credentials: "include",
   });
+
+  if (response.status === 401) {
+    try {
+      const { data: refreshData } = await api.post<{ jwt: string; accessToken?: string }>("/api/auth/refresh", {});
+      const newToken = refreshData.accessToken || refreshData.jwt;
+      if (newToken) {
+        setAuthToken(newToken);
+        headers["Authorization"] = `Bearer ${newToken}`;
+        response = await fetch(`${baseUrl}/api/ai-assistant/chat`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+          signal: req.signal,
+          credentials: "include",
+        });
+      }
+    } catch {
+      // Allow error branch below to handle failure
+    }
+  }
 
   const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
 
