@@ -133,6 +133,7 @@ export function useChatSessionPersistence({
             },
             body,
             keepalive: true,
+            credentials: "include",
           }).catch(() => {});
         } catch {
           // ignore pagehide network error

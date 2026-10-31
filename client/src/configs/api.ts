@@ -1,14 +1,9 @@
 import axios from "axios";
+import type { InternalAxiosRequestConfig } from "axios";
 import toast from "react-hot-toast";
-import { getAuthToken } from "./authToken";
+import { getAuthToken, setAuthToken, clearAuthToken } from "./authToken";
 
 const rawApiUrl = import.meta.env.VITE_API_URL;
-
-if (import.meta.env.PROD && !rawApiUrl) {
-  console.warn(
-    "[FitTrack] Warning: VITE_API_URL is not configured. Falling back to default origin."
-  );
-}
 
 export const API_BASE_URL = (rawApiUrl || "").replace(/\/$/, "");
 export const API_URL = API_BASE_URL;
@@ -17,9 +12,10 @@ export const API_URL = API_BASE_URL;
 const api = axios.create({
   baseURL: API_BASE_URL || undefined,
   timeout: 45000,
+  withCredentials: true,
 });
 
-// Automatically attach Bearer token from localStorage to every outgoing request
+// Automatically attach Bearer token from memory to every outgoing request
 api.interceptors.request.use((config) => {
   // The server buckets day totals in this timezone, so every request declares it.
   try {
@@ -47,7 +43,30 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Auto-retry transient network errors or gateway timeouts once during backend wake-up
+// Refresh token mutex & queued requests tracking
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (token: string | null) => void;
+  reject: (err: unknown) => void;
+}> = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+interface RetriableConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+  _isRefreshRetry?: boolean;
+}
+
+// Auto-retry transient network errors, 429 limits, and 401 token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -61,7 +80,100 @@ api.interceptors.response.use(
       );
     }
 
-    const config = error.config;
+    const config = error.config as RetriableConfig | undefined;
+
+    // Handle 401 Unauthorized via single-flight refresh rotation
+    if (error.response?.status === 401 && config) {
+      const requestUrl = config.url || "";
+      const isAuthEndpoint =
+        requestUrl.includes("/auth/refresh") ||
+        requestUrl.includes("/auth/local") ||
+        requestUrl.includes("/auth/logout");
+
+      if (isAuthEndpoint || config._isRefreshRetry) {
+        clearAuthToken();
+        if (typeof window !== "undefined") {
+          const path = window.location.pathname;
+          if (
+            path !== "/login" &&
+            path !== "/" &&
+            !path.startsWith("/forgot-password") &&
+            !path.startsWith("/reset-password") &&
+            !path.startsWith("/verify-email") &&
+            !path.startsWith("/google-callback")
+          ) {
+            window.location.href = "/login";
+          }
+        }
+        return Promise.reject(error);
+      }
+
+      config._isRefreshRetry = true;
+
+      if (isRefreshing) {
+        return new Promise<string | null>((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((newToken) => {
+            if (newToken) {
+              if (config.headers && typeof config.headers.set === "function") {
+                config.headers.set("Authorization", `Bearer ${newToken}`);
+              } else {
+                config.headers = config.headers || {};
+                config.headers["Authorization"] = `Bearer ${newToken}`;
+              }
+            }
+            return api(config);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      isRefreshing = true;
+
+      return axios
+        .post<{ jwt: string; accessToken?: string }>(
+          `${API_BASE_URL}/api/auth/refresh`,
+          {},
+          { withCredentials: true }
+        )
+        .then(({ data }) => {
+          const newToken = data.accessToken || data.jwt;
+          setAuthToken(newToken);
+          processQueue(null, newToken);
+
+          if (config.headers && typeof config.headers.set === "function") {
+            config.headers.set("Authorization", `Bearer ${newToken}`);
+          } else {
+            config.headers = config.headers || {};
+            config.headers["Authorization"] = `Bearer ${newToken}`;
+          }
+
+          return api(config);
+        })
+        .catch((refreshErr) => {
+          processQueue(refreshErr, null);
+          clearAuthToken();
+          if (typeof window !== "undefined") {
+            const path = window.location.pathname;
+            if (
+              path !== "/login" &&
+              path !== "/" &&
+              !path.startsWith("/forgot-password") &&
+              !path.startsWith("/reset-password") &&
+              !path.startsWith("/verify-email") &&
+              !path.startsWith("/google-callback")
+            ) {
+              window.location.href = "/login";
+            }
+          }
+          return Promise.reject(refreshErr);
+        })
+        .finally(() => {
+          isRefreshing = false;
+        });
+    }
+
+    // Auto-retry transient network errors or gateway timeouts once during backend wake-up
     if (
       config &&
       !config._retry &&
@@ -76,6 +188,7 @@ api.interceptors.response.use(
       await new Promise((res) => setTimeout(res, 1500));
       return api(config);
     }
+
     return Promise.reject(error);
   }
 );

@@ -34,7 +34,7 @@ const normalizeCollectionResponse = <T extends Record<string, unknown>>(payload:
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User>(null);
-  const [isUserFetched, setIsUserFetched] = useState(() => !getAuthToken());
+  const [isUserFetched, setIsUserFetched] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [allFoodLogs, setAllFoodLogsRaw] = useState<FoodEntry[]>([]);
   const [allActivityLogs, setAllActivityLogsRaw] = useState<ActivityEntry[]>([]);
@@ -54,8 +54,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const signup = async (credentials: Credentials) => {
     try {
       const { data } = await api.post("/api/auth/local/register", credentials);
-      setAuthToken(data.jwt);
-      setUser({ ...data.user, token: data.jwt });
+      const token = data.accessToken || data.jwt;
+      setAuthToken(token);
+      setUser({ ...data.user, token });
       if (data?.user?.age && data?.user?.weight && data?.user?.goal) setOnboardingCompleted(true);
     } catch (error: unknown) {
       const msg = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -73,7 +74,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(null);
 
       const { data } = await api.post("/api/auth/local", { identifier: credentials.email, password: credentials.password });
-      setAuthToken(data.jwt);
+      const token = data.accessToken || data.jwt;
+      setAuthToken(token);
 
       const [foodRes, activityRes, waterRes] = await Promise.all([
         api.get("/api/foodlogs"),
@@ -81,7 +83,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         api.get("/api/waterlogs"),
       ]);
 
-      setUser({ ...data.user, token: data.jwt });
+      setUser({ ...data.user, token });
       setAllFoodLogs(normalizeCollectionResponse<FoodEntry>(foodRes.data));
       setAllActivityLogs(normalizeCollectionResponse<ActivityEntry>(activityRes.data));
       setAllWaterLogs(normalizeCollectionResponse<WaterEntry>(waterRes.data));
@@ -105,7 +107,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const { data } = await api.post("/api/auth/google/callback", {
         access_token: googleAccessToken,
       });
-      const jwtToken = data.jwt;
+      const jwtToken = data.accessToken || data.jwt;
 
       setAuthToken(jwtToken);
       setUser({ ...data.user, token: jwtToken });
@@ -191,15 +193,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [setAllWaterLogs]);
 
-  const logout = () => {
-    clearAuthToken();
-    clearSummaries();
-    setUser(null);
-    setAllFoodLogs([]);
-    setAllActivityLogs([]);
-    setAllWaterLogs([]);
-    setOnboardingCompleted(false);
-    navigate("/");
+  const logout = async () => {
+    try {
+      await api.post("/api/auth/logout", {});
+    } catch {
+      // Ignore network errors during logout
+    } finally {
+      clearAuthToken();
+      clearSummaries();
+      setUser(null);
+      setAllFoodLogs([]);
+      setAllActivityLogs([]);
+      setAllWaterLogs([]);
+      setOnboardingCompleted(false);
+      navigate("/");
+    }
   };
 
   const setSessionToken = (jwt: string, updatedUser?: Partial<NonNullable<User>>) => {
@@ -230,17 +238,51 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let ignore = false;
-    const loadSession = async () => {
-      const token = getAuthToken();
-      if (!token) return;
-      await fetchUser(token);
-      if (!ignore) {
+    const restoreSession = async () => {
+      try {
+        const legacyToken = getAuthToken();
+        const { data } = await api.post<{
+          jwt: string;
+          accessToken?: string;
+          user: NonNullable<User>;
+        }>("/api/auth/refresh", legacyToken ? { refreshToken: legacyToken } : {});
+
+        if (ignore) return;
+        const freshJwt = data.accessToken || data.jwt;
+        setAuthToken(freshJwt);
+        setUser({ ...data.user, token: freshJwt });
+        if (data.user?.age && data.user?.weight && data.user?.goal) {
+          setOnboardingCompleted(true);
+        }
+
         fetchFoodLogs();
         fetchActivityLogs();
         fetchWaterLogs();
+      } catch {
+        if (ignore) return;
+        const legacyToken = getAuthToken();
+        if (legacyToken) {
+          try {
+            await fetchUser(legacyToken);
+            if (!ignore) {
+              fetchFoodLogs();
+              fetchActivityLogs();
+              fetchWaterLogs();
+            }
+            return;
+          } catch {
+            clearAuthToken();
+          }
+        }
+        clearAuthToken();
+        setUser(null);
+      } finally {
+        if (!ignore) {
+          setIsUserFetched(true);
+        }
       }
     };
-    loadSession();
+    restoreSession();
     return () => {
       ignore = true;
     };

@@ -100,7 +100,7 @@ export type AppContextType = {
   signup: (credentials: Credentials) => Promise<void>;
   login: (credentials: Credentials) => Promise<void>;
   googleLogin: (googleAccessToken: string) => Promise<void>;
-  logout: () => void;
+  logout: () => void | Promise<void>;
   onboardingCompleted: boolean;
   setOnboardingCompleted: React.Dispatch<React.SetStateAction<boolean>>;
   allFoodLogs: FoodEntry[];
