@@ -109,6 +109,15 @@
 ---
 
 
+### 📶 5. Offline Logging & Sync Engine
+- **Zero-Drop Offline Experience:** Log water intake, weigh-ins, meals, and workout sessions without an active internet connection.
+- **Optimistic UI with Badges:** Instant local rendering with visible "Pending" badges and automatic rollback on 400 validation failures.
+- **Durable Local Storage:** Persisted via IndexedDB (`fittrack_offline_v2`) with in-memory fallback; zero credentials or health metrics written to `localStorage`.
+- **Automatic FIFO Replay:** Background queue drains chronologically when online connectivity returns, using durable `Idempotency-Key` headers.
+- **Last-Writer-Wins Weigh-in Conflict Resolution:** Same-day weight replays safely update or acknowledge stale entries with `X-Conflict: stale-ignored` without overwriting newer data.
+- **Accessible Sync Status Indicator:** Real-time sync badge (`synced`, `offline`, `waiting`, `syncing`, `needs_auth`, `attention`) with `aria-live="polite"` announcements and a full queue inspection bottom sheet.
+- **Privacy-Preserving Logout Guard:** Confirms and purges pending entries on explicit user logout while preserving auth-expired queues across re-logins.
+
 ## 📱 Mobile Experience
 
 FitTrack AI features a dedicated mobile architecture designed for modern smartphones:

@@ -176,8 +176,41 @@ When a user's daily token, call, or feature quota is exhausted:
   - `429 Too Many Requests`: Rate limit reached (10 photos/hour per user).
 - **Auto-Save Option**: Include `?autoSave=true` query param to persist high-confidence analysis ($\ge 0.75$) into user's `FoodLog` in 1 HTTP roundtrip.
 
----
+### 🔄 Offline Logging & Write Idempotency Contract
 
+The write endpoints (`POST /api/waterlogs`, `POST /api/weightlogs`, `POST /api/foodlogs`, and `POST /api/activitylogs`) support safe, replayable mutation requests queued offline.
+
+#### Idempotency Key Semantics
+- **Extraction**: Read from `Idempotency-Key` (preferred), `X-Idempotency-Key`, or `body.data.idempotencyKey` / `body.idempotencyKey` (for backwards compatibility with AI assistant chat actions).
+- **Key Format**: Must be 8–128 characters matching `^[A-Za-z0-9_:.-]+$`. Invalid formats return `400 Bad Request` with `{ code: 'INVALID_IDEMPOTENCY_KEY' }`.
+- **Missing Key**: Requests without an idempotency key execute standard non-idempotent creation.
+- **Scoping**: All idempotency records are scoped strictly per authenticated user (`{ user, key }`).
+
+#### Status Codes & Replay Headers
+- **`200 OK`**: Replayed completion of water, food, or activity creation, or a stale-ignored weight entry.
+- **`201 Created`**: Replayed completion of a weight log creation (or original write).
+- **`Idempotency-Replayed: true`**: Present on all replayed responses served from the durable idempotency store.
+- **`409 Conflict` (`IDEMPOTENCY_IN_PROGRESS`)**: Returned when a duplicate request arrives while the original operation is still in flight. Includes `Retry-After: 1` header.
+- **`422 Unprocessable Entity` (`IDEMPOTENCY_KEY_REUSED`)**: Returned when an idempotency key is reused with a different request method, route, or canonicalized payload.
+- **Failure Recovery (5xx)**: If an operation returns a 5xx status code or unhandled exception, the in-progress claim is immediately deleted so retries can proceed cleanly.
+
+#### Payload Validation & Range Limits
+- **Water (`POST /api/waterlogs`)**: `amount` must be a finite number between 1 and 10000 ml. Fields are whitelisted strictly to `amount` and `date`.
+- **Food (`POST /api/foodlogs`)**:
+  - `name`: non-empty string up to 100 characters.
+  - `calories`: finite number between 0 and 20000 kcal.
+  - `protein`, `carbs`, `fat`: finite numbers between 0 and 2000 g (optional / default 0).
+  - `mealtype` / `mealType`: restricted to `breakfast`, `lunch`, `dinner`, or `snack`.
+  - Fields are whitelisted to valid food attributes (`name`, `calories`, `protein`, `carbs`, `fat`, `mealtype`, `mealType`, `date`, `aiGenerated`).
+- **Weight (`POST /api/weightlogs`)**:
+  - `weightKg`: finite number between 20 and 400 kg.
+  - **Conflict Rule (Event-Time Last-Writer-Wins)**: Exactly one entry per user per `localDay`. When a weigh-in arrives for an existing same-day record:
+    - If the incoming event `date` is **older** than the stored same-day record's date, the server ignores the write, leaves `User.weight` untouched, suppresses SSE change events, and returns `200 OK` with the stored entry and header `X-Conflict: stale-ignored`.
+    - If the incoming event `date` is **equal or newer**, the server upserts the entry, syncs `User.weight` if it is the newest overall weigh-in, and returns `201 Created`.
+  - `localDay`: Explicit valid `localDay` in request body (`YYYY-MM-DD`) takes precedence over the `X-Timezone` header.
+- **Date Range Boundary**: For water, food, and weight writes, dates cannot be more than 5 minutes in the future, nor older than `OFFLINE_MAX_AGE_DAYS` (default 30 days). Violations return `400 Bad Request` with `{ code: 'DATE_OUT_OF_RANGE' }`.
+
+---
 
 ### 🌤️ Outdoor Weather & News
 | Method | Endpoint | Description | Rate Limit | Auth |

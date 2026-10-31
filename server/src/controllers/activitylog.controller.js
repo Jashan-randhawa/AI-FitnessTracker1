@@ -3,6 +3,7 @@ const { publishChange } = require('../services/eventBus');
 const ActivityLog = require('../models/ActivityLog');
 const sendError = require('../utils/sendError');
 const { parsePageParams, findPage, sendPage } = require('../utils/pagination');
+const idempotency = require('../middleware/idempotency');
 
 const normalizePayload = (raw) => {
   const body = { ...raw };
@@ -31,6 +32,24 @@ const normalizePayload = (raw) => {
 
 // POST /api/activitylogs — body: { data: { ... } } or flat { ... }
 const create = asyncHandler(async (req, res) => {
+  if (!req._idempotencyHandled) {
+    let proceeded = false;
+    await new Promise((resolve, reject) => {
+      Promise.resolve(
+        idempotency(req, res, (err) => {
+          proceeded = true;
+          if (err) return reject(err);
+          resolve();
+        })
+      )
+        .then(() => {
+          if (!proceeded) resolve();
+        })
+        .catch(reject);
+    });
+    if (!proceeded) return;
+  }
+
   const raw = req.body.data || req.body || {};
   const body = normalizePayload(raw);
 

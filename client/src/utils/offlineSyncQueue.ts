@@ -1,165 +1,146 @@
-import api from '../configs/api';
-import toast from 'react-hot-toast';
+/**
+ * @deprecated Use `client/src/offline` instead.
+ * Thin compatibility layer for legacy callers and tests.
+ */
+import {
+  type OfflineMutationKind,
+  type AnyOfflinePayload,
+  validateMutationPayload,
+} from "../offline/types";
+import {
+  offlineQueueStore,
+  startOfflineSync,
+  stopOfflineSync,
+  enqueue,
+  discardItem,
+  onReconcile,
+} from "../offline";
+import api from "../configs/api";
 
 export interface QueuedMutation {
   id: string;
   endpoint: string;
-  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  method: "POST" | "PUT" | "PATCH" | "DELETE";
   data: unknown;
   description?: string;
   timestamp: number;
 }
 
-const DB_NAME = 'fittrack_offline_db';
-const STORE_NAME = 'mutations';
-const DB_VERSION = 1;
-const LOCAL_STORAGE_KEY = 'fittrack_offline_queue';
+const DEFAULT_COMPAT_USER = "legacy_compat_user";
 
-/**
- * Opens IndexedDB database with fallbacks.
- */
-const openDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined' || !window.indexedDB) {
-      return reject(new Error('IndexedDB not supported'));
-    }
-
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      }
-    };
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+const ensureActiveUser = () => {
+  offlineQueueStore.setCurrentUserId(DEFAULT_COMPAT_USER);
 };
 
-/**
- * LocalStorage fallback helpers
- */
-const getLocalStorageQueue = (): QueuedMutation[] => {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+const mapEndpointToKind = (endpoint: string): OfflineMutationKind => {
+  if (endpoint.includes("/waterlogs")) return "water_add";
+  if (endpoint.includes("/weightlogs")) return "weight_log";
+  if (endpoint.includes("/foodlogs")) return "food_add";
+  return "activity_add";
 };
 
-const saveLocalStorageQueue = (queue: QueuedMutation[]) => {
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(queue));
-  } catch {
-    // Ignore storage quota errors
+const kindToEndpoint = (kind: OfflineMutationKind): string => {
+  switch (kind) {
+    case "water_add":
+      return "/api/waterlogs";
+    case "weight_log":
+      return "/api/weightlogs";
+    case "food_add":
+      return "/api/foodlogs";
+    case "activity_add":
+      return "/api/activitylogs";
   }
 };
 
 /**
- * Enqueues a workout or food mutation into the offline store.
+ * @deprecated Use `enqueue` from `client/src/offline` instead.
  */
 export const enqueueOfflineMutation = async (
-  mutation: Omit<QueuedMutation, 'id' | 'timestamp'>
+  mutation: Omit<QueuedMutation, "id" | "timestamp">
 ): Promise<QueuedMutation> => {
-  const queuedItem: QueuedMutation = {
-    ...mutation,
-    id: `mut-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-    timestamp: Date.now(),
-  };
+  ensureActiveUser();
 
+  const kind = mapEndpointToKind(mutation.endpoint);
+  const rawPayload =
+    mutation.data && typeof mutation.data === "object" && "data" in mutation.data
+      ? (mutation.data as { data: unknown }).data
+      : mutation.data;
+
+  // Validate or coerce payload to comply with the new typed schema
+  let validPayload: AnyOfflinePayload;
   try {
-    const db = await openDB();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.put(queuedItem);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+    validPayload = validateMutationPayload(kind, rawPayload);
   } catch {
-    // Fallback to localStorage
-    const current = getLocalStorageQueue();
-    current.push(queuedItem);
-    saveLocalStorageQueue(current);
+    // If validation fails in legacy path, pass raw to allow offline storage
+    validPayload = rawPayload as AnyOfflinePayload;
   }
 
-  return queuedItem;
+  const enqueued = await enqueue(kind, validPayload);
+
+  return {
+    id: enqueued.id,
+    endpoint: mutation.endpoint,
+    method: mutation.method,
+    data: mutation.data,
+    description: mutation.description,
+    timestamp: enqueued.createdAt,
+  };
 };
 
 /**
- * Retrieves all pending offline mutations.
+ * @deprecated Use `getSnapshot` from `client/src/offline` instead.
  */
 export const getOfflineQueue = async (): Promise<QueuedMutation[]> => {
-  try {
-    const db = await openDB();
-    return await new Promise<QueuedMutation[]>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    });
-  } catch {
-    return getLocalStorageQueue();
-  }
+  ensureActiveUser();
+  const snapshot = await offlineQueueStore.refreshSnapshot();
+
+  return snapshot.items.map((m) => ({
+    id: m.id,
+    endpoint: kindToEndpoint(m.kind),
+    method: "POST" as const,
+    data: m.payload,
+    description: (m.payload as { name?: string })?.name,
+    timestamp: m.createdAt,
+  }));
 };
 
 /**
- * Removes a mutation from the offline queue after successful replay.
+ * @deprecated Use `discardItem` from `client/src/offline` instead.
  */
 export const removeOfflineMutation = async (id: string): Promise<void> => {
-  try {
-    const db = await openDB();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.delete(id);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  } catch {
-    const current = getLocalStorageQueue();
-    const filtered = current.filter((m) => m.id !== id);
-    saveLocalStorageQueue(filtered);
-  }
+  await discardItem(id);
 };
 
-let isReplaying = false;
+let isReplayingCompat = false;
 
 /**
- * Replays all pending mutations sequentially over the API.
+ * @deprecated Use `offlineQueueStore.replay()` from `client/src/offline` instead.
  */
 export const replayOfflineQueue = async (
   onItemReplayed?: (mutation: QueuedMutation, result: unknown) => void
 ): Promise<number> => {
-  if (isReplaying || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+  if (isReplayingCompat || (typeof navigator !== "undefined" && !navigator.onLine)) {
     return 0;
   }
 
-  isReplaying = true;
+  isReplayingCompat = true;
   let replayedCount = 0;
 
   try {
+    ensureActiveUser();
     const queue = await getOfflineQueue();
     if (queue.length === 0) return 0;
-
-    toast.loading(`Replaying ${queue.length} offline workout changes...`, {
-      id: 'replay-toast',
-    });
 
     for (const item of queue) {
       try {
         let res;
-        if (item.method === 'POST') {
+        if (item.method === "POST") {
           res = await api.post(item.endpoint, item.data);
-        } else if (item.method === 'PUT') {
+        } else if (item.method === "PUT") {
           res = await api.put(item.endpoint, item.data);
-        } else if (item.method === 'PATCH') {
+        } else if (item.method === "PATCH") {
           res = await api.patch(item.endpoint, item.data);
-        } else if (item.method === 'DELETE') {
+        } else if (item.method === "DELETE") {
           res = await api.delete(item.endpoint);
         }
 
@@ -167,54 +148,44 @@ export const replayOfflineQueue = async (
         replayedCount++;
         onItemReplayed?.(item, res?.data);
       } catch (err: unknown) {
-        // Stop replay if network is truly down
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
           break;
         }
 
-        // Drop invalid mutations (e.g. 400 Bad Request, 404 Not Found, 422 Unprocessable)
-        // so they do not poison the offline queue indefinitely. Keep 429 and 5xx to retry later.
         const status = (err as { response?: { status?: number } })?.response?.status;
         if (status && status >= 400 && status < 500 && status !== 429) {
           await removeOfflineMutation(item.id);
         }
       }
     }
-
-    if (replayedCount > 0) {
-      toast.success(`Synced ${replayedCount} workout sessions to cloud!`, {
-        id: 'replay-toast',
-      });
-    } else {
-      toast.dismiss('replay-toast');
-    }
   } finally {
-    isReplaying = false;
+    isReplayingCompat = false;
   }
 
   return replayedCount;
 };
 
 /**
- * Subscribes to browser window 'online' event to automatically replay queued mutations.
+ * @deprecated Offline sync is now managed app-wide via `startOfflineSync` / `stopOfflineSync`.
  */
 export const initOfflineSync = (
   onItemReplayed?: (mutation: QueuedMutation, result: unknown) => void
 ): (() => void) => {
-  if (typeof window === 'undefined') return () => {};
+  if (typeof window === "undefined") return () => {};
 
   const handleOnline = () => {
     replayOfflineQueue(onItemReplayed);
   };
 
-  window.addEventListener('online', handleOnline);
+  window.addEventListener("online", handleOnline);
 
-  // Check immediately if online and items exist
   if (navigator.onLine) {
     replayOfflineQueue(onItemReplayed);
   }
 
   return () => {
-    window.removeEventListener('online', handleOnline);
+    window.removeEventListener("online", handleOnline);
   };
 };
+
+export { startOfflineSync, stopOfflineSync, onReconcile };

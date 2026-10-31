@@ -7,6 +7,8 @@ import type { WaterEntry } from "../assets/types";
 import { useTheme } from "../Context/Themecontext";
 import { useNavigate } from "react-router-dom";
 import api from "../configs/api";
+import axios from "axios";
+import { enqueue, discardItem, getSnapshot, onReconcile } from "../offline";
 import toast from "react-hot-toast";
 import { RefreshCw } from "lucide-react";
 import AnimatedNumber from "../components/AnimatedNumber";
@@ -312,6 +314,34 @@ const WaterTracker = ({
           </button>
         </div>
       )}
+
+      {/* Today's Water Entries List with Pending Badges */}
+      {logs && logs.length > 0 && (
+        <div className="mt-2 pt-2.5 border-t border-blue-200/60 dark:border-blue-800/40">
+          <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Today's Logs:</p>
+          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+            {logs
+              .filter((l) => dateKey(l) === today)
+              .slice(0, 8)
+              .map((l) => {
+                const isPending = l.id.startsWith("tmp-") || l.id.startsWith("offline-");
+                return (
+                  <span
+                    key={l.id}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium bg-white/80 dark:bg-slate-800/80 border border-blue-200 dark:border-blue-700 text-slate-800 dark:text-slate-200"
+                  >
+                    <span>+{l.amount} ml</span>
+                    {isPending && (
+                      <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
+                        pending
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -496,6 +526,32 @@ export default function Dashboard() {
   } as const;
 
   // ── Water log helpers ────────────────────────────────────
+  // Listen for water offline reconciliation events
+  useEffect(() => {
+    return onReconcile((event) => {
+      if (event.kind === "water_add") {
+        const rawServer = (event.serverEntry as { data?: WaterEntry })?.data ?? (event.serverEntry as WaterEntry);
+        const serverId = rawServer?.id || (rawServer as { _id?: string })?._id;
+        const normalized: WaterEntry = {
+          id: String(serverId),
+          amount: Number(rawServer?.amount),
+          date: rawServer?.date || new Date().toISOString(),
+        };
+
+        setAllWaterLogs((prev: WaterEntry[]) => {
+          const alreadyExists = prev.some((e) => e.id === normalized.id);
+          if (alreadyExists) {
+            return prev.filter((e) => e.id !== event.localTempId);
+          }
+          if (event.localTempId && prev.some((e) => e.id === event.localTempId)) {
+            return prev.map((e) => (e.id === event.localTempId ? normalized : e));
+          }
+          return [normalized, ...prev];
+        });
+      }
+    });
+  }, [setAllWaterLogs]);
+
   const handleRemoveLastWater = useCallback(async () => {
     const todayLogs = allWaterLogs.filter((l) => dateKey(l) === today);
     const last = [...todayLogs].sort(
@@ -503,6 +559,25 @@ export default function Dashboard() {
     )[0];
     if (!last) return;
     const id = last.id;
+
+    // Deleting an unsynced optimistic entry cancels the queued create
+    if (id.startsWith("tmp-") || id.startsWith("offline-")) {
+      setAllWaterLogs((prev: WaterEntry[]) => prev.filter((e) => e.id !== id));
+      const snapshot = getSnapshot();
+      const match = snapshot.items.find((m) => m.localTempId === id || m.id === id);
+      if (match) {
+        await discardItem(match.id);
+      }
+      toast.success("Unsynced water entry removed");
+      return;
+    }
+
+    // Deleting an already-synced entry offline is NOT queued
+    if (!navigator.onLine) {
+      toast.error("Needs an internet connection to delete synced entries");
+      return;
+    }
+
     setAllWaterLogs((prev: WaterEntry[]) => prev.filter((e) => e.id !== id));
     try {
       await api.delete(`/api/waterlogs/${id}`);
@@ -519,25 +594,47 @@ export default function Dashboard() {
 
   const handleAddWater = useCallback(async (ml: number) => {
     const tmpId = `tmp-${Date.now()}`;
-    const optimistic = { id: tmpId, amount: ml, date: new Date().toISOString() };
+    const nowIso = new Date().toISOString();
+    const optimistic: WaterEntry = { id: tmpId, amount: ml, date: nowIso };
     // Show immediately in UI
     setAllWaterLogs((prev: WaterEntry[]) => [optimistic, ...prev]);
+
     try {
       const { data: raw } = await api.post(
         "/api/waterlogs",
-        { data: { amount: ml, date: new Date().toISOString() } }
+        { data: { amount: ml, date: nowIso } }
       );
-      // Normalise response — may be nested under .data or flat
       const saved = raw?.data ?? raw;
-      const entry = saved?.attributes
-        ? { id: saved.id, ...saved.attributes }
-        : { id: saved?.id ?? tmpId, amount: saved?.amount ?? ml, date: saved?.date ?? new Date().toISOString() };
-      // Replace optimistic entry with real server entry
-      setAllWaterLogs((prev: WaterEntry[]) => prev.map((e) => e.id === tmpId ? entry : e));
-    } catch {
-      // Roll back
+      const entry: WaterEntry = saved?.attributes
+        ? { id: saved.id, amount: Number(saved.attributes.amount), date: String(saved.attributes.date) }
+        : { id: String(saved?.id ?? tmpId), amount: Number(saved?.amount ?? ml), date: String(saved?.date ?? nowIso) };
+      setAllWaterLogs((prev: WaterEntry[]) => prev.map((e) => (e.id === tmpId ? entry : e)));
+    } catch (err: unknown) {
+      const axiosErr = axios.isAxiosError(err) ? err : null;
+      const status = axiosErr?.response?.status;
+      const isNetwork =
+        !navigator.onLine ||
+        axiosErr?.code === "ERR_NETWORK" ||
+        axiosErr?.code === "ECONNABORTED" ||
+        (err instanceof Error && err.message.toLowerCase().includes("network"));
+
+      // On network failure or timeout: enqueue instead of rolling back!
+      if (isNetwork || !status || status >= 500) {
+        try {
+          await enqueue("water_add", { amount: ml, date: nowIso }, { localTempId: tmpId });
+          toast.success("Saved offline. Will sync automatically when back online 📶");
+          return;
+        } catch {
+          // If enqueue validation fails, roll back
+        }
+      }
+
+      // Roll back on real validation error (e.g. 400 Bad Request)
       setAllWaterLogs((prev: WaterEntry[]) => prev.filter((e) => e.id !== tmpId));
-      toast.error("Failed to save water entry");
+      const resMsg =
+        (axiosErr?.response?.data as { message?: string })?.message ||
+        (axiosErr?.response?.data as { error?: { message?: string } })?.error?.message;
+      toast.error(resMsg || "Failed to save water entry");
     }
   }, [setAllWaterLogs]);
 

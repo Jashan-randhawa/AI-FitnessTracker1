@@ -21,6 +21,8 @@ const EnvSchema = z.object({
   AI_DAILY_BUDGET_ADMIN_MULTIPLIER: z.any().optional(),
   AI_FALLBACK_COST_TOKENS: z.any().optional(),
   AI_BUDGET_FAIL_MODE: z.any().optional(),
+  IDEMPOTENCY_TTL_HOURS: z.coerce.number().positive().default(336),
+  OFFLINE_MAX_AGE_DAYS: z.coerce.number().positive().default(30),
 });
 
 /**

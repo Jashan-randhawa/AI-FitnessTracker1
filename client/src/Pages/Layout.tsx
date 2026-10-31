@@ -1,6 +1,8 @@
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import BottomNav from "../components/BottomNav";
+import { OfflineSyncProvider } from "../offline/OfflineSyncContext";
+import { SyncQueueSheet, LogoutWarningModal } from "../components/sync";
 
 const Layout = () => {
   const location = useLocation();
@@ -10,25 +12,29 @@ const Layout = () => {
     location.pathname.startsWith("/ai");
 
   return (
-    <div
-      className={
-        isChat
-          ? "h-[100dvh] max-h-[100dvh] min-h-0 w-full flex flex-col lg:flex-row bg-white dark:bg-slate-950 transition-colors duration-200 overflow-hidden"
-          : "layout-container"
-      }
-    >
-      <Sidebar />
-      <main
-        className={`${
+    <OfflineSyncProvider>
+      <div
+        className={
           isChat
-            ? "flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden"
-            : "flex-1 min-w-0 overflow-y-auto page-pad-bottom"
-        } no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
+            ? "h-[100dvh] max-h-[100dvh] min-h-0 w-full flex flex-col lg:flex-row bg-white dark:bg-slate-950 transition-colors duration-200 overflow-hidden"
+            : "layout-container"
+        }
       >
-        <Outlet />
-      </main>
-      <BottomNav className={isChat ? "relative z-40" : undefined} />
-    </div>
+        <Sidebar />
+        <main
+          className={`${
+            isChat
+              ? "flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden"
+              : "flex-1 min-w-0 overflow-y-auto page-pad-bottom"
+          } no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
+        >
+          <Outlet />
+        </main>
+        <BottomNav className={isChat ? "relative z-40" : undefined} />
+        <SyncQueueSheet />
+        <LogoutWarningModal />
+      </div>
+    </OfflineSyncProvider>
   );
 };
 

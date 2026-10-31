@@ -13,6 +13,7 @@ import { deriveGoals, calculateGoalSuggestion } from "../utils/deriveGoals";
 import { withBadgeState, type BadgeView } from "../utils/badges";
 import { useDaySummary } from "../data/summaryStore";
 import { localDayKey } from "../utils/localDay";
+import { enqueue, discardItem, getSnapshot, onReconcile } from "../offline";
 import { resolveDate } from "../utils/dates";
 import type { User, WeightEntry, FoodEntry, ActivityEntry } from "../assets/types";
 
@@ -882,6 +883,18 @@ export default function Profile() {
     fetchWeightLogs();
   }, [user?.weight, fetchWeightLogs]);
 
+  useEffect(() => {
+    return onReconcile((event) => {
+      if (event.kind === "weight_log") {
+        fetchWeightLogs();
+        const serverEntry = (event.serverEntry as { data?: WeightEntry })?.data ?? (event.serverEntry as WeightEntry);
+        if (serverEntry?.weightKg) {
+          setUser((prev: User) => (prev ? { ...prev, weight: Number(serverEntry.weightKg) } : null));
+        }
+      }
+    });
+  }, [fetchWeightLogs, setUser]);
+
   // React to live weight updates from server SSE or background changes (N3)
   useEffect(() => {
     const handleLiveWeight = () => {
@@ -947,7 +960,56 @@ export default function Profile() {
       );
       return;
     }
+
+    // Capture event time and localDay at the exact moment the user taps save
+    const now = new Date();
+    const eventTime = now.toISOString();
+    const capturedLocalDay = localDayKey(now);
+    const tmpId = `tmp-weight-${Date.now()}`;
+    const notes = weightNotesInput.trim();
+
     setSavingWeight(true);
+
+    const enqueueOfflineWeight = async () => {
+      try {
+        await enqueue(
+          "weight_log",
+          {
+            weightKg,
+            date: eventTime,
+            localDay: capturedLocalDay,
+            notes,
+            source: "quick-log",
+          },
+          { localTempId: tmpId }
+        );
+        setUser((prev: User) => (prev ? { ...prev, weight: weightKg } : null));
+        setWeightLogs((prev: WeightEntry[]) => [
+          {
+            id: tmpId,
+            weightKg,
+            date: eventTime,
+            localDay: capturedLocalDay,
+            notes,
+            source: "quick-log",
+          },
+          ...prev,
+        ]);
+        setNewWeightInput("");
+        setWeightNotesInput("");
+        toast.success("Saved offline. Will sync automatically when back online 📶");
+      } catch {
+        toast.error("Failed to save weight offline");
+      } finally {
+        setSavingWeight(false);
+      }
+    };
+
+    if (!navigator.onLine) {
+      await enqueueOfflineWeight();
+      return;
+    }
+
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       await api.post(
@@ -955,7 +1017,9 @@ export default function Profile() {
         {
           data: {
             weightKg,
-            notes: weightNotesInput.trim(),
+            date: eventTime,
+            localDay: capturedLocalDay,
+            notes,
             source: "quick-log",
           },
         },
@@ -971,10 +1035,21 @@ export default function Profile() {
       setUser((prev: User) => (prev ? { ...prev, weight: weightKg } : null));
       fetchWeightLogs();
     } catch (err: unknown) {
+      const axiosErr = axios.isAxiosError(err) ? err : null;
+      const isNetwork =
+        !navigator.onLine ||
+        axiosErr?.code === "ERR_NETWORK" ||
+        axiosErr?.code === "ECONNABORTED" ||
+        (err instanceof Error && err.message.toLowerCase().includes("network"));
+
+      if (isNetwork || !axiosErr?.response?.status || axiosErr.response.status >= 500) {
+        await enqueueOfflineWeight();
+        return;
+      }
+
       const errorMsg =
-        err && typeof err === "object" && "response" in err
-          ? (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-          : undefined;
+        (axiosErr?.response?.data as { message?: string })?.message ||
+        (axiosErr?.response?.data as { error?: { message?: string } })?.error?.message;
       toast.error(errorMsg || "Failed to log weight");
     } finally {
       setSavingWeight(false);
@@ -982,6 +1057,23 @@ export default function Profile() {
   };
 
   const handleDeleteWeightLog = async (id: string) => {
+    // If it's an unsynced optimistic entry: cancel the queued create
+    if (id.startsWith("tmp-") || id.startsWith("offline-")) {
+      setWeightLogs((prev: WeightEntry[]) => prev.filter((w) => w.id !== id));
+      const snapshot = getSnapshot();
+      const match = snapshot.items.find((m) => m.localTempId === id || m.id === id);
+      if (match) {
+        await discardItem(match.id);
+      }
+      toast.success("Unsynced weight entry removed");
+      return;
+    }
+
+    if (!navigator.onLine) {
+      toast.error("Needs an internet connection to delete synced entries");
+      return;
+    }
+
     setDeletingWeightId(id);
     try {
       await api.delete(`/api/weightlogs/${id}`);
@@ -1370,6 +1462,11 @@ export default function Profile() {
                           <span className="font-bold text-gray-900 dark:text-white">
                             {toDisplayWeight(entry.weightKg)}
                           </span>
+                          {(entry.id.startsWith("tmp-") || entry.id.startsWith("offline-")) && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300 font-bold">
+                              pending
+                            </span>
+                          )}
                           <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium">
                             {entry.source || "quick-log"}
                           </span>
@@ -1386,9 +1483,16 @@ export default function Profile() {
                       <button
                         type="button"
                         onClick={() => handleDeleteWeightLog(entry.id)}
-                        disabled={deletingWeightId === entry.id}
-                        className="text-slate-400 hover:text-rose-500 p-1 transition-colors cursor-pointer disabled:opacity-50"
-                        title="Delete entry"
+                        disabled={
+                          deletingWeightId === entry.id ||
+                          (!entry.id.startsWith("tmp-") && !entry.id.startsWith("offline-") && !navigator.onLine)
+                        }
+                        className="text-slate-400 hover:text-rose-500 p-1 transition-colors cursor-pointer disabled:opacity-40"
+                        title={
+                          !entry.id.startsWith("tmp-") && !entry.id.startsWith("offline-") && !navigator.onLine
+                            ? "Needs an internet connection to delete"
+                            : "Delete entry"
+                        }
                         aria-label="Delete entry"
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

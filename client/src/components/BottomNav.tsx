@@ -7,6 +7,7 @@ import {
   Dumbbell,
   Sparkles,
 } from "lucide-react";
+import { SyncStatusIndicator } from "./sync";
 
 interface TabItem {
   path: string;
@@ -45,6 +46,9 @@ export default function BottomNav({ className = "" }: BottomNavProps) {
         className ? className : "fixed bottom-0 left-0 right-0"
       }`}
     >
+      <div className="flex justify-center">
+        <SyncStatusIndicator variant="bottomNav" className="mt-1 text-[10px] py-0.5 px-2" />
+      </div>
       <div className="grid grid-cols-5 h-15 max-w-md mx-auto items-center px-2">
         {tabs.map((tab) => {
           const active = isActive(tab.path);

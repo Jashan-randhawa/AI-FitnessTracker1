@@ -36,6 +36,14 @@
   - **Output Inflation & Model Injection Defense:** Client-supplied `options.maxTokens` is strictly clamped to server ceilings (2,500 tokens for chat, 4,000 for structured JSON plans via `DEFAULT_MAX_OUTPUT_TOKENS`), and `options.model` is restricted to approved system models (`DEFAULT_MODEL`, `DEFAULT_FALLBACK_MODEL`). Arbitrary user-supplied models or token expansions are rejected or clamped.
   - **Default Budget Numbers & Admin Multiplier:** Baseline defaults are 50,000 tokens/day (`AI_DAILY_TOKEN_BUDGET`), 100 calls/day (`AI_DAILY_CALL_BUDGET`), and 10x multiplier for admin accounts (`AI_DAILY_BUDGET_ADMIN_MULTIPLIER`), preventing runaway costs while accommodating operational administrative workloads.
 
+### 🔒 Offline Sync & Idempotency Storage Security
+- **What Is Stored**: The `IdempotencyKey` collection persists minimal transaction metadata: `user` (`ObjectId`), `key` (client-generated key string), `requestHash` (SHA-256 hash), `route` (API path), `status` (`in_progress` | `completed`), `statusCode` (integer), `response` (cached JSON payload), and `expiresAt` (expiration date).
+- **Client Storage Privacy**: Health data mutations in the offline queue are stored exclusively in IndexedDB (`fittrack_offline_v2`) with in-memory fallback. No access tokens, refresh cookies, passwords, or emails are ever written to the queue. Plaintext `localStorage` is avoided.
+- **Strict User Scoping**: Compound unique index `{ user: 1, key: 1 }` on the server and `userId` partitioning in IndexedDB guarantee complete tenant isolation. Keys or records used by User A can never match, replay, or access transactions belonging to User B.
+- **Client Logout Guard**: Explicit user logout confirms and permanently purges the user's local queued mutations (`deleteQueue(userId)`), eliminating data exposure risks on shared computers or mobile devices.
+- **Zero Authentication Data or Secret Storage**: The `requestHash` is computed strictly from the HTTP method, route, and canonicalized request `body` (with `idempotencyKey` omitted). Bearer tokens, cookies, passwords, and sensitive request headers are **never** incorporated into hashes, stored in the collection, or replayed back to clients.
+- **Automated TTL Retention**: Records expire after `IDEMPOTENCY_TTL_HOURS` (default: 336 hours / 14 days, matching client offline queue retry retention) and are permanently purged by MongoDB via the `{ expiresAt: 1 }` TTL index (`expireAfterSeconds: 0`). Client-side mutations expire after 14 days.
+- **Failure Recovery (5xx)**: If an operation returns a 5xx error or crashes, the in-progress claim is immediately removed so subsequent retries are never blocked.
 
 ### Generating Cryptographic Secrets
 

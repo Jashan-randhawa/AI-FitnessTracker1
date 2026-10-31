@@ -11,6 +11,10 @@ const foodLogSchema = new mongoose.Schema(
     protein: Number,
     carbs: Number,
     fat: Number,
+    aiGenerated: {
+      type: Boolean,
+      default: false,
+    },
     date: {
       type: Date,
       default: Date.now,

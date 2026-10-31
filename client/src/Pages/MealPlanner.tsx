@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useappcontext } from "../Context/AppContext";
 import api from "../configs/api";
+import { enqueue } from "../offline";
 import toast from "react-hot-toast";
 import { generateStructuredMealPlan } from "../services/aiAssistantClient";
 import type { Meal, DayPlan } from "../schemas/aiPlans.schema";
@@ -296,6 +297,45 @@ ${days > 1 ? "- Never duplicate identical dishes across consecutive days." : "- 
       }
       toast.success(`Logged "${meal.name}" (${meal.calories} kcal)`);
     } catch (err: unknown) {
+      const isNetwork =
+        !navigator.onLine ||
+        (axios.isAxiosError(err) && (err.code === "ERR_NETWORK" || !err.response));
+
+      if (isNetwork) {
+        const tmpId = `offline-meal-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        try {
+          await enqueue(
+            "food_add",
+            {
+              name: meal.name,
+              calories: meal.calories,
+              protein: meal.protein || null,
+              carbs: meal.carbs || null,
+              fat: meal.fat || null,
+              mealType: meal.mealType,
+              mealtype: meal.mealType,
+              date: new Date().toISOString(),
+            },
+            { localTempId: tmpId }
+          );
+          const optimistic: FoodEntry = {
+            id: tmpId,
+            name: meal.name,
+            calories: meal.calories,
+            protein: meal.protein || 0,
+            carbs: meal.carbs || 0,
+            fat: meal.fat || 0,
+            mealType: meal.mealType,
+            date: new Date().toISOString(),
+          };
+          setAllFoodLogs((prev: FoodEntry[]) => [optimistic, ...prev]);
+          toast.success(`Saved "${meal.name}" offline. Will sync when back online 📶`);
+          return;
+        } catch {
+          // If enqueue validation fails, fall through to error handling
+        }
+      }
+
       setLoggedMeals((prev) => {
         const next = new Set(prev);
         next.delete(key);

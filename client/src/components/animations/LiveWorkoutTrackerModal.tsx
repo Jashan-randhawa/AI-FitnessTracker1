@@ -13,7 +13,7 @@ import {
   type ExerciseRecommendation,
 } from "../../services/workoutRecommendationClient";
 import { VoiceSetLogger, type ParsedVoiceSet } from "./VoiceSetLogger";
-import { enqueueOfflineMutation, initOfflineSync } from "../../utils/offlineSyncQueue";
+import { enqueue } from "../../offline";
 
 const DRAFT_STORAGE_KEY = "fittrack_live_workout_draft";
 
@@ -117,18 +117,6 @@ export const LiveWorkoutTrackerModal = ({
       // Ignore storage errors
     }
   }, [exercise, sets, startedAt]);
-
-  // Phase 4: Offline synchronization queue listener
-  useEffect(() => {
-    const unsubscribe = initOfflineSync((_mut, result) => {
-      if (result) {
-        setAllActivityLogs?.((prev: ActivityEntry[]) => [result as ActivityEntry, ...(prev || [])]);
-      }
-    });
-    return () => {
-      unsubscribe();
-    };
-  }, [setAllActivityLogs]);
 
   // Phase 4: Hands-free voice set resolution
   const handleVoiceSetParsed = (parsed: ParsedVoiceSet) => {
@@ -293,18 +281,16 @@ export const LiveWorkoutTrackerModal = ({
           ],
         };
 
-        await enqueueOfflineMutation({
-          endpoint: "/api/activitylogs",
-          method: "POST",
-          data: { data: payloadData },
-          description: `${payloadData.name} (${payloadData.duration}m)`,
-        });
-
         // Optimistic UI update
         const optimisticEntry: ActivityEntry = {
           id: `offline-${Date.now()}`,
           ...payloadData,
         };
+
+        await enqueue("activity_add", payloadData, {
+          localTempId: optimisticEntry.id,
+        });
+
         setAllActivityLogs?.((prev: ActivityEntry[]) => [optimisticEntry, ...(prev || [])]);
 
         localStorage.removeItem(DRAFT_STORAGE_KEY);

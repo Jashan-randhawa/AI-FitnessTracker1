@@ -3,20 +3,48 @@ const WeightLog = require('../models/WeightLog');
 const User = require('../models/User');
 const sendError = require('../utils/sendError');
 const { publishChange } = require('../services/eventBus');
-const { dayKey, isValidTimeZone, isValidDateKey } = require('../utils/localDay');
+const { dayKey, isValidTimeZone, isValidDateKey, validateLogDate } = require('../utils/localDay');
+const idempotency = require('../middleware/idempotency');
+
+/**
+ * Weight Conflict Rule:
+ * One entry per user per localDay. Last-writer-wins by EVENT time rather than arrival time.
+ * If incoming date is older than the stored same-day entry's date, do not overwrite:
+ * return 200 with the stored entry and header X-Conflict: stale-ignored, and do NOT touch User.weight.
+ * Otherwise upsert as today (returning 201), update User.weight if newest, and emit change event.
+ */
 
 // POST /api/weightlogs — body: { data: { weightKg, date, localDay, notes, source } }
 const create = asyncHandler(async (req, res) => {
-  const raw = req.body.data || req.body || {};
+  if (!req._idempotencyHandled) {
+    let proceeded = false;
+    await new Promise((resolve, reject) => {
+      Promise.resolve(
+        idempotency(req, res, (err) => {
+          proceeded = true;
+          if (err) return reject(err);
+          resolve();
+        })
+      )
+        .then(() => {
+          if (!proceeded) resolve();
+        })
+        .catch(reject);
+    });
+    if (!proceeded) return;
+  }
+
+  const raw = req.body?.data || req.body || {};
   const weightKg = Number(raw.weightKg);
   if (!Number.isFinite(weightKg) || weightKg < 20 || weightKg > 400) {
     return sendError(res, 400, 'weightKg must be a number between 20 and 400 kg');
   }
 
-  const logDate = raw.date ? new Date(raw.date) : new Date();
-  if (isNaN(logDate.getTime())) {
-    return sendError(res, 400, 'Invalid date format');
+  const dateValidation = validateLogDate(raw.date);
+  if (!dateValidation.valid) {
+    return sendError(res, 400, dateValidation.error, dateValidation.code ? { code: dateValidation.code } : {});
   }
+  const logDate = dateValidation.date;
 
   let localDay = null;
   if (raw.localDay && isValidDateKey(raw.localDay)) {
@@ -27,7 +55,18 @@ const create = asyncHandler(async (req, res) => {
     localDay = dayKey(logDate, tz);
   }
 
-  // N2: One weight entry per user per local day (upsert replaces same-day entry with latest)
+  // Conflict check: Event-time last-writer-wins per user+localDay
+  const existing = await WeightLog.findOne({ user: req.user._id, localDay });
+  if (existing) {
+    const existingTime = new Date(existing.date).getTime();
+    const incomingTime = logDate.getTime();
+    if (incomingTime < existingTime) {
+      res.set('X-Conflict', 'stale-ignored');
+      return res.status(200).json(existing.toJSON());
+    }
+  }
+
+  // Upsert replaces same-day entry with newer event
   const entry = await WeightLog.findOneAndUpdate(
     { user: req.user._id, localDay },
     {
@@ -46,7 +85,7 @@ const create = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(req.user._id, { weight: newestLog.weightKg });
   }
 
-  // N3: Publish change event
+  // Publish change event for real writes
   publishChange(String(req.user._id), 'weight', entry.date);
 
   res.status(201).json(entry.toJSON());
@@ -82,7 +121,7 @@ const remove = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(req.user._id, { weight: newestLog.weightKg });
   }
 
-  // N3: Publish change event on delete
+  // Publish change event on delete
   publishChange(String(req.user._id), 'weight', entry.date);
 
   res.json(entry.toJSON());

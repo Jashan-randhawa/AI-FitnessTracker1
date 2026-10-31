@@ -1,92 +1,50 @@
 const asyncHandler = require('express-async-handler');
-const mongoose = require('mongoose');
 const { publishChange } = require('../services/eventBus');
 const WaterLog = require('../models/WaterLog');
-const IdempotencyKey = require('../models/IdempotencyKey');
 const sendError = require('../utils/sendError');
-const logger = require('../utils/logger');
 const { parsePageParams, findPage, sendPage } = require('../utils/pagination');
-
-const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
-const idempotencyMap = new Map();
-
-const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
-
-const cleanExpiredIdempotency = (now = Date.now()) => {
-  for (const [key, item] of idempotencyMap.entries()) {
-    if (now - item.timestamp > IDEMPOTENCY_TTL_MS) {
-      idempotencyMap.delete(key);
-    }
-  }
-};
+const { validateLogDate } = require('../utils/localDay');
+const idempotency = require('../middleware/idempotency');
 
 // POST /api/waterlogs — body: { data: { amount, date } }
 const create = asyncHandler(async (req, res) => {
-  const body = req.body.data || req.body || {};
-  const idempotencyKey =
-    req.headers['idempotency-key'] ||
-    req.headers['x-idempotency-key'] ||
-    body.idempotencyKey;
-
-  if (idempotencyKey && typeof idempotencyKey === 'string') {
-    const trimmedKey = idempotencyKey.trim();
-
-    // Durable DB idempotency check (Phase G / N6)
-    // Only query DB if mongoose is connected or in stubbed test mode (avoids 10s buffering timeout in disconnected unit tests)
-    if (isDbConnected()) {
-      try {
-        const persisted = await IdempotencyKey.findOne({
-          user: req.user._id,
-          key: trimmedKey,
-        });
-        if (persisted && persisted.response) {
-          return res.status(200).json(persisted.response);
-        }
-      } catch (err) {
-        logger.warn('[Idempotency] Failed to read persistent key from database', {
-          error: err.message,
-        });
-      }
-    }
-
-    // Fast-path in-memory fallback
-    cleanExpiredIdempotency();
-    const cacheKey = `${String(req.user._id)}:${trimmedKey}`;
-    const cached = idempotencyMap.get(cacheKey);
-    if (cached) {
-      return res.status(200).json(cached.response);
-    }
+  if (!req._idempotencyHandled) {
+    let proceeded = false;
+    await new Promise((resolve, reject) => {
+      Promise.resolve(
+        idempotency(req, res, (err) => {
+          proceeded = true;
+          if (err) return reject(err);
+          resolve();
+        })
+      )
+        .then(() => {
+          if (!proceeded) resolve();
+        })
+        .catch(reject);
+    });
+    if (!proceeded) return;
   }
 
+  const raw = req.body?.data || req.body || {};
+  const amount = Number(raw.amount);
+  if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
+    return sendError(res, 400, 'amount must be between 1 and 10000 ml');
+  }
+
+  const dateValidation = validateLogDate(raw.date);
+  if (!dateValidation.valid) {
+    return sendError(res, 400, dateValidation.error, dateValidation.code ? { code: dateValidation.code } : {});
+  }
+  const logDate = dateValidation.date;
+
   const entry = await WaterLog.create({
-    ...body,
-    date: body.date || new Date(),
+    amount,
+    date: logDate,
     user: req.user._id,
   });
 
   const responseJson = entry.toJSON();
-
-  if (idempotencyKey && typeof idempotencyKey === 'string') {
-    const trimmedKey = idempotencyKey.trim();
-    const cacheKey = `${String(req.user._id)}:${trimmedKey}`;
-    idempotencyMap.set(cacheKey, { timestamp: Date.now(), response: responseJson });
-
-    // Persist to 5-minute TTL database store when connected (Phase G / N6)
-    if (isDbConnected()) {
-      try {
-        await IdempotencyKey.findOneAndUpdate(
-          { user: req.user._id, key: trimmedKey },
-          { user: req.user._id, key: trimmedKey, response: responseJson, createdAt: new Date() },
-          { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
-        );
-      } catch (err) {
-        logger.warn('[Idempotency] Failed to persist durable idempotency key to database', {
-          error: err.message,
-        });
-      }
-    }
-  }
-
   publishChange(String(req.user._id), 'water', entry.date);
   res.json(responseJson);
 });
@@ -103,7 +61,7 @@ const find = asyncHandler(async (req, res) => {
 const update = asyncHandler(async (req, res) => {
   const raw = req.body.data || req.body || {};
   const amount = Number(raw.amount);
-  if (!Number.isFinite(amount) || amount <= 0 || amount > 10000) {
+  if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
     return sendError(res, 400, 'amount must be between 1 and 10000 ml');
   }
   const entry = await WaterLog.findOneAndUpdate(

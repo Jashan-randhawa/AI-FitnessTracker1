@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../configs/api";
+import { enqueue } from "../offline";
 import { useappcontext } from "../Context/AppContext";
 import type { ActivityEntry } from "../assets/types";
 import { generateStructuredActivityPlan } from "../services/aiAssistantClient";
@@ -385,6 +386,49 @@ ${customFocus.trim() ? `- Special Focus / User Request: ${customFocus.trim()}` :
       }
       toast.success(`Logged "${activity.name}" (${activity.caloriesBurned} kcal)`);
     } catch (err: unknown) {
+      const isNetwork =
+        !navigator.onLine ||
+        (axios.isAxiosError(err) && (err.code === "ERR_NETWORK" || !err.response));
+
+      if (isNetwork) {
+        const tmpId = `offline-act-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        try {
+          await enqueue(
+            "activity_add",
+            {
+              name: activity.name,
+              duration: activity.duration,
+              calories: activity.caloriesBurned,
+              caloriesBurned: activity.caloriesBurned,
+              type: (activity.type || "custom").toLowerCase().trim(),
+              intensity: (activity.intensity || "medium").toLowerCase().trim() as "low" | "medium" | "high",
+              source: "planner",
+              date: new Date().toISOString(),
+            },
+            { localTempId: tmpId }
+          );
+          const rawIntensity = (activity.intensity || "medium").toLowerCase().trim();
+          const safeIntensity: "low" | "medium" | "high" =
+            rawIntensity === "low" || rawIntensity === "high" ? rawIntensity : "medium";
+          const optimistic: ActivityEntry = {
+            id: tmpId,
+            name: activity.name,
+            duration: activity.duration,
+            calories: activity.caloriesBurned,
+            caloriesBurned: activity.caloriesBurned,
+            type: (activity.type || "custom").toLowerCase().trim(),
+            intensity: safeIntensity,
+            source: "planner",
+            date: new Date().toISOString(),
+          };
+          setAllActivityLogs((prev: ActivityEntry[]) => [optimistic, ...prev]);
+          toast.success(`Saved "${activity.name}" offline. Will sync when back online 📶`);
+          return;
+        } catch {
+          // If enqueue validation fails, fall through to error handling
+        }
+      }
+
       setLoggedActivities((prev) => {
         const next = new Set(prev);
         next.delete(key);

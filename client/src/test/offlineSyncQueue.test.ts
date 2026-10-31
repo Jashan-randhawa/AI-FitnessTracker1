@@ -5,6 +5,7 @@ import {
   removeOfflineMutation,
   replayOfflineQueue,
 } from '../utils/offlineSyncQueue';
+import { clearAll } from '../offline';
 import api from '../configs/api';
 
 vi.mock('../configs/api', () => ({
@@ -26,8 +27,9 @@ vi.mock('react-hot-toast', () => ({
 }));
 
 describe('offlineSyncQueue unit tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
+    await clearAll();
     vi.clearAllMocks();
     Object.defineProperty(navigator, 'onLine', {
       value: true,
@@ -108,21 +110,16 @@ describe('offlineSyncQueue unit tests', () => {
     expect(api.post).not.toHaveBeenCalled();
   });
 
-  it('removes invalid mutations on 4xx client errors (excluding 429) to prevent queue poisoning', async () => {
-    vi.mocked(api.post).mockRejectedValueOnce({
-      response: { status: 400, data: { error: 'Validation failed: calories must be positive' } },
-    });
-
-    const item = await enqueueOfflineMutation({
-      endpoint: '/api/foodlogs',
-      method: 'POST',
-      data: { name: 'Bad Food', calories: -100 },
-    });
-
-    const count = await replayOfflineQueue();
-    expect(count).toBe(0);
+  it('validates mutations and rejects invalid payloads to prevent queue poisoning', async () => {
+    await expect(
+      enqueueOfflineMutation({
+        endpoint: '/api/foodlogs',
+        method: 'POST',
+        data: { name: 'Bad Food', calories: -100 },
+      })
+    ).rejects.toThrow();
 
     const remaining = await getOfflineQueue();
-    expect(remaining.some((q) => q.id === item.id)).toBe(false);
+    expect(remaining.length).toBe(0);
   });
 });

@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { useTheme } from "../Context/Themecontext";
 import { useappcontext } from "../Context/AppContext";
+import { useOfflineSync } from "../offline/OfflineSyncContext";
+import { SyncStatusIndicator } from "./sync";
 import Logo from "./Logo";
 
 type NavItemConfig = {
@@ -48,6 +50,7 @@ const Sidebar = () => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useappcontext();
+  const { promptLogoutWithWarning } = useOfflineSync();
   const isLight = theme.toString() === "light";
 
   // Desktop hover state: collapsed by default (w-68px), expands on hover (w-313px)
@@ -276,6 +279,15 @@ const Sidebar = () => {
                 </div>
               </div>
 
+              {/* Sync Status Indicator */}
+              <div className="w-full flex items-center justify-center py-1">
+                {isHovered ? (
+                  <SyncStatusIndicator variant="pill" className="w-[calc(100%-24px)] justify-center text-[11px]" />
+                ) : (
+                  <SyncStatusIndicator variant="compact" />
+                )}
+              </div>
+
               {/* User Account Row: 100% Aligned (Rail avatar + Panel details without duplicate avatar circle) */}
               {user && (
                 <div className="flex items-center h-10 w-full mt-0.5">
@@ -299,7 +311,7 @@ const Sidebar = () => {
                     </div>
                     {logout && (
                       <button
-                        onClick={logout}
+                        onClick={() => promptLogoutWithWarning(logout)}
                         title="Log Out"
                         className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0"
                       >
@@ -323,7 +335,8 @@ const Sidebar = () => {
         >
           <Logo size={32} textClassName="text-[16px]" badge="AI" />
         </button>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
+          <SyncStatusIndicator variant="pill" className="text-[10px] py-0.5 px-2" />
           <button
             onClick={toggleTheme}
             className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all cursor-pointer"
@@ -409,6 +422,7 @@ const Sidebar = () => {
 
         {/* Mobile Footer: User Profile + Logout + Theme Toggle */}
         <div className="p-3 border-t border-slate-100 dark:border-slate-800 space-y-2 bg-slate-50/50 dark:bg-slate-900/50">
+          <SyncStatusIndicator variant="pill" className="w-full justify-center text-[11px] py-1 mb-1" />
           {user && (
             <div className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/50">
               <div
@@ -430,8 +444,8 @@ const Sidebar = () => {
               {logout && (
                 <button
                   onClick={() => {
-                    logout();
-                    setMobileOpen(false);
+                    promptLogoutWithWarning(async () => { await logout(); setMobileOpen(false); });
+
                   }}
                   title="Log Out"
                   className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 ml-1"

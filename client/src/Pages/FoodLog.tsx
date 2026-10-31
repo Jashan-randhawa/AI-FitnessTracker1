@@ -12,7 +12,7 @@ import CalendarHeatmap from "../components/CalendarHeatmap";
 import { StaggerContainer, StaggerItem } from "../components/animations/StaggerList";
 import AnimatedNumber from "../components/AnimatedNumber";
 import { deriveGoals } from "../utils/deriveGoals";
-import { enqueueOfflineMutation } from "../utils/offlineSyncQueue";
+import { enqueue, discardItem, getSnapshot, onReconcile } from "../offline";
 import { getAuthToken } from "../configs/authToken";
 import { prepareImageForUpload, ImageResizeError } from "../utils/imageResize";
 
@@ -530,17 +530,14 @@ const AddFoodModal = ({
     } catch (error: unknown) {
       const axiosErr = axios.isAxiosError(error) ? error : null;
       if (!navigator.onLine || axiosErr?.code === "ERR_NETWORK" || (error instanceof Error && error.message.toLowerCase().includes("network"))) {
-        await enqueueOfflineMutation({
-          endpoint: "/api/foodlogs",
-          method: "POST",
-          data: { data: payloadData },
-          description: `${payloadData.name} (${payloadData.calories} kcal)`,
-        });
         const optimisticEntry = {
           id: `offline-${Date.now()}`,
           ...payloadData,
           createdAt: new Date().toISOString(),
         };
+        await enqueue("food_add", payloadData, {
+          localTempId: optimisticEntry.id,
+        });
         onAdd(normalizeFoodEntry(optimisticEntry));
         setShowForm(false);
         toast.success("Saved offline. Will sync automatically when back online 📶");
@@ -706,6 +703,9 @@ const FoodItemCard = ({ entry, onDelete }: {
           {entry.aiGenerated && (
             <span className="shrink-0 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded-full px-1.5 py-0.5">✨ AI</span>
           )}
+          {(entry.id.startsWith("offline-") || entry.id.startsWith("tmp-")) && (
+            <span className="shrink-0 text-[10px] font-bold text-amber-500 bg-amber-400/10 border border-amber-400/20 rounded-full px-1.5 py-0.5">Pending</span>
+          )}
           <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{entry.name}</p>
         </div>
         {confirmId === entry.id ? (
@@ -714,8 +714,27 @@ const FoodItemCard = ({ entry, onDelete }: {
             Confirm?
           </button>
         ) : (
-          <button onClick={() => handleConfirmToggle(entry.id)}
-            className="shrink-0 text-slate-600 hover:text-rose-500 transition-colors cursor-pointer">
+          <button
+            onClick={() => {
+              const isOptimistic = entry.id.startsWith("offline-") || entry.id.startsWith("tmp-");
+              if (!isOptimistic && !navigator.onLine) {
+                toast.error("Needs an internet connection to delete synced entries");
+                return;
+              }
+              handleConfirmToggle(entry.id);
+            }}
+            disabled={!entry.id.startsWith("offline-") && !entry.id.startsWith("tmp-") && !navigator.onLine}
+            title={
+              !entry.id.startsWith("offline-") && !entry.id.startsWith("tmp-") && !navigator.onLine
+                ? "Needs an internet connection to delete"
+                : "Delete entry"
+            }
+            className={`shrink-0 text-slate-600 hover:text-rose-500 transition-colors cursor-pointer ${
+              !entry.id.startsWith("offline-") && !entry.id.startsWith("tmp-") && !navigator.onLine
+                ? "opacity-40 cursor-not-allowed"
+                : ""
+            }`}
+          >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="3 6 5 6 21 6" />
               <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
@@ -981,7 +1000,46 @@ export default function FoodLog() {
     });
   };
 
+  useEffect(() => {
+    return onReconcile((event) => {
+      if (event.kind === "food_add") {
+        const rawServer = (event.serverEntry as { data?: unknown })?.data ?? event.serverEntry;
+        const normalized = normalizeFoodEntry(rawServer as Parameters<typeof normalizeFoodEntry>[0]);
+        if (!normalized) return;
+
+        setAllFoodLogs((prev: FoodEntry[]) => {
+          const alreadyExists = prev.some((l) => l.id === normalized.id);
+          if (alreadyExists) {
+            return prev.filter((l) => l.id !== event.localTempId);
+          }
+          if (event.localTempId && prev.some((l) => l.id === event.localTempId)) {
+            return prev.map((l) => (l.id === event.localTempId ? normalized : l));
+          }
+          return [...prev, normalized];
+        });
+      }
+    });
+  }, [setAllFoodLogs]);
+
   const handleDelete = async (id: string) => {
+    // If it's an unsynced optimistic entry: cancel the queued create
+    if (id.startsWith("offline-") || id.startsWith("tmp-")) {
+      setAllFoodLogs((prev: FoodEntry[]) => prev.filter((l) => l.id !== id));
+      const snapshot = getSnapshot();
+      const match = snapshot.items.find((m) => m.localTempId === id || m.id === id);
+      if (match) {
+        await discardItem(match.id);
+      }
+      toast.success("Unsynced meal entry removed");
+      return;
+    }
+
+    // Deleting an already-synced entry offline is NOT queued
+    if (!navigator.onLine) {
+      toast.error("Needs an internet connection to delete synced entries");
+      return;
+    }
+
     setAllFoodLogs((prev: FoodEntry[]) => prev.filter((l) => l.id !== id));
     try {
       await api.delete(`/api/foodlogs/${id}`);

@@ -14,6 +14,7 @@ Welcome to the FitTrack AI technical documentation. This directory provides in-d
 | [🚢 Deployment Guide](deployment.md) | Production hosting instructions for Vercel, Render, Railway, Fly.io, and MongoDB Atlas. | **Operator / DevOps** |
 | [✨ Features & Capabilities](features.md) | In-depth breakdown of AI coaching, daily totals calculation, workout studio, and planners. | **User / Architect** |
 | [📦 Modular Packages](packages.md) | Catalog of the 7 decoupled npm libraries published under `@jashan-randhawa/*`. | **API Consumer / Contributor** |
+| [📶 Offline Logging & Sync](offline-sync.md) | Offline queue engine, IndexedDB adapter, replay idempotency, and UI status indicator. | **All Audiences** |
 | [📋 Changelog & History](changelog.md) | Milestone summary of version releases from v1.0.0 through v2.6.0. | **All Audiences** |
 | [🤝 Contributing Guidelines](contributing.md) | Pull request workflow, coding standards, commit conventions, and verification steps. | **New Contributor** |
 

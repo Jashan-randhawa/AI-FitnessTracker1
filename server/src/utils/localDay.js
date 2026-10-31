@@ -61,6 +61,37 @@ const utcWindowFor = (from, to) => {
   };
 };
 
+/**
+ * Validates a date for offline-logging replay.
+ * Must not be more than 5 minutes in the future, nor older than OFFLINE_MAX_AGE_DAYS (default 30).
+ */
+const validateLogDate = (rawDate) => {
+  const logDate = rawDate ? new Date(rawDate) : new Date();
+  if (isNaN(logDate.getTime())) {
+    return { valid: false, error: 'Invalid date format' };
+  }
+  const now = Date.now();
+  const maxFuture = now + 5 * 60 * 1000;
+  const maxAgeDays = parseInt(process.env.OFFLINE_MAX_AGE_DAYS, 10) || 30;
+  const maxPast = now - maxAgeDays * 24 * 60 * 60 * 1000;
+
+  if (logDate.getTime() > maxFuture) {
+    return {
+      valid: false,
+      error: 'Date cannot be more than 5 minutes in the future',
+      code: 'DATE_OUT_OF_RANGE',
+    };
+  }
+  if (logDate.getTime() < maxPast) {
+    return {
+      valid: false,
+      error: `Date cannot be older than ${maxAgeDays} days`,
+      code: 'DATE_OUT_OF_RANGE',
+    };
+  }
+  return { valid: true, date: logDate };
+};
+
 module.exports = {
   isValidTimeZone,
   isValidDateKey,
@@ -68,4 +99,5 @@ module.exports = {
   addDays,
   rangeKeys,
   utcWindowFor,
+  validateLogDate,
 };

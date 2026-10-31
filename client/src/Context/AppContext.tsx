@@ -7,6 +7,12 @@ import toast from "react-hot-toast";
 import { invalidateSummaries, clearSummaries } from "../data/summaryStore";
 import { startLiveUpdates } from "../data/liveStream";
 import { getAuthToken, setAuthToken, clearAuthToken } from "../configs/authToken";
+import {
+  purgeOfflineQueue,
+  startOfflineSync,
+  stopOfflineSync,
+  onReconcile,
+} from "../offline";
 
 export type WaterEntry = { id: string; amount: number; date: string };
 
@@ -199,6 +205,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     } catch {
       // Ignore network errors during logout
     } finally {
+      const activeUserId = user?.id;
+      if (activeUserId) {
+        await purgeOfflineQueue(activeUserId);
+      } else {
+        await purgeOfflineQueue();
+      }
+      stopOfflineSync();
       clearAuthToken();
       clearSummaries();
       setUser(null);
@@ -224,6 +237,23 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Open the live-update stream for the signed-in user; close it on logout.
   const liveToken = user?.token;
+  const currentUserId = user?.id;
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    startOfflineSync(currentUserId);
+  }, [currentUserId]);
+
+  useEffect(() => {
+    return onReconcile((event) => {
+      invalidateSummaries();
+      if (event.kind === "weight_log") {
+        const token = getAuthToken();
+        if (token) fetchUser(token);
+      }
+    });
+  }, [fetchUser]);
+
   useEffect(() => {
     if (!liveToken) return;
     return startLiveUpdates((evt) => {

@@ -48,7 +48,7 @@ app.use(
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Request-Id', 'X-Timezone', 'Idempotency-Key', 'X-Idempotency-Key'],
-    exposedHeaders: ['X-Request-Id', 'X-Next-Cursor'],
+    exposedHeaders: ['X-Request-Id', 'X-Next-Cursor', 'Idempotency-Replayed', 'X-Conflict', 'Retry-After'],
   })
 );
 

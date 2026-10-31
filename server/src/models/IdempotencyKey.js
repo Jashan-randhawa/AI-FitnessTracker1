@@ -15,20 +15,46 @@ const idempotencyKeySchema = new mongoose.Schema(
       required: [true, 'user reference is required'],
       index: true,
     },
+    requestHash: {
+      type: String,
+      trim: true,
+    },
+    rawPayload: {
+      type: mongoose.Schema.Types.Mixed,
+    },
+    status: {
+      type: String,
+      enum: ['in_progress', 'completed'],
+      default: 'in_progress',
+    },
+    statusCode: {
+      type: Number,
+      default: 200,
+    },
+    route: {
+      type: String,
+      trim: true,
+    },
     response: {
       type: mongoose.Schema.Types.Mixed,
-      required: [true, 'cached response is required'],
+    },
+    expiresAt: {
+      type: Date,
+      default: function () {
+        const hours = parseInt(process.env.IDEMPOTENCY_TTL_HOURS, 10) || 336;
+        return new Date(Date.now() + hours * 3600 * 1000);
+      },
     },
     createdAt: {
       type: Date,
       default: Date.now,
-      expires: 300, // 5 minutes TTL in MongoDB (300 seconds)
     },
   },
   { timestamps: false }
 );
 
 idempotencyKeySchema.index({ user: 1, key: 1 }, { unique: true });
+idempotencyKeySchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 toJSONPlugin(idempotencyKeySchema);
 

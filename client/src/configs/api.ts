@@ -61,53 +61,77 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    skipToast?: boolean;
+    suppressGlobalToasts?: boolean;
+  }
+}
+
 interface RetriableConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
   _isRefreshRetry?: boolean;
+  skipToast?: boolean;
+  suppressGlobalToasts?: boolean;
 }
+
+const AI_URL_PATTERNS = [
+  "/ai/chat",
+  "/ai-assistant/chat",
+  "/image-analysis",
+  "/food-estimate",
+  "/calorie-estimate",
+  "/workouts/parse-voice-set",
+];
 
 // Auto-retry transient network errors, 429 limits, and 401 token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    // HTTP 429: AI rate limit or daily AI budget exceeded
+    const config = error.config as RetriableConfig | undefined;
+    const suppressToasts = Boolean(config?.skipToast || config?.suppressGlobalToasts);
+
+    // HTTP 429: AI rate limit or daily AI budget exceeded (scoped strictly to AI routes)
     if (error.response?.status === 429) {
-      const errData = error.response.data;
-      const isDailyBudget =
-        errData?.error?.code === "AI_DAILY_BUDGET_EXCEEDED" ||
-        errData?.code === "AI_DAILY_BUDGET_EXCEEDED";
+      const requestUrl = config?.url || "";
+      const isAiEndpoint = AI_URL_PATTERNS.some((pattern) => requestUrl.includes(pattern));
 
-      if (isDailyBudget) {
-        const resetAtRaw = errData?.error?.resetAt || errData?.resetAt;
-        let formattedTime = "midnight UTC";
-        if (resetAtRaw) {
-          try {
-            const date = new Date(resetAtRaw);
-            formattedTime = date.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              timeZoneName: "short",
-            });
-          } catch {
-            formattedTime = "midnight UTC";
+      if (isAiEndpoint && !suppressToasts) {
+        const errData = error.response.data;
+        const isDailyBudget =
+          errData?.error?.code === "AI_DAILY_BUDGET_EXCEEDED" ||
+          errData?.code === "AI_DAILY_BUDGET_EXCEEDED";
+
+        if (isDailyBudget) {
+          const resetAtRaw = errData?.error?.resetAt || errData?.resetAt;
+          let formattedTime = "midnight UTC";
+          if (resetAtRaw) {
+            try {
+              const date = new Date(resetAtRaw);
+              formattedTime = date.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+                timeZoneName: "short",
+              });
+            } catch {
+              formattedTime = "midnight UTC";
+            }
           }
+          toast.error(`Daily AI limit reached: resets at ${formattedTime} ⏳`, {
+            id: "ai-daily-budget-limit",
+          });
+          return Promise.reject(error);
         }
-        toast.error(`Daily AI limit reached: resets at ${formattedTime} ⏳`, {
-          id: "ai-daily-budget-limit",
-        });
-        return Promise.reject(error);
-      }
 
-      const retryAfter = error.response.data?.retryAfterSeconds || 60;
-      const minutes = Math.ceil(retryAfter / 60);
-      toast.error(
-        `AI Rate limit reached: please cooldown for ${minutes} minute${minutes > 1 ? "s" : ""} ⏳`,
-        { id: "ai-rate-limit" }
-      );
+        const retryAfter = error.response.data?.retryAfterSeconds || 60;
+        const minutes = Math.ceil(retryAfter / 60);
+        toast.error(
+          `AI Rate limit reached: please cooldown for ${minutes} minute${minutes > 1 ? "s" : ""} ⏳`,
+          { id: "ai-rate-limit" }
+        );
+      }
       return Promise.reject(error);
     }
-
-    const config = error.config as RetriableConfig | undefined;
 
     // Handle 401 Unauthorized via single-flight refresh rotation
     if (error.response?.status === 401 && config) {

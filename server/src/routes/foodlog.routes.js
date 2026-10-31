@@ -1,5 +1,6 @@
 const express = require('express');
 const { protect } = require('../middleware/auth');
+const idempotency = require('../middleware/idempotency');
 const { create, find, findOne, update, remove } = require('../controllers/foodlog.controller');
 
 const router = express.Router();
@@ -9,7 +10,7 @@ const router = express.Router();
 // router, not just the ones matching /foodlogs, because this router is
 // mounted under an explicit '/foodlogs' prefix in routes/index.js and paths
 // below are relative to it.
-router.route('/').get(protect, find).post(protect, create);
+router.route('/').get(protect, find).post(protect, idempotency, create);
 router.route('/:id').get(protect, findOne).put(protect, update).delete(protect, remove);
 
 module.exports = router;

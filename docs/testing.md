@@ -6,11 +6,11 @@
 
 ### Automated Test Suite
 
-The automated test suite runs on every pull request and push to `main` via GitHub Actions. As of v2.6.0, the platform verifies **681 passing tests** (661 server unit/integration tests across 185 suites, and 20 client tests across 6 suites).
+The automated test suite runs on every pull request and push to `main` via GitHub Actions. As of v2.6.0, the platform verifies **869 passing tests** (776 server unit/integration tests across 220 suites, and 93 client tests across 12 suites).
 FitTrack AI includes a comprehensive test suite covering backend controllers, security boundaries, AI schemas, and client state machines:
 
 - **Backend Unit & Integration Tests:** Native Node.js test runner (`node --test`), requiring zero external test framework dependencies.
-- **Frontend Unit Tests:** Vitest test runner validating offline synchronization queues and live workout tracker modal interactions.
+- **Frontend Unit Tests:** Vitest test runner validating offline synchronization queues, storage adapters, UI indicator states, reconciliation events, and live workout tracker modal interactions.
 
 ```bash
 # Run server test suite
@@ -54,6 +54,7 @@ Current enforcement thresholds (configured in `server/package.json`):
   - Target: Expand branch tests for `calorieEstimate.service.js`, `foodEstimate.service.js`, `auth.controller.js` edge cases, and `redisClient.js` reconnect branches.
 
 ### Backend Test Coverage Highlights
+- **Offline Sync Queue & Write Idempotency (`test/offlineSync.test.js`):** 4-endpoint replay verification (water, weight, food, activity), atomic in-flight claim concurrency (409 `IDEMPOTENCY_IN_PROGRESS`), payload mismatch rejection (422 `IDEMPOTENCY_KEY_REUSED`), transient 5xx failure release & retry, per-user tenant scoping, water/food bounds & date range validation, event-time weight conflict rule, body `localDay` prioritization, and migration script index management.
 - **Blog Admin Authorization & Field Whitelisting (`test/blogAdminAuthz.test.js`):** Role-based access control (RBAC), `requireAdmin` middleware verification, strict `isAdmin: true` database flag enforcement, and field whitelisting for blog write operations.
 - **User Macro & Water Goals (`test/userGoals.test.js`):** Numeric validation, non-negative constraints (`min: 0`), and non-numeric casting guards for `dailyproteingoal`, `dailycarbsgoal`, `dailyfatgoal`, and `dailywatergoal`.
 - **WeightLog Migration & Safe Indexing (`test/weightlogMigration.test.js` & `test/phaseF-weightlog.test.js`):** Timezone-aware `localDay` derivation, unique partial compound indexes, de-duplication, and dry-run backfill simulation.

@@ -79,6 +79,23 @@ flowchart TD
     Ledger --> Metrics["Prometheus Metrics & Alerts\n(ai_tokens_total, etc.)"]
 ```
 
+### 📶 Offline Logging & Idempotent Replay Architecture
+
+```mermaid
+flowchart TD
+    User["User Log Action\n(Water, Weight, Food, Workout)"] --> Check{"Online?\n(navigator.onLine)"}
+    Check -->|Yes| Direct["Direct API Request\n(Header: Idempotency-Key)"]
+    Check -->|No / Net Fail| Queue["Enqueue Mutation\n(IndexedDB: fittrack_offline_v2)"]
+    Queue --> Optimistic["Optimistic UI Render\n(Temporary tmp-* ID + 'Pending' Badge)"]
+    
+    OnlineEvent["Online Event / Tab Focus / Polling"] --> Engine["Replay Engine\n(FIFO Drain Queue)"]
+    Engine --> Dispatch["POST with Idempotency-Key"]
+    Dispatch -->|2xx Success| Reconcile["Broadcast onReconcile\n(Swap tmp-* for Server ID)"]
+    Dispatch -->|401/403 Expired| Auth["Mark needs_auth\n(Prompt 'Sign in to sync')"]
+    Dispatch -->|400/422 Invalid| Fail["Mark failed\n(User Discard from Sheet)"]
+    Dispatch -->|429/5xx Network| Backoff["Exponential Backoff + Jitter\n(Retry-After Compliance)"]
+```
+
 ---
 
 
@@ -123,8 +140,10 @@ AI-FitnessTracker1/
 │   │   │   ├── FitBotAvatar.tsx         # FitBot visual avatar
 │   │   │   ├── MarkdownMessage.tsx      # Markdown parser for AI responses
 │   │   │   ├── auth/                    # Auth-specific UI (PasswordStrengthMeter, etc.)
+│   │   │   ├── sync/                    # Offline sync indicators, sheet & logout warning
 │   │   │   ├── ui/                      # Shared reusable UI primitives (BottomSheet, etc.)
 │   │   │   └── animations/              # Interactive workout modals, steppers & timers
+│   │   ├── offline/                     # Offline sync queue engine, IndexedDB & context
 │   │   ├── features/                    # Domain-specific types & playlist definitions
 │   │   ├── utils/                       # O(N) dailyTotals engine, deriveGoals
 │   │   ├── test/                        # Client Vitest unit tests
