@@ -10,12 +10,12 @@ const { getAiUsage, getTopAiConsumers } = require('../controllers/aiBudget.contr
 const router = express.Router();
 
 // User daily AI budget status (read-only)
-router.get('/ai/usage', protect, getAiUsage);
-router.get('/ai-assistant/usage', protect, getAiUsage);
+router.get('/ai/usage', protect, aiLimiter, getAiUsage);
+router.get('/ai-assistant/usage', protect, aiLimiter, getAiUsage);
 
 // Admin-only top AI token consumers for a given day (keyset pagination)
-router.get('/ai/admin/top-consumers', protect, requireAdmin, getTopAiConsumers);
-router.get('/admin/ai-usage/top-consumers', protect, requireAdmin, getTopAiConsumers);
+router.get('/ai/admin/top-consumers', protect, requireAdmin, aiLimiter, getTopAiConsumers);
+router.get('/admin/ai-usage/top-consumers', protect, requireAdmin, aiLimiter, getTopAiConsumers);
 
 // Protected with JWT auth, token-bucket rate limiter (30 req/hr), validation, legacy limiters, and daily budget.
 router.post(

@@ -19,11 +19,14 @@ import { prepareImageForUpload, ImageResizeError } from "../utils/imageResize";
 type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
 const sanitizeImageSrc = (value: string, allowedBlobUrls?: Set<string>): string => {
+  if (!value || typeof value !== "string") return "";
   try {
     const parsed = new URL(value, window.location.origin);
     if (parsed.protocol === "blob:") {
       if (allowedBlobUrls && !allowedBlobUrls.has(value)) return "";
-      return value;
+      if (/^blob:https?:\/\/[a-zA-Z0-9_.:-]+\/[a-f0-9-]+$/i.test(value)) {
+        return encodeURI(value);
+      }
     }
     return "";
   } catch {
@@ -806,16 +809,18 @@ const MealSection = ({ mealType, entries, onDelete }: {
 const AISnapLoadingOverlay = ({
   imagePreview,
   status = "analyzing",
+  allowedPreviewUrls,
 }: {
   imagePreview: string;
   status?: "preparing" | "analyzing";
+  allowedPreviewUrls?: Set<string>;
 }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center">
     <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
     <div className="relative z-10 flex flex-col items-center gap-5 p-8 rounded-3xl shadow-2xl max-w-xs w-full mx-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
       <div className="relative w-32 h-32 rounded-2xl overflow-hidden border-2 border-emerald-500/25">
         <img
-          src={sanitizeImageSrc(imagePreview)}
+          src={sanitizeImageSrc(imagePreview, allowedPreviewUrls)}
           alt="Food snap"
           className="w-full h-full object-cover"
         />
@@ -1255,7 +1260,11 @@ export default function FoodLog() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200">
       {isAnalyzing && snapPreview && (
-        <AISnapLoadingOverlay imagePreview={snapPreview} status={snapStatus || "analyzing"} />
+        <AISnapLoadingOverlay
+          imagePreview={snapPreview}
+          status={snapStatus || "analyzing"}
+          allowedPreviewUrls={allowedPreviewUrlsRef.current}
+        />
       )}
       {showCamera && <CameraModal onCapture={handleCameraCapture} onClose={() => setShowCamera(false)} />}
       {snapReviewData && (

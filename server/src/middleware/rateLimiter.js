@@ -110,7 +110,26 @@ const chatHistoryLimiter = rateLimit({
   },
 });
 
+/**
+ * Rate limiter for resource logging routes (food, activity, water, weight).
+ * Prevents DoS on database-heavy endpoints while supporting regular sync bursts.
+ * 120 requests per minute per user/IP.
+ */
+const logLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 120,
+  keyGenerator: (req) => String(req.user?.id || req.user?._id || req.ip || 'anonymous'),
+  validate: { keyGeneratorIpFallback: false, xForwardedForHeader: false },
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: {
+      message: 'Too many logging requests. Please wait a moment before trying again.',
+    },
+  },
+});
 module.exports = {
+  logLimiter,
   authLimiter,
   passwordResetLimiter,
   aiLimiter,

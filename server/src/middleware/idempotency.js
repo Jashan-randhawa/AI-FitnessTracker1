@@ -258,17 +258,19 @@ const idempotency = async (req, res, next) => {
     if (isDbConnected()) {
       try {
         await IdempotencyKey.findOneAndUpdate(
-          { user: userId, key: trimmedKey },
+          { user: userId, key: { $eq: trimmedKey } },
           {
-            user: userId,
-            key: trimmedKey,
-            requestHash,
-            rawPayload: canonicalPayload,
-            route,
-            status: 'completed',
-            statusCode,
-            response: data,
-            expiresAt,
+            $set: {
+              user: userId,
+              key: trimmedKey,
+              requestHash,
+              rawPayload: canonicalPayload,
+              route,
+              status: 'completed',
+              statusCode,
+              response: data,
+              expiresAt,
+            },
           },
           { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
         );

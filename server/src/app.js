@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const mongoose = require('mongoose');
 const routes = require('./routes');
@@ -51,9 +50,6 @@ app.use(
     exposedHeaders: ['X-Request-Id', 'X-Next-Cursor', 'Idempotency-Replayed', 'X-Conflict', 'Retry-After'],
   })
 );
-
-// Cookie parsing middleware for refresh tokens and sessions
-app.use(cookieParser());
 
 // JSON body limit generous enough for chat payloads and base64 image uploads (4MB raw = ~5.33MB base64)
 app.use(express.json({ limit: '7mb' }));

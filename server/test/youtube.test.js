@@ -63,7 +63,8 @@ describe('YouTube Controller Unit Tests', () => {
     let fetchCount = 0;
     global.fetch = async (url, options) => {
       fetchCount++;
-      assert.ok(url.includes('youtube138.p.rapidapi.com'));
+      const parsedUrl = new URL(url);
+      assert.equal(parsedUrl.hostname, 'youtube138.p.rapidapi.com');
       assert.equal(options.headers['x-rapidapi-key'], 'test_rapidapi_key_456');
       return {
         ok: true,
