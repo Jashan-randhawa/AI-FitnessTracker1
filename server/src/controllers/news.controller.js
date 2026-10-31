@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const asyncHandler = require('express-async-handler');
+const logger = require('../utils/logger');
 
 const NEWS_API_BASE = 'https://newsapi.org/v2';
 
@@ -59,7 +60,7 @@ const getHeadlines = asyncHandler(async (req, res) => {
 
     res.json({ articles, totalResults: data.totalResults ?? 0, status: data.status });
   } catch (err) {
-    console.error('News API fetch error:', err);
+    logger.error('News API fetch error', { error: err.message });
     res.status(500).json({ error: 'Failed to fetch news articles.' });
   }
 });

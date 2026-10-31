@@ -258,10 +258,28 @@ const setUserPassword = asyncHandler(async (req, res) => {
 
   const freshJwt = generateToken(user._id);
 
+  try {
+    const {
+      revokeAllUserRefreshTokens,
+      createRefreshTokenRecord,
+      setRefreshTokenCookie,
+    } = require('../services/refreshToken.service');
+    await revokeAllUserRefreshTokens(user._id);
+    const { plainToken: newRefreshToken } = await createRefreshTokenRecord({
+      userId: user._id,
+      userAgent: req.headers ? req.headers['user-agent'] : '',
+      ipAddress: req.ip,
+    });
+    setRefreshTokenCookie(res, newRefreshToken);
+  } catch (err) {
+    logger.error('[user] Failed to rotate refresh token on password change', { error: err.message });
+  }
+
   res.json({
     status: 'success',
     message: wasSet ? 'Password changed successfully' : 'Password added successfully',
     jwt: freshJwt,
+    accessToken: freshJwt,
     user: user.toJSON(),
   });
 });

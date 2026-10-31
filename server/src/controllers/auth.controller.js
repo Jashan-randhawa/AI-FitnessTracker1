@@ -3,9 +3,17 @@ const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 const sendError = require('../utils/sendError');
+const logger = require('../utils/logger');
 const { validatePasswordPolicy } = require('../utils/passwordPolicy');
 const { sendSecurityNoticeEmail, sendVerificationEmail } = require('../services/email.service');
 const { generateVerificationToken } = require('../services/emailVerification.service');
+const {
+  createRefreshTokenRecord,
+  rotateRefreshToken,
+  revokeRefreshToken,
+  setRefreshTokenCookie,
+  clearRefreshTokenCookie,
+} = require('../services/refreshToken.service');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -67,7 +75,15 @@ const register = asyncHandler(async (req, res) => {
     verifyUrl: `${baseUrl}/verify-email`,
   }).catch(() => {});
 
-  res.json({ jwt: generateToken(user._id), user: user.toJSON() });
+  const jwt = generateToken(user._id);
+  const { plainToken: refreshToken } = await createRefreshTokenRecord({
+    userId: user._id,
+    userAgent: req.headers ? req.headers['user-agent'] : '',
+    ipAddress: req.ip,
+  });
+  setRefreshTokenCookie(res, refreshToken);
+
+  res.json({ jwt, accessToken: jwt, user: user.toJSON() });
 });
 
 // POST /api/auth/local
@@ -90,7 +106,15 @@ const login = asyncHandler(async (req, res) => {
     return sendError(res, 403, 'Your account has been blocked by an administrator');
   }
 
-  res.json({ jwt: generateToken(user._id), user: user.toJSON() });
+  const jwt = generateToken(user._id);
+  const { plainToken: refreshToken } = await createRefreshTokenRecord({
+    userId: user._id,
+    userAgent: req.headers ? req.headers['user-agent'] : '',
+    ipAddress: req.ip,
+  });
+  setRefreshTokenCookie(res, refreshToken);
+
+  res.json({ jwt, accessToken: jwt, user: user.toJSON() });
 });
 
 // GET /api/users/me
@@ -232,7 +256,7 @@ const googleConnectCallback = asyncHandler(async (req, res) => {
 
   // Verify OAuth state to prevent CSRF / injection
   if (!state || !cookieState || state !== cookieState) {
-    console.warn('[auth] Google OAuth state parameter mismatch or missing');
+    logger.warn('[auth] Google OAuth state parameter mismatch or missing');
     return res.redirect(`${clientUrl}/google-callback?error=google_state_invalid`);
   }
 
@@ -256,7 +280,7 @@ const googleConnectCallback = asyncHandler(async (req, res) => {
 
     res.redirect(`${clientUrl}/google-callback#access_token=${tokenData.access_token}`);
   } catch (err) {
-    console.error('[auth] Google connect callback failed:', err);
+    logger.error('[auth] Google connect callback failed', { error: err.message });
     res.redirect(`${clientUrl}/google-callback?error=oauth_failed`);
   }
 });
@@ -301,10 +325,63 @@ const googleAuthCallback = asyncHandler(async (req, res) => {
     sendSecurityNoticeEmail({
       to: user.email,
       kind: 'google_linked',
-    }).catch((err) => console.error('[auth] Notice email failed:', err.message));
+    }).catch((err) => logger.error('[auth] Notice email failed', { error: err.message }));
   }
 
-  res.json({ jwt: generateToken(user._id), user: user.toJSON() });
+  const jwt = generateToken(user._id);
+  const { plainToken: refreshToken } = await createRefreshTokenRecord({
+    userId: user._id,
+    userAgent: req.headers ? req.headers['user-agent'] : '',
+    ipAddress: req.ip,
+  });
+  setRefreshTokenCookie(res, refreshToken);
+
+  res.json({ jwt, accessToken: jwt, user: user.toJSON() });
+});
+
+// POST /api/auth/refresh
+const refresh = asyncHandler(async (req, res) => {
+  const plainToken =
+    req.cookies?.refreshToken ||
+    parseCookies(req.headers?.cookie)?.refreshToken ||
+    req.body?.refreshToken;
+
+  if (!plainToken) {
+    return sendError(res, 401, 'Refresh token required');
+  }
+
+  const result = await rotateRefreshToken({
+    plainToken,
+    userAgent: req.headers ? req.headers['user-agent'] : '',
+    ipAddress: req.ip,
+  });
+
+  if (!result.success) {
+    if (result.error === 'token_reuse') {
+      clearRefreshTokenCookie(res);
+    }
+    return sendError(res, result.status || 401, result.message, { code: result.error });
+  }
+
+  const jwt = generateToken(result.user._id);
+  setRefreshTokenCookie(res, result.newPlainToken);
+
+  res.json({ jwt, accessToken: jwt, user: result.user.toJSON() });
+});
+
+// POST /api/auth/logout
+const logout = asyncHandler(async (req, res) => {
+  const plainToken =
+    req.cookies?.refreshToken ||
+    parseCookies(req.headers?.cookie)?.refreshToken ||
+    req.body?.refreshToken;
+
+  if (plainToken) {
+    await revokeRefreshToken(plainToken);
+  }
+
+  clearRefreshTokenCookie(res);
+  res.json({ message: 'Logged out successfully' });
 });
 
 const generateUniqueUsername = async (base) => {
@@ -323,6 +400,8 @@ module.exports = {
   register,
   login,
   me,
+  refresh,
+  logout,
   googleConnect,
   googleConnectCallback,
   googleAuthCallback,

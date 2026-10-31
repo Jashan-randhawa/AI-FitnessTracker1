@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const mongoose = require('mongoose');
 const routes = require('./routes');
@@ -36,14 +37,23 @@ app.use(
   cors({
     origin: (origin, callback) => {
       // Allow non-browser requests (no Origin header, e.g. curl/Postman/OAuth redirects)
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      if (!origin) return callback(null, true);
+      const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
+      const isAllowed = allowedOrigins.some(
+        (allowed) => allowed.replace(/\/$/, '').toLowerCase() === normalizedOrigin
+      );
+      if (isAllowed) return callback(null, true);
       callback(new Error(`Not allowed by CORS: ${origin}`));
     },
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Request-Id', 'X-Timezone', 'Idempotency-Key', 'X-Idempotency-Key'],
     exposedHeaders: ['X-Request-Id', 'X-Next-Cursor'],
   })
 );
+
+// Cookie parsing middleware for refresh tokens and sessions
+app.use(cookieParser());
 
 // JSON body limit generous enough for chat history payloads; image uploads
 // go through multer separately (see middleware/upload.js) and aren't

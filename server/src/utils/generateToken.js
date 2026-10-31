@@ -1,12 +1,15 @@
 const jwt = require('jsonwebtoken');
 
 /**
- * Issues a signed JWT for a user id.
+ * Issues a signed JWT access token for a user id.
+ * Defaults to 15 minutes for short-lived client access.
+ *
  * @param {string} id Mongo ObjectId of the user
+ * @param {string} [expiresIn] Token expiration string (e.g. '15m')
  */
-const generateToken = (id) =>
+const generateToken = (id, expiresIn = process.env.JWT_ACCESS_EXPIRES_IN || '15m') =>
   jwt.sign({ id }, process.env.JWT_SECRET || 'dev-insecure-secret-key-32chars!!', {
-    expiresIn: process.env.JWT_EXPIRES_IN || '30d',
+    expiresIn,
   });
 
 module.exports = generateToken;
