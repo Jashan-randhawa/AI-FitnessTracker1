@@ -128,4 +128,4 @@ openssl rand -base64 48
 ### Port and Dev Proxy Notes
 - **Backend Port:** Defaults to `1337` (`PORT=1337`).
 - **Frontend Port:** Vite dev server is configured on port `5000` in `client/vite.config.ts`.
-- **API Dev Proxy:** If `VITE_API_URL` is omitted in `client/.env`, Vite proxies `/api` requests to `http://localhost:8000` by default. If your server runs on `1337`, ensure `VITE_API_URL=http://localhost:1337` is set in `client/.env`, or update the proxy target in `client/vite.config.ts`.
+- **API Dev Proxy:** When `VITE_API_URL` is left empty in `client/.env`, the Vite dev server automatically proxies `/api` and `/uploads` requests to `http://localhost:1337` (matching the default backend server port).

@@ -65,7 +65,7 @@ npm run dev
 cd ../client
 npm install
 
-# Copy environment template (uses local dev proxy by default)
+# Copy environment template (dev proxy routes /api to http://localhost:1337)
 cp .env.example .env
 
 npm run dev
