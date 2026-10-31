@@ -8,6 +8,9 @@ const notFound = (req, res) => {
 // eslint-disable-next-line no-unused-vars
 const errorHandler = (err, req, res, next) => {
   // Whitelisted, safe client-facing error types
+  if (err && (err.name === 'PayloadTooLargeError' || err.type === 'entity.too.large')) {
+    return sendError(res, 413, 'Image size exceeds maximum allowed limit of 4MB.', { code: 'LIMIT_FILE_SIZE' });
+  }
   if (err && err.name === 'MulterError') {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return sendError(res, 413, 'Image size exceeds maximum allowed limit of 4MB.', { code: 'LIMIT_FILE_SIZE' });

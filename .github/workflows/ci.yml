@@ -169,6 +169,12 @@ jobs:
           CI: "true"
           CI_DRY_RUN: "true"
 
+      - name: Run test image matrix verification
+        run: npm run test:matrix
+        env:
+          NODE_ENV: "test"
+          CI: "true"
+
   test-badge:
     name: Publish Test Count Badge
     needs: [client, server]

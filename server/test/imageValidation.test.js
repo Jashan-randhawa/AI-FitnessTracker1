@@ -170,3 +170,62 @@ test('HTTP: a request with no image is a 400', async () => {
   const res = await fetch(`${base}/snap`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   assert.equal(res.status, 400);
 });
+
+test('HTTP: PayloadTooLargeError maps cleanly to 413 with LIMIT_FILE_SIZE', async () => {
+  // Test body-parser PayloadTooLargeError handling via errorHandler
+  const testApp = express();
+  testApp.use(express.json({ limit: '100b' }));
+  testApp.post('/too-large', (req, res) => res.json({ ok: true }));
+  testApp.use(errorHandler);
+
+  const testServer = testApp.listen(0);
+  const testPort = testServer.address().port;
+  try {
+    const res = await fetch(`http://127.0.0.1:${testPort}/too-large`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: 'x'.repeat(200) }),
+    });
+    assert.equal(res.status, 413);
+    const body = await res.json();
+    assert.equal(body.error?.code, 'LIMIT_FILE_SIZE');
+    assert.match(body.message, /4MB/);
+  } finally {
+    testServer.close();
+  }
+});
+
+test('Route ordering: validation rejects before rate limit tokens are consumed', async () => {
+  let rateLimiterInvoked = false;
+  const mockRateLimiter = (req, res, next) => {
+    rateLimiterInvoked = true;
+    next();
+  };
+
+  const testApp = express();
+  testApp.use(express.json({ limit: '7mb' }));
+  testApp.post(
+    '/ordered-snap',
+    upload.single('image'),
+    validateFoodSnapUpload,
+    mockRateLimiter,
+    (req, res) => res.json({ ok: true })
+  );
+  testApp.use(errorHandler);
+
+  const testServer = testApp.listen(0);
+  const testPort = testServer.address().port;
+  try {
+    // Send invalid upload (unsupported SVG)
+    const res = await fetch(`http://127.0.0.1:${testPort}/ordered-snap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: fx.unsupported.svg.toString('base64') }),
+    });
+    assert.equal(res.status, 415);
+    // Rate limiter must NOT have been called
+    assert.equal(rateLimiterInvoked, false, 'Rate limiter was not reached on invalid upload');
+  } finally {
+    testServer.close();
+  }
+});

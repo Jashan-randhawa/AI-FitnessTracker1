@@ -55,11 +55,9 @@ app.use(
 // Cookie parsing middleware for refresh tokens and sessions
 app.use(cookieParser());
 
-// JSON body limit generous enough for chat history payloads; image uploads
-// go through multer separately (see middleware/upload.js) and aren't
-// affected by this limit.
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+// JSON body limit generous enough for chat payloads and base64 image uploads (4MB raw = ~5.33MB base64)
+app.use(express.json({ limit: '7mb' }));
+app.use(express.urlencoded({ extended: true, limit: '7mb' }));
 
 app.get('/', (_req, res) => {
   res.json({ status: 'ok', service: 'AI Fitness Tracker API' });

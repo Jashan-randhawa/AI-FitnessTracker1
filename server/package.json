@@ -8,8 +8,9 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "seed": "node src/services/seed.service.js",
-    "test": "node scripts/ci-guard-email.js && node --test test/*.test.js tests/*.test.js",
-    "test:coverage": "node scripts/ci-guard-email.js && node -e \"fs.mkdirSync('coverage',{recursive:true})\" && node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-exclude=\"src/config/db.js\" --test-coverage-exclude=\"src/services/seed.service.js\" --test-coverage-lines=82 --test-coverage-branches=72 --test-coverage-functions=72 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info test/*.test.js tests/*.test.js",
+    "test": "node scripts/ci-guard-email.js && node scripts/test-image-matrix.js && node --test test/*.test.js tests/*.test.js",
+    "test:coverage": "node scripts/ci-guard-email.js && node scripts/test-image-matrix.js && node -e \"fs.mkdirSync('coverage',{recursive:true})\" && node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-exclude=\"src/config/db.js\" --test-coverage-exclude=\"src/services/seed.service.js\" --test-coverage-lines=82 --test-coverage-branches=72 --test-coverage-functions=72 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info test/*.test.js tests/*.test.js",
+    "test:matrix": "node scripts/test-image-matrix.js",
     "test:smoke": "node scripts/smoke-test.js",
     "ci:guard": "node scripts/ci-guard-email.js",
     "test:email": "node scripts/test-email.js"

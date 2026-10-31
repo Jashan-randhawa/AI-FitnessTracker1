@@ -8,14 +8,16 @@ const { analyze } = require('../controllers/imageAnalysis.controller');
 
 const router = express.Router();
 
-// Protected with JWT auth, token-bucket rate limiter (10 req/hr), upload validation, and handler
+// Protected with JWT auth. Upload & validation execute BEFORE AI rate limiters
+// so malformed, spoofed, or oversized payloads never consume user AI quota.
 router.post(
   '/image-analysis',
   protect,
-  foodSnapRateLimiter,
-  aiLimiter,
+  express.json({ limit: '7mb' }),
   upload.single('image'),
   validateFoodSnapUpload,
+  foodSnapRateLimiter,
+  aiLimiter,
   analyze
 );
 
