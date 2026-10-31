@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### 🔒 JWT Storage Migration & Session Security
+- **In-Memory Client JWTs**: Migrated client access token storage from `localStorage` to an in-memory module variable, eliminating XSS token theft vectors. Added seamless one-time migration that purges legacy tokens from `localStorage`/`sessionStorage` on startup.
+- **Single-Flight Axios Refresh Interceptor**: Added response interceptor in `configs/api.ts` that deduplicates concurrent 401s, calls `/api/auth/refresh`, and transparently replays queued requests with the rotated access token.
+- **Refresh Token Rotation (RTR) & Replay Detection**: Implemented `RefreshToken` Mongoose model with SHA-256 token hashing, TTL index auto-cleanup, and family lineage tracking. If an already-revoked refresh token is replayed, the user's entire session family is instantly invalidated.
+- **HttpOnly Cookie Auth & CSRF Protection**: Refresh tokens are issued via `httpOnly`, `Secure`, `SameSite=lax` cookies scoped to `/api/auth`. Endpoints `/api/auth/refresh` and `/api/auth/logout` are guarded with `verifyCsrfAndOrigin`.
+- **CORS & Vercel Same-Origin Rewrites**: Updated CORS to restrict credentials to validated client origins and configured Vercel `/api/:path*` rewrites to proxy to Render, avoiding third-party cookie restrictions.
+
 ### 🧹 Legacy Architecture Cleanup & Configuration Standardization
 - **Client API URL Unification**: Removed legacy API URL fallbacks across `client/src/configs/api.ts`, `Login.tsx`, `GoogleCallback.tsx`, `AIAssistant.tsx`, and `aiAssistantClient.ts`. Made `configs/api.ts` the single source of truth for `API_URL` via `VITE_API_URL`.
 - **Server Comment & Architecture Cleanups**: Cleaned up historical comparisons across server middleware (`auth.js`), models (`User.js`, `Blog.js`), controllers (`user.controller.js`), services (`seed.service.js`), `app.js`, and utilities (`generateToken.js`, `sendError.js`, `toJSONPlugin.js`), retaining clear explanations of why the code exists.
