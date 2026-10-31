@@ -6,9 +6,14 @@
  * - Whitelist of MIME types (image/jpeg, image/png, image/webp)
  * - Sniffing magic bytes on binary buffers (rejects spoofed extensions, SVGs, GIFs, BMPs, PDFs, HEIC)
  * - Safe base64 pre-check before decoding huge buffers
+ * - Pixel-count guard read from the image header (no decoding), so a client that
+ *   bypasses the 1024px resize cannot push a 4 MB / 20000x20000 image to the AI provider
  */
 
 const MAX_IMAGE_BYTES = parseInt(process.env.MAX_IMAGE_BYTES, 10) || 4 * 1024 * 1024; // 4 MB
+
+// Keep in sync with DEFAULT_MAX_PIXELS in client/src/utils/imageResize.ts
+const MAX_IMAGE_PIXELS = parseInt(process.env.MAX_IMAGE_PIXELS, 10) || 50_000_000; // 50 MP
 
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -104,6 +109,62 @@ function sniffMimeType(buffer) {
 }
 
 /**
+ * Reads pixel dimensions from the image header without decoding pixel data.
+ * Returns null when the header cannot be parsed (the caller must not treat that
+ * as an error for JPEG/WebP, since valid but unusual files exist).
+ * @param {Buffer} buffer
+ * @param {string} mime  sniffed MIME type
+ * @returns {{ width: number, height: number } | null}
+ */
+function getImageDimensions(buffer, mime) {
+  try {
+    if (mime === 'image/png') {
+      // 8-byte signature, then IHDR chunk: length(4) 'IHDR'(4) width(4) height(4)
+      if (buffer.length < 24 || buffer.toString('ascii', 12, 16) !== 'IHDR') return null;
+      return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+    }
+
+    if (mime === 'image/jpeg') {
+      let pos = 2; // skip SOI
+      while (pos + 9 < buffer.length) {
+        if (buffer[pos] !== 0xff) return null;
+        const marker = buffer[pos + 1];
+        if (marker === 0xff) { pos += 1; continue; } // fill byte
+        if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+          pos += 2; // standalone markers carry no length
+          continue;
+        }
+        if (marker === 0xd9 || marker === 0xda) return null; // EOI / SOS reached before any SOF
+        const isSof = marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker);
+        if (isSof) {
+          return { height: buffer.readUInt16BE(pos + 5), width: buffer.readUInt16BE(pos + 7) };
+        }
+        pos += 2 + buffer.readUInt16BE(pos + 2);
+      }
+      return null;
+    }
+
+    if (mime === 'image/webp') {
+      if (buffer.length < 30) return null;
+      const chunk = buffer.toString('ascii', 12, 16);
+      if (chunk === 'VP8X') {
+        return { width: buffer.readUIntLE(24, 3) + 1, height: buffer.readUIntLE(27, 3) + 1 };
+      }
+      if (chunk === 'VP8L' && buffer[20] === 0x2f) {
+        const bits = buffer.readUInt32LE(21);
+        return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
+      }
+      if (chunk === 'VP8 ' && buffer[23] === 0x9d && buffer[24] === 0x01 && buffer[25] === 0x2a) {
+        return { width: buffer.readUInt16LE(26) & 0x3fff, height: buffer.readUInt16LE(28) & 0x3fff };
+      }
+    }
+  } catch {
+    // Out-of-range read on a malformed header: treat as unparseable
+  }
+  return null;
+}
+
+/**
  * Validates raw image buffer against limits and MIME rules.
  * @param {Buffer} buffer
  * @param {string} [declaredMime]
@@ -120,19 +181,6 @@ function validateImageBuffer(buffer, declaredMime) {
       'LIMIT_FILE_SIZE',
       `Image size (${(buffer.length / (1024 * 1024)).toFixed(2)}MB) exceeds maximum allowed limit of 4MB.`
     );
-  }
-
-  // Support mock buffers in test runs
-  if (process.env.NODE_ENV === 'test' && buffer.toString('utf8').startsWith('mock-')) {
-    const safeMime = declaredMime || 'image/jpeg';
-    if (!ALLOWED_MIME_TYPES.has(safeMime)) {
-      throw new ImageValidationError(
-        415,
-        'UNSUPPORTED_MEDIA_TYPE',
-        'Allowed image types are image/jpeg, image/png, and image/webp.'
-      );
-    }
-    return { mimeType: safeMime, size: buffer.length };
   }
 
   const sniffed = sniffMimeType(buffer);
@@ -167,7 +215,7 @@ function validateImageBuffer(buffer, declaredMime) {
       throw new ImageValidationError(400, 'CORRUPT_IMAGE', 'JPEG file is truncated or corrupted.');
     }
     let hasEoi = false;
-    for (let i = buffer.length - 1; i >= Math.max(0, buffer.length - 128); i--) {
+    for (let i = buffer.length - 1; i >= Math.max(1, buffer.length - 1024); i--) {
       if (buffer[i] === 0xD9 && buffer[i - 1] === 0xFF) {
         hasEoi = true;
         break;
@@ -193,7 +241,24 @@ function validateImageBuffer(buffer, declaredMime) {
     );
   }
 
-  return { mimeType: sniffed, size: buffer.length };
+  // Header-only dimension checks (no pixel decoding)
+  const dims = getImageDimensions(buffer, sniffed);
+  if (dims) {
+    if (dims.width < 1 || dims.height < 1) {
+      throw new ImageValidationError(400, 'CORRUPT_IMAGE', 'Image header reports zero width or height.');
+    }
+    if (dims.width * dims.height > MAX_IMAGE_PIXELS) {
+      throw new ImageValidationError(
+        400,
+        'IMAGE_DIMENSIONS_TOO_LARGE',
+        `Image resolution (${dims.width}x${dims.height}) is too large. Please use a photo under ${Math.round(MAX_IMAGE_PIXELS / 1_000_000)} megapixels.`
+      );
+    }
+  } else if (sniffed === 'image/png') {
+    throw new ImageValidationError(400, 'CORRUPT_IMAGE', 'PNG file is missing a valid IHDR header.');
+  }
+
+  return { mimeType: sniffed, size: buffer.length, width: dims?.width ?? null, height: dims?.height ?? null };
 }
 
 /**
@@ -241,9 +306,11 @@ function parseAndValidateBase64(rawBase64) {
 
 module.exports = {
   MAX_IMAGE_BYTES,
+  MAX_IMAGE_PIXELS,
   ALLOWED_MIME_TYPES,
   ImageValidationError,
   sniffMimeType,
+  getImageDimensions,
   validateImageBuffer,
   parseAndValidateBase64,
 };

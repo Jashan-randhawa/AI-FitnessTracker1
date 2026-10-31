@@ -1004,7 +1004,7 @@ export default function FoodLog() {
       }
 
       // Resize and compress client-side to <= 1024px and clean JPEG
-      const prepared = await prepareImageForUpload(file, { generateDataUrl: true });
+      const prepared = await prepareImageForUpload(file);
 
       // If resized successfully, point preview to resized output
       if (prepared.blob) {

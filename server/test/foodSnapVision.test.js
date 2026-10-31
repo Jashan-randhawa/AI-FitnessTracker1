@@ -143,7 +143,7 @@ describe('Phase 1: Deterministic Gemini Vision & 1-RTT AutoSave', () => {
   });
 
   describe('In-Memory Upload & Temp File Leaks Prevention', () => {
-    it('rejects files larger than 4MB with HTTP 400', async () => {
+    it('rejects files larger than 4MB with HTTP 413', async () => {
       const req = {
         file: {
           buffer: Buffer.alloc(4.5 * 1024 * 1024),
@@ -155,7 +155,7 @@ describe('Phase 1: Deterministic Gemini Vision & 1-RTT AutoSave', () => {
       const res = createMockRes();
 
       await analyze(req, res);
-      assert.equal(res.statusCode, 400);
+      assert.equal(res.statusCode, 413);
       assert.ok(res.body.error.message.includes('4MB limit'));
     });
 

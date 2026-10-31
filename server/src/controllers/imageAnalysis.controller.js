@@ -8,7 +8,7 @@ const FoodLog = require('../models/FoodLog');
 const { publishChange } = require('../services/eventBus');
 const { isValidTimeZone } = require('../utils/localDay');
 
-const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4 MB cap
+const { MAX_IMAGE_BYTES } = require('../utils/imageValidation'); // single source of truth for the 4 MB cap
 
 // POST /api/image-analysis — multipart/form-data, field name "image", optional query ?autoSave=true
 const analyze = asyncHandler(async (req, res) => {
@@ -21,8 +21,8 @@ const analyze = asyncHandler(async (req, res) => {
   try {
     const fileSize = req.file.size || (req.file.buffer ? req.file.buffer.length : 0);
     if (fileSize > MAX_IMAGE_BYTES) {
-      return res.status(400).json({
-        error: { message: `Image exceeds the 4MB limit (${(fileSize / (1024 * 1024)).toFixed(1)}MB)` },
+      return res.status(413).json({
+        error: { message: `Image exceeds the 4MB limit (${(fileSize / (1024 * 1024)).toFixed(1)}MB)`, code: 'LIMIT_FILE_SIZE' },
       });
     }
 

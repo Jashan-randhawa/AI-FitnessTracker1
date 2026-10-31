@@ -131,7 +131,7 @@ All requests requiring authorization must include the header:
 - **Size Limit**: 4 MB maximum decoded buffer size (`MAX_IMAGE_BYTES`).
 - **Allowed Formats**: `image/jpeg`, `image/png`, `image/webp`. Binary magic bytes are strictly inspected on the server to prevent file extension spoofing.
 - **Error Contract**:
-  - `400 Bad Request`: Empty file, corrupt image buffer, or invalid base64 encoding.
+  - `400 Bad Request`: Empty file, corrupt image buffer, invalid base64 encoding, or resolution above `MAX_IMAGE_PIXELS` (`IMAGE_DIMENSIONS_TOO_LARGE`).
   - `413 Payload Too Large`: Decoded image exceeds 4 MB.
   - `415 Unsupported Media Type`: Unsupported format (HEIC, GIF, SVG, BMP, TIFF, PDF) or content/header MIME mismatch.
   - `429 Too Many Requests`: Rate limit reached (10 photos/hour per user).
