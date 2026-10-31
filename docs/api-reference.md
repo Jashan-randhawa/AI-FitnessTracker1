@@ -15,8 +15,8 @@ All requests requiring authorization must include the header:
 | `POST` | `/api/auth/local/register` | Register new user account with email verification | 5 req / 15m | Public |
 | `POST` | `/api/auth/local` | Authenticate with email & password | 5 req / 15m | Public |
 | `POST` | `/api/auth/google/callback` | Exchange Google OAuth access token for JWT session | — | Public |
-| `POST` | `/api/auth/verify-email` | Confirm account email verification token | 10 req / 15m | Public |
-| `POST` | `/api/auth/resend-verification` | Request fresh email verification link | 3 req / 15m | Public |
+| `POST` | `/api/email-verification/confirm` | Confirm account email verification token | 10 req / 15m | Public |
+| `POST` | `/api/email-verification/request` | Request fresh email verification link | 3 req / 15m | Public |
 | `GET` | `/api/users/me` | Fetch authenticated profile details | — | Private |
 | `PUT` | `/api/users/:id` | Update profile biometrics, username, and custom macro/water goals | — | Private |
 | `POST` | `/api/users/me/password` | Set password (OAuth) or update password (step-up required) | 5 req / 15m | Private |
@@ -114,7 +114,7 @@ All requests requiring authorization must include the header:
 | Method | Endpoint | Description | Rate Limit | Access |
 |---|---|---|---|---|
 | `GET` | `/api/health` | Uptime health check (MongoDB status, process uptime, timestamp) | — | Public |
-| `GET` | `/metrics` | Prometheus-style application metrics endpoint | — | Token Auth |
+| `GET` | `/api/metrics` | Prometheus-style application metrics endpoint | — | Token Auth |
 
 ### Generative AI & Media
 | Method | Endpoint | Description | Rate Limit | Access |
