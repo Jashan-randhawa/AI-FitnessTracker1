@@ -1,4 +1,6 @@
 # FitBot AI — Phase 3 Implementation Report
+
+[← Back to Documentation Index](README.md)
 ## Trusted Fitness Context, Chat Memory, and Privacy
 
 **Repository:** `https://github.com/Jashan-randhawa/AI-FitnessTracker1`  

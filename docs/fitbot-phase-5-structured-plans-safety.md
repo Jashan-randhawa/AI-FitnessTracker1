@@ -1,5 +1,7 @@
 # Phase 5 Implementation Report — Structured AI Outputs, Schema Validation, Safe Action Workflows & Fitness Guardrails
 
+[← Back to Documentation Index](README.md)
+
 **Date:** 2026-10-22  
 **Status:** Completed & Verified  
 **Branch:** `feat/fitbot-phase-5-coaching-safety-actions`  

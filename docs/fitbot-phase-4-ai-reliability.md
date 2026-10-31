@@ -1,5 +1,7 @@
 # Phase 4 Implementation Report — AI Service Reliability, Cache Bounds, Fallbacks, and Cost Controls
 
+[← Back to Documentation Index](README.md)
+
 **Date:** 2026-10-22  
 **Status:** Completed & Verified  
 **Branch:** `feat/fitbot-phase-4-ai-reliability`  

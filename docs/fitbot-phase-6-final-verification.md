@@ -1,5 +1,7 @@
 # FitBot AI — Phase 6: Final Verification, Observability & Production Readiness Report
 
+[← Back to Documentation Index](README.md)
+
 **Date:** 2026-10-22  
 **Status:** Completed & Production Ready  
 **Branch:** `feat/fitbot-phase-6-final-verification`  

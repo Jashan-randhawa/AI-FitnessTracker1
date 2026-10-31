@@ -1,5 +1,7 @@
 # FitBot AI — Phase 6: Cross-Phase Implementation Matrix
 
+[← Back to Documentation Index](README.md)
+
 **Date:** 2026-10-22  
 **Repository:** [Jashan-randhawa/AI-FitnessTracker1](https://github.com/Jashan-randhawa/AI-FitnessTracker1)  
 **Evaluator:** Antigravity AI Coding Agent  

@@ -1,5 +1,7 @@
 # Phase 3: Manual Feature Verification Checklist
 
+[← Back to Documentation Index](README.md)
+
 > **Reference**: AI-FitnessTracker1 Fix Plan (Page 3) — Priority 2
 > **Purpose**: Manual verification protocol for end-to-end flows requiring databases, external APIs, and hardware peripherals.
 
