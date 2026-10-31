@@ -18,6 +18,13 @@
   - **F4 (Distributed Rate Limiting):** Distributed atomic Redis rate limiting with automatic in-memory fallback.
   - **F5 (Request Tracing):** Correlates `requestId` end-to-end across controllers, background workers, and audit logs.
 - **Zero-Vulnerability Security Baseline:** Continuous dependency audits with `npm audit` ensuring 0 known vulnerabilities across client and server packages.
+- **Multimodal Image Upload Security & Magic-Byte Validation (`/api/image-analysis`):**
+  - **Independent Security Boundary:** Client-side checks are treated strictly as performance optimizations. The server independently verifies all uploads.
+  - **Magic-Byte Sniffing:** Strictly inspects binary magic bytes on image buffers (`FF D8 FF` for JPEG, `89 50 4E 47` for PNG, `RIFF...WEBP` for WebP), rejecting spoofed filenames (e.g. `.txt` or `.svg` renamed to `.jpg`) with `415 Unsupported Media Type`.
+  - **XSS & Polyglot Prevention:** Explicitly rejects SVG XML payloads (eliminating stored/reflected XSS vectors), GIFs, BMPs, and PDFs.
+  - **Decompression Bomb & DoS Guard:** Enforces hard 4MB decoded buffer limit (`LIMIT_FILE_SIZE`). For base64 input, validates base64 character set and computes decoded byte size before allocating Node.js buffers.
+  - **EXIF & GPS Privacy Protection:** Client-side pre-processing (`imageResize.ts`) decodes via `createImageBitmap({ imageOrientation: 'from-image' })` and redraws onto an HTML5/Offscreen canvas, automatically normalizing orientation while stripping embedded EXIF metadata (such as camera GPS location coordinates) before transmission.
+  - **Production Error Sanitization:** Upload errors (400, 413, 415) return uniform JSON error responses with no stack traces or server internal paths.
 - **Anti-Enumeration Password Recovery:** Uniform responses across all scenarios — including non-existent accounts, third-party OAuth providers, and upstream email delivery errors — ensuring no observable timing or oracle leaks exist.
 - **Production Error Masking:** All database errors (`MongoServerError`, Mongoose internals) and unhandled 5xx exceptions are strictly masked with generic client messages in production (`NODE_ENV === 'production'`), shielding database topologies and credentials from client disclosure.
 

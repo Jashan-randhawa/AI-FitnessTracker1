@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### 📸 Safe & Economical Food Snap Image Pipeline
+- **Client-Side Image Pre-Processing (`imageResize.ts`)**: Downscales high-resolution camera and gallery photos to $\le 1024$px on the longest edge preserving aspect ratio, auto-rotates via EXIF (`createImageBitmap`), flattens transparent PNG/WebP files onto clean white background to prevent black fills under JPEG, and steps down quality (0.82 $\to$ 0.72 $\to$ 0.62) if the payload exceeds a 1.5MB soft target.
+- **Server-Side Security Validation (`imageValidation.js`)**: Enforces strict binary magic-byte inspection (JPEG, PNG, WebP) independent of client headers, rejecting spoofed files, SVGs, GIFs, BMPs, and PDFs with HTTP 415. Rejects files $> 4$MB with HTTP 413, and truncated/malformed buffers with HTTP 400.
+- **Base64 & Multipart Ingestion Support**: The `/api/image-analysis` endpoint primarily utilizes Multer in-memory multipart streaming (`upload.single('image')`) to avoid orphaned temporary disk files, and provides fallback validation for base64 JSON payloads with pre-decode length checks to prevent memory exhaustion attacks.
+- **User-Friendly Error Mapping & Loading State**: Integrated `"Preparing photo…"` and `"Analyzing your meal…"` loading overlay states in `FoodLog.tsx`, disabled double submissions, and mapped server 400/413/415 codes to descriptive toast notifications.
+
 ### 🔒 JWT Storage Migration & Session Security
 - **In-Memory Client JWTs**: Migrated client access token storage from `localStorage` to an in-memory module variable, eliminating XSS token theft vectors. Added seamless one-time migration that purges legacy tokens from `localStorage`/`sessionStorage` on startup.
 - **Single-Flight Axios Refresh Interceptor**: Added response interceptor in `configs/api.ts` that deduplicates concurrent 401s, calls `/api/auth/refresh`, and transparently replays queued requests with the rotated access token.

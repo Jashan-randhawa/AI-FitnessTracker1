@@ -1,23 +1,16 @@
 const multer = require('multer');
+const { MAX_IMAGE_BYTES } = require('../utils/imageValidation');
 
-const ALLOWED_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'image/heic',
-  'image/heif',
-]);
-
-// In-Memory Multipart Parsing (capped at 4 MB per Phase 1 spec).
+// In-Memory Multipart Parsing (capped at MAX_IMAGE_BYTES = 4 MB).
 // Images are streamed directly to memory buffer and base64-encoded for Gemini Vision inlineData,
 // eliminating orphaned temporary files on disk.
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 4 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (ALLOWED_MIME_TYPES.has(file.mimetype)) return cb(null, true);
-    cb(new Error('Unsupported image type. Use JPEG, PNG, WebP, GIF, HEIC, or HEIF.'));
+  limits: { fileSize: MAX_IMAGE_BYTES },
+  fileFilter: (_req, _file, cb) => {
+    // Limits enforce hard size cap. aiValidation middleware validates binary magic bytes,
+    // sending typed HTTP 415 JSON responses without uncaught exception crashes.
+    cb(null, true);
   },
 });
 

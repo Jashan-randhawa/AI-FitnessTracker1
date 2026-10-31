@@ -14,6 +14,7 @@ import AnimatedNumber from "../components/AnimatedNumber";
 import { deriveGoals } from "../utils/deriveGoals";
 import { enqueueOfflineMutation } from "../utils/offlineSyncQueue";
 import { getAuthToken } from "../configs/authToken";
+import { prepareImageForUpload, ImageResizeError } from "../utils/imageResize";
 
 type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
@@ -783,7 +784,13 @@ const MealSection = ({ mealType, entries, onDelete }: {
 };
 
 // ── AI Snap Loading Overlay ────────────────────────────────
-const AISnapLoadingOverlay = ({ imagePreview }: { imagePreview: string }) => (
+const AISnapLoadingOverlay = ({
+  imagePreview,
+  status = "analyzing",
+}: {
+  imagePreview: string;
+  status?: "preparing" | "analyzing";
+}) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center">
     <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
     <div className="relative z-10 flex flex-col items-center gap-5 p-8 rounded-3xl shadow-2xl max-w-xs w-full mx-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
@@ -795,10 +802,16 @@ const AISnapLoadingOverlay = ({ imagePreview }: { imagePreview: string }) => (
         />
         <div className="absolute inset-0 bg-gradient-to-b from-emerald-400/20 via-transparent to-transparent animate-pulse" />
       </div>
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-col items-center gap-2 text-center">
         <div className="w-8 h-8 rounded-full animate-spin border-[3px] border-emerald-500/20 border-t-emerald-500" />
-        <p className="text-sm font-semibold text-gray-900 dark:text-white">Analyzing your meal…</p>
-        <p className="text-xs text-slate-500 text-center">Gemini Vision is parsing ingredients and calculating macros</p>
+        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+          {status === "preparing" ? "Preparing photo…" : "Analyzing your meal…"}
+        </p>
+        <p className="text-xs text-slate-500 text-center">
+          {status === "preparing"
+            ? "Optimizing resolution and compressing image for fast recognition"
+            : "Gemini Vision is parsing ingredients and calculating macros"}
+        </p>
       </div>
     </div>
   </div>
@@ -887,7 +900,8 @@ export default function FoodLog() {
   const { theme, toggleTheme } = useTheme();
   const [showForm, setShowForm]       = useState(false);
   const [defaultMeal, setDefaultMeal] = useState<MealType>("breakfast");
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [snapStatus, setSnapStatus]   = useState<"preparing" | "analyzing" | null>(null);
+  const isAnalyzing = Boolean(snapStatus);
   const [snapPreview, setSnapPreview] = useState<string | null>(null);
   const [showSnapMenu, setShowSnapMenu] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
@@ -966,15 +980,9 @@ export default function FoodLog() {
     }
   };
 
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
-
-    const previewUrl = URL.createObjectURL(file);
-    allowedPreviewUrlsRef.current.add(previewUrl);
-    setSnapPreview(previewUrl);
-    setIsAnalyzing(true);
+  const processImageFile = async (file: File) => {
+    if (snapStatus) return; // double-submit guard
+    let currentPreviewUrl: string | null = null;
 
     const hour = new Date().getHours();
     let mealType: MealType = "snack";
@@ -984,10 +992,44 @@ export default function FoodLog() {
     else                               mealType = "snack";
 
     try {
-      const formData = new FormData();
-      formData.append("image", file);
+      setSnapStatus("preparing");
 
-      // Phase 1 Single-Roundtrip: request analysis with ?autoSave=true
+      // Immediate preview so the user gets instant visual feedback
+      try {
+        currentPreviewUrl = URL.createObjectURL(file);
+        allowedPreviewUrlsRef.current.add(currentPreviewUrl);
+        setSnapPreview(currentPreviewUrl);
+      } catch {
+        // Fall back gracefully if object URL allocation fails
+      }
+
+      // Resize and compress client-side to <= 1024px and clean JPEG
+      const prepared = await prepareImageForUpload(file, { generateDataUrl: true });
+
+      // If resized successfully, point preview to resized output
+      if (prepared.blob) {
+        try {
+          const resizedUrl = URL.createObjectURL(prepared.blob);
+          allowedPreviewUrlsRef.current.add(resizedUrl);
+          if (currentPreviewUrl) {
+            URL.revokeObjectURL(currentPreviewUrl);
+            allowedPreviewUrlsRef.current.delete(currentPreviewUrl);
+          }
+          currentPreviewUrl = resizedUrl;
+          setSnapPreview(resizedUrl);
+        } catch {
+          // Keep current preview if allocation fails
+        }
+      }
+
+      setSnapStatus("analyzing");
+
+      const formData = new FormData();
+      const ext = prepared.mime === "image/webp" ? ".webp" : ".jpg";
+      const baseName = file.name ? file.name.replace(/\.[^/.]+$/, "") : "food-snap";
+      formData.append("image", prepared.blob, `${baseName}${ext}`);
+
+      // Single-Roundtrip: request analysis with ?autoSave=true
       const response = await api.post("/api/image-analysis?autoSave=true", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -1005,12 +1047,15 @@ export default function FoodLog() {
         toast.success(
           `✨ Auto-saved: ${analysis?.dishTitle || data.savedRecord.name} · ${data.savedRecord.calories} kcal (${confPct}% conf)${fitMsg}`
         );
-        URL.revokeObjectURL(previewUrl);
-        allowedPreviewUrlsRef.current.delete(previewUrl);
+        if (currentPreviewUrl) {
+          URL.revokeObjectURL(currentPreviewUrl);
+          allowedPreviewUrlsRef.current.delete(currentPreviewUrl);
+          currentPreviewUrl = null;
+        }
       } else {
         // Lower confidence (< 0.75): render interactive 1-tap portion/oil adjustment chips before committing
         setSnapReviewData({
-          previewUrl,
+          previewUrl: currentPreviewUrl || "",
           mealType,
           analysis: analysis || {
             dishTitle: "Detected Food",
@@ -1021,18 +1066,44 @@ export default function FoodLog() {
             overallConfidence: analysis?.overallConfidence || 0.65,
           },
         });
+        currentPreviewUrl = null;
       }
     } catch (error: unknown) {
       console.error("AI Food Snap error:", error);
-      const axiosErr = axios.isAxiosError(error) ? error : null;
-      const resData = axiosErr?.response?.data as { error?: { message?: string } } | undefined;
-      toast.error(resData?.error?.message || "Could not analyze image. Please add manually.");
-      openModal(mealType);
-      URL.revokeObjectURL(previewUrl);
+      if (error instanceof ImageResizeError) {
+        toast.error(error.friendlyMessage);
+      } else {
+        const axiosErr = axios.isAxiosError(error) ? error : null;
+        const resData = axiosErr?.response?.data as { error?: { message?: string }; message?: string } | undefined;
+        const status = axiosErr?.response?.status;
+
+        if (status === 413) {
+          toast.error("Image is too large for the server (over 4MB). Please choose a smaller photo.");
+        } else if (status === 415) {
+          toast.error("Unsupported image type. Please use JPEG, PNG, or WebP.");
+        } else if (status === 400) {
+          toast.error(resData?.error?.message || resData?.message || "Invalid image file. Please choose a different photo.");
+        } else {
+          toast.error(resData?.error?.message || resData?.message || "Could not analyze image. Please add manually.");
+        }
+        openModal(mealType);
+      }
+      if (currentPreviewUrl) {
+        URL.revokeObjectURL(currentPreviewUrl);
+        allowedPreviewUrlsRef.current.delete(currentPreviewUrl);
+        currentPreviewUrl = null;
+      }
     } finally {
-      setIsAnalyzing(false);
+      setSnapStatus(null);
       setSnapPreview(null);
     }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    processImageFile(file);
   };
 
   const handleCommitAdjustedSnap = async (payload: LogEntryLike) => {
@@ -1057,12 +1128,7 @@ export default function FoodLog() {
 
   const handleCameraCapture = (file: File) => {
     setShowCamera(false);
-    const dataTransfer = new DataTransfer();
-    dataTransfer.items.add(file);
-    const fakeInput = document.createElement("input");
-    fakeInput.type = "file";
-    Object.defineProperty(fakeInput, "files", { value: dataTransfer.files });
-    handleImageChange({ target: fakeInput } as unknown as React.ChangeEvent<HTMLInputElement>);
+    processImageFile(file);
   };
 
   const hasMeals = MEAL_ORDER.some((m) => byMeal[m].length > 0);
@@ -1096,7 +1162,9 @@ export default function FoodLog() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-gray-900 dark:text-white transition-colors duration-200">
-      {isAnalyzing && snapPreview && <AISnapLoadingOverlay imagePreview={snapPreview} />}
+      {isAnalyzing && snapPreview && (
+        <AISnapLoadingOverlay imagePreview={snapPreview} status={snapStatus || "analyzing"} />
+      )}
       {showCamera && <CameraModal onCapture={handleCameraCapture} onClose={() => setShowCamera(false)} />}
       {snapReviewData && (
         <FoodSnapAdjustmentModal
@@ -1252,7 +1320,9 @@ export default function FoodLog() {
             disabled={isAnalyzing}
             className="w-full flex items-center justify-center gap-2 py-3.5 font-bold rounded-full cursor-pointer disabled:opacity-50 text-white bg-emerald-500 hover:bg-emerald-600 transition-colors"
           >
-            {isAnalyzing ? (
+            {snapStatus === "preparing" ? (
+              <><div className="w-4 h-4 rounded-full animate-spin border-2 border-white/30 border-t-white" />Preparing photo…</>
+            ) : snapStatus === "analyzing" ? (
               <><div className="w-4 h-4 rounded-full animate-spin border-2 border-white/30 border-t-white" />Analyzing…</>
             ) : (
               <><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>AI Food Snap ✨</>
@@ -1274,8 +1344,9 @@ export default function FoodLog() {
                 <div className="p-4 flex flex-col gap-3">
                   <button
                     type="button"
+                    disabled={isAnalyzing}
                     onClick={() => { setShowSnapMenu(false); inputRef.current?.click(); }}
-                    className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:border-emerald-400/50 transition-all cursor-pointer group"
+                    className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:border-emerald-400/50 disabled:opacity-50 transition-all cursor-pointer group"
                   >
                     <span className="w-11 h-11 rounded-xl flex items-center justify-center bg-emerald-400/15 text-emerald-500 group-hover:bg-emerald-400/25 transition-colors shrink-0">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -1288,8 +1359,9 @@ export default function FoodLog() {
 
                   <button
                     type="button"
+                    disabled={isAnalyzing}
                     onClick={() => { setShowSnapMenu(false); openCamera(); }}
-                    className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:border-blue-400/50 transition-all cursor-pointer group"
+                    className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:border-blue-400/50 disabled:opacity-50 transition-all cursor-pointer group"
                   >
                     <span className="w-11 h-11 rounded-xl flex items-center justify-center bg-blue-400/15 text-blue-500 group-hover:bg-blue-400/25 transition-colors shrink-0">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -1304,7 +1376,7 @@ export default function FoodLog() {
             </div>
           )}
 
-          <input onChange={handleImageChange} type="file" accept="image/*" hidden ref={inputRef} />
+          <input onChange={handleImageChange} type="file" accept="image/jpeg,image/png,image/webp" hidden ref={inputRef} disabled={isAnalyzing} />
         </div>
 
         {/* ── Right Panel ── */}

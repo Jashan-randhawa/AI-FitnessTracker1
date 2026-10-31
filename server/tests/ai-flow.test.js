@@ -378,7 +378,7 @@ describe('Phase 5: Production Security, Rate Limiting & End-to-End AI Flow Integ
       });
 
       assert.equal(nextCalled, false);
-      assert.equal(statusCode, 400);
+      assert.equal(statusCode, 413);
       assert.ok(jsonPayload.message.includes('4MB'));
     });
 

@@ -9,6 +9,9 @@ const notFound = (req, res) => {
 const errorHandler = (err, req, res, next) => {
   // Whitelisted, safe client-facing error types
   if (err && err.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return sendError(res, 413, 'Image size exceeds maximum allowed limit of 4MB.', { code: 'LIMIT_FILE_SIZE' });
+    }
     return sendError(res, 400, err.message);
   }
   if (err && err.name === 'ValidationError') {

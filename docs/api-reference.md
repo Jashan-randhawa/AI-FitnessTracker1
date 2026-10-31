@@ -126,6 +126,17 @@ All requests requiring authorization must include the header:
 | `POST` | `/api/calorie-estimate` | Estimate calories burned from exercise | 30 req / 1m | Private |
 | `GET` | `/api/youtube/search` | Search workout videos via RapidAPI proxy (24h TTL cache) | 30 req / 1m | Private |
 
+#### 📸 Food Snap Image Ingestion & Validation (`POST /api/image-analysis`)
+- **Transport**: Ingested via `multipart/form-data` (form field: `image`) streamed directly into in-memory buffer via Multer. (Fallback JSON payload with `{ image: "<base64>" }` is supported with pre-decode length checks).
+- **Size Limit**: 4 MB maximum decoded buffer size (`MAX_IMAGE_BYTES`).
+- **Allowed Formats**: `image/jpeg`, `image/png`, `image/webp`. Binary magic bytes are strictly inspected on the server to prevent file extension spoofing.
+- **Error Contract**:
+  - `400 Bad Request`: Empty file, corrupt image buffer, or invalid base64 encoding.
+  - `413 Payload Too Large`: Decoded image exceeds 4 MB.
+  - `415 Unsupported Media Type`: Unsupported format (HEIC, GIF, SVG, BMP, TIFF, PDF) or content/header MIME mismatch.
+  - `429 Too Many Requests`: Rate limit reached (10 photos/hour per user).
+- **Auto-Save Option**: Include `?autoSave=true` query param to persist high-confidence analysis ($\ge 0.75$) into user's `FoodLog` in 1 HTTP roundtrip.
+
 ---
 
 
