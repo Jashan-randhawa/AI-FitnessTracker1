@@ -38,14 +38,14 @@
 
 ### 1. Clone the Repository
 
-\`\`\`bash
+```bash
 git clone https://github.com/Jashan-randhawa/AI-FitnessTracker1.git
 cd AI-FitnessTracker1
-\`\`\`
+```
 
 ### 2. Configure & Run Backend Server
 
-\`\`\`bash
+```bash
 cd server
 npm install
 
@@ -56,12 +56,12 @@ cp .env.example .env
 # Edit .env to set your JWT_SECRET and MongoDB URI
 
 npm run dev
-\`\`\`
-> Server boots on \`http://localhost:1337\` and seeds initial blog posts automatically.
+```
+> Server boots on `http://localhost:1337` and seeds initial blog posts automatically.
 
 ### 3. Configure & Run Frontend Client
 
-\`\`\`bash
+```bash
 cd ../client
 npm install
 
@@ -69,12 +69,12 @@ npm install
 cp .env.example .env
 
 npm run dev
-\`\`\`
-> Client launches on \`http://localhost:5000\` (or Vite allocated port).
+```
+> Client launches on `http://localhost:5000` (or Vite allocated port).
 
 ### 4. Run Automated Test Suite
 
-\`\`\`bash
+```bash
 # Backend suite (661 tests via native Node runner)
 cd ../server
 npm test
@@ -83,7 +83,7 @@ npm run test:smoke
 # Frontend suite (20 tests via Vitest)
 cd ../client
 npm test
-\`\`\`
+```
 
 ---
 
