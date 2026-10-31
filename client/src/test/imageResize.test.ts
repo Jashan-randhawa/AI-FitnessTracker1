@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   calculateTargetDimensions,
   sniffMimeTypeFromBytes,
+  getImageDimensions,
+  hasExifOrMetadata,
   validateImageFile,
   prepareImageForUpload,
   ImageResizeError,
@@ -546,6 +548,152 @@ describe('imageResize utility', () => {
       const file = createMockFile([0xFF, 0xD8, 0xFF], 'pic.jpg', 'image/jpeg', 600 * 1024);
       await expect(prepareImageForUpload(file)).rejects.toMatchObject({
         code: 'TO_BLOB_FAILED',
+      });
+    });
+
+    it('forces re-encoding even for small images if EXIF APP1 metadata is present', async () => {
+      // JPEG with SOI + APP1 marker (indicating EXIF/GPS)
+      const exifBytes = [
+        0xFF, 0xD8, // SOI
+        0xFF, 0xE1, 0x00, 0x0A, // APP1 length 10
+        0x45, 0x78, 0x69, 0x66, 0x00, 0x00, // Exif\0\0
+      ];
+      const file = createMockFile(exifBytes, 'with-exif.jpg', 'image/jpeg', 100 * 1024);
+
+      window.createImageBitmap = vi.fn().mockResolvedValue({
+        width: 800,
+        height: 600,
+        close: vi.fn(),
+      });
+
+      let drawImageCalled = false;
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn().mockReturnValue({
+          imageSmoothingQuality: 'low',
+          fillStyle: '',
+          fillRect: vi.fn(),
+          drawImage: vi.fn(() => {
+            drawImageCalled = true;
+          }),
+        }),
+        toBlob: vi.fn((cb: (blob: Blob | null) => void, mime: string) => {
+          cb(new Blob(['re-encoded-clean-jpeg'], { type: mime }));
+        }),
+      };
+
+      document.createElement = vi.fn((tag: string) => {
+        if (tag === 'canvas') return mockCanvas as unknown as HTMLCanvasElement;
+        return originalCreateElement(tag);
+      });
+
+      const res = await prepareImageForUpload(file);
+      // Because APP1 is present, it must NOT skip re-encode (must draw to canvas and produce clean blob)
+      expect(drawImageCalled).toBe(true);
+      expect(res.blob).not.toBe(file);
+    });
+
+    it('falls back to JPEG when requested WebP output is unsupported by canvas', async () => {
+      window.createImageBitmap = vi.fn().mockResolvedValue({
+        width: 1200,
+        height: 800,
+        close: vi.fn(),
+      });
+
+      const toBlobCalls: string[] = [];
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn().mockReturnValue({
+          imageSmoothingQuality: 'low',
+          fillStyle: '',
+          fillRect: vi.fn(),
+          drawImage: vi.fn(),
+        }),
+        toBlob: vi.fn((cb: (blob: Blob | null) => void, mime: string) => {
+          toBlobCalls.push(mime);
+          if (mime === 'image/webp') {
+            // Browser canvas lacks WebP encoder and falls back to PNG per spec
+            cb(new Blob(['fallback-png'], { type: 'image/png' }));
+          } else {
+            cb(new Blob(['clean-jpeg'], { type: 'image/jpeg' }));
+          }
+        }),
+      };
+
+      document.createElement = vi.fn((tag: string) => {
+        if (tag === 'canvas') return mockCanvas as unknown as HTMLCanvasElement;
+        return originalCreateElement(tag);
+      });
+
+      const file = createMockFile([0xFF, 0xD8, 0xFF], 'photo.jpg', 'image/jpeg', 200 * 1024);
+      const res = await prepareImageForUpload(file, { outputMime: 'image/webp' });
+
+      // Verifies it detected PNG fallback and re-encoded to JPEG
+      expect(toBlobCalls).toContain('image/webp');
+      expect(toBlobCalls).toContain('image/jpeg');
+      expect(res.mime).toBe('image/jpeg');
+      expect(res.blob.type).toBe('image/jpeg');
+    });
+  });
+
+  describe('getImageDimensions and hasExifOrMetadata', () => {
+    it('parses dimensions from PNG IHDR', () => {
+      const pngHeader = new Uint8Array([
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+        0x00, 0x00, 0x00, 0x0D,
+        0x49, 0x48, 0x44, 0x52, // IHDR
+        0x00, 0x00, 0x03, 0x20, // width 800
+        0x00, 0x00, 0x02, 0x58, // height 600
+        0x08, 0x06, 0x00, 0x00, 0x00,
+      ]);
+      const dims = getImageDimensions(pngHeader, 'image/png');
+      expect(dims).toEqual({ width: 800, height: 600 });
+    });
+
+    it('parses dimensions from JPEG SOF0', () => {
+      const jpegHeader = new Uint8Array([
+        0xFF, 0xD8, // SOI
+        0xFF, 0xC0, 0x00, 0x0B, // SOF0
+        0x08,
+        0x03, 0x00, // height 768
+        0x04, 0x00, // width 1024
+        0x01, 0x01, 0x11, 0x00,
+      ]);
+      const dims = getImageDimensions(jpegHeader, 'image/jpeg');
+      expect(dims).toEqual({ width: 1024, height: 768 });
+    });
+
+    it('detects EXIF APP1 metadata in JPEG', () => {
+      const withApp1 = new Uint8Array([
+        0xFF, 0xD8,
+        0xFF, 0xE1, 0x00, 0x08, 0x45, 0x78, 0x69, 0x66,
+      ]);
+      expect(hasExifOrMetadata(withApp1, 'image/jpeg')).toBe(true);
+
+      const withoutApp1 = new Uint8Array([
+        0xFF, 0xD8,
+        0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46,
+      ]);
+      expect(hasExifOrMetadata(withoutApp1, 'image/jpeg')).toBe(false);
+    });
+
+    it('rejects decompression bomb in validateImageFile before decoding', async () => {
+      // JPEG header reporting 10000 x 6000 = 60 MP (> 50 MP)
+      const bombBytes = [
+        0xFF, 0xD8,
+        0xFF, 0xC0, 0x00, 0x0B,
+        0x08,
+        0x17, 0x70, // height 6000
+        0x27, 0x10, // width 10000
+        0x01, 0x01, 0x11, 0x00,
+      ];
+      const file = createMockFile(bombBytes, 'bomb.jpg', 'image/jpeg', 200 * 1024);
+
+      await expect(validateImageFile(file)).rejects.toMatchObject({
+        code: 'RESOLUTION_TOO_HIGH',
+        friendlyMessage: expect.stringContaining('>50MP'),
       });
     });
   });

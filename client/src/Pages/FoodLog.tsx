@@ -845,17 +845,36 @@ const CameraModal = ({ onCapture, onClose }: { onCapture: (file: File) => void; 
 
   const handleSnap = () => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !video.videoWidth || !video.videoHeight) return;
+
+    const maxCap = 1600;
+    let w = video.videoWidth;
+    let h = video.videoHeight;
+    if (w > maxCap || h > maxCap) {
+      if (w >= h) {
+        h = Math.max(1, Math.round((h * maxCap) / w));
+        w = maxCap;
+      } else {
+        w = Math.max(1, Math.round((w * maxCap) / h));
+        h = maxCap;
+      }
+    }
+
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext("2d")?.drawImage(video, 0, 0);
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(video, 0, 0, w, h);
+    }
+
     canvas.toBlob((blob) => {
       if (!blob) return;
       const file = new File([blob], `snap-${Date.now()}.jpg`, { type: "image/jpeg" });
       stopStream();
       onCapture(file);
-    }, "image/jpeg", 0.92);
+    }, "image/jpeg", 0.95);
   };
 
   return (
@@ -1074,17 +1093,32 @@ export default function FoodLog() {
         toast.error(error.friendlyMessage);
       } else {
         const axiosErr = axios.isAxiosError(error) ? error : null;
-        const resData = axiosErr?.response?.data as { error?: { message?: string }; message?: string } | undefined;
+        const resData = axiosErr?.response?.data as
+          | { error?: { message?: string; code?: string }; message?: string; code?: string }
+          | undefined;
+        const code = resData?.error?.code || resData?.code;
         const status = axiosErr?.response?.status;
+        const serverMsg = resData?.error?.message || resData?.message;
 
-        if (status === 413) {
-          toast.error("Image is too large for the server (over 4MB). Please choose a smaller photo.");
-        } else if (status === 415) {
-          toast.error("Unsupported image type. Please use JPEG, PNG, or WebP.");
+        if (code === "HEIC_NOT_SUPPORTED") {
+          toast.error(
+            serverMsg ||
+              "iPhone HEIC photos aren't supported here; switch Camera format to Most Compatible or take the photo in-app."
+          );
+        } else if (code === "LIMIT_FILE_SIZE" || status === 413) {
+          toast.error(serverMsg || "Image is too large for the server (over 4MB). Please choose a smaller photo.");
+        } else if (code === "IMAGE_DIMENSIONS_TOO_LARGE") {
+          toast.error(serverMsg || "Image resolution is too large (over 50MP). Please choose a standard photo.");
+        } else if (code === "MIME_MISMATCH") {
+          toast.error(serverMsg || "File contents do not match declared image type.");
+        } else if (code === "CORRUPT_IMAGE") {
+          toast.error(serverMsg || "Image file is corrupt or truncated. Please select a different photo.");
+        } else if (code === "UNSUPPORTED_MEDIA_TYPE" || status === 415) {
+          toast.error(serverMsg || "Unsupported image format. Allowed formats are JPEG, PNG, and WebP.");
         } else if (status === 400) {
-          toast.error(resData?.error?.message || resData?.message || "Invalid image file. Please choose a different photo.");
+          toast.error(serverMsg || "Invalid image file. Please choose a different photo.");
         } else {
-          toast.error(resData?.error?.message || resData?.message || "Could not analyze image. Please add manually.");
+          toast.error(serverMsg || "Could not analyze image. Please add manually.");
         }
         openModal(mealType);
       }

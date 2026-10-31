@@ -168,6 +168,119 @@ export function sniffMimeTypeFromBytes(bytes: Uint8Array): SniffedMimeType {
 }
 
 /**
+ * Reads pixel dimensions from header bytes without decoding pixel data.
+ * Returns null when the header cannot be parsed or is incomplete.
+ */
+export function getImageDimensions(
+  bytes: Uint8Array,
+  mime: SniffedMimeType
+): { width: number; height: number } | null {
+  try {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+    if (mime === 'image/png') {
+      if (bytes.length < 24) return null;
+      const chunk = String.fromCharCode(bytes[12], bytes[13], bytes[14], bytes[15]);
+      if (chunk !== 'IHDR') return null;
+      return { width: view.getUint32(16, false), height: view.getUint32(20, false) };
+    }
+
+    if (mime === 'image/jpeg') {
+      let pos = 2; // skip SOI
+      while (pos + 9 < bytes.length) {
+        if (bytes[pos] !== 0xFF) return null;
+        const marker = bytes[pos + 1];
+        if (marker === 0xFF) {
+          pos += 1;
+          continue;
+        }
+        if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+          pos += 2;
+          continue;
+        }
+        if (marker === 0xD9 || marker === 0xDA) return null; // EOI or SOS reached before SOF
+        const isSof = marker >= 0xC0 && marker <= 0xCF && ![0xC4, 0xC8, 0xCC].includes(marker);
+        if (isSof) {
+          return { width: view.getUint16(pos + 7, false), height: view.getUint16(pos + 5, false) };
+        }
+        pos += 2 + view.getUint16(pos + 2, false);
+      }
+      return null;
+    }
+
+    if (mime === 'image/webp') {
+      if (bytes.length < 30) return null;
+      const chunk = String.fromCharCode(bytes[12], bytes[13], bytes[14], bytes[15]);
+      if (chunk === 'VP8X') {
+        const width = bytes[24] | (bytes[25] << 8) | (bytes[26] << 16);
+        const height = bytes[27] | (bytes[28] << 8) | (bytes[29] << 16);
+        return { width: width + 1, height: height + 1 };
+      }
+      if (chunk === 'VP8L' && bytes[20] === 0x2F) {
+        const bits = view.getUint32(21, true);
+        return { width: (bits & 0x3FFF) + 1, height: ((bits >>> 14) & 0x3FFF) + 1 };
+      }
+      if (chunk === 'VP8 ' && bytes[23] === 0x9D && bytes[24] === 0x01 && bytes[25] === 0x2A) {
+        return { width: view.getUint16(26, true) & 0x3FFF, height: view.getUint16(28, true) & 0x3FFF };
+      }
+    }
+  } catch {
+    // Malformed header
+  }
+  return null;
+}
+
+/**
+ * Checks whether the image contains an EXIF metadata segment (such as APP1 in JPEG,
+ * or EXIF chunk / VP8X EXIF bit in WebP) that may contain orientation != 1 or GPS coordinates.
+ */
+export function hasExifOrMetadata(bytes: Uint8Array, mime: SniffedMimeType): boolean {
+  try {
+    if (mime === 'image/jpeg') {
+      let pos = 2; // skip SOI
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      while (pos + 4 <= bytes.length) {
+        if (bytes[pos] !== 0xFF) break;
+        const marker = bytes[pos + 1];
+        if (marker === 0xFF) {
+          pos += 1;
+          continue;
+        }
+        if (marker === 0xE1) {
+          // APP1 indicates EXIF / XMP segment (contains orientation or GPS metadata)
+          return true;
+        }
+        if (marker === 0xD9 || marker === 0xDA) break;
+        if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+          pos += 2;
+          continue;
+        }
+        if (pos + 4 > bytes.length) break;
+        const len = view.getUint16(pos + 2, false);
+        pos += 2 + len;
+      }
+      return false;
+    }
+
+    if (mime === 'image/webp') {
+      if (bytes.length >= 30) {
+        const chunk = String.fromCharCode(bytes[12], bytes[13], bytes[14], bytes[15]);
+        if (chunk === 'VP8X' && (bytes[20] & 0x08) !== 0) return true;
+      }
+      for (let i = 12; i + 4 <= bytes.length; i++) {
+        if (bytes[i] === 0x45 && bytes[i + 1] === 0x58 && bytes[i + 2] === 0x49 && bytes[i + 3] === 0x46) {
+          return true;
+        }
+      }
+      return false;
+    }
+  } catch {
+    return true; // fail-safe: re-encode if header is uncertain
+  }
+  return false;
+}
+
+/**
  * Pure calculation for aspect-ratio preserving dimensions capped at maxEdge.
  * Never upscales. Rounds dimensions to integers with minimum 1px.
  */
@@ -207,10 +320,12 @@ export function calculateTargetDimensions(
 
 /**
  * Validates the file headers, declared MIME, raw size, and magic bytes.
+ * Also performs early header-only dimension checks BEFORE any pixel decoding.
  */
 export async function validateImageFile(
   file: File,
-  maxRawBytes: number = DEFAULT_MAX_RAW_BYTES
+  maxRawBytes: number = DEFAULT_MAX_RAW_BYTES,
+  maxPixels: number = DEFAULT_MAX_PIXELS
 ): Promise<SniffedMimeType> {
   if (!file || typeof file.size !== 'number' || file.size <= 0) {
     throw new ImageResizeError('INVALID_FILE', 'Please select a valid, non-empty image file.');
@@ -233,8 +348,8 @@ export async function validateImageFile(
     );
   }
 
-  // Sniff magic bytes
-  const headerSlice = file.slice(0, 32);
+  // Sniff magic bytes and header metadata from early slice
+  const headerSlice = file.slice(0, 65536);
   const buffer = await headerSlice.arrayBuffer();
   const bytes = new Uint8Array(buffer);
   const sniffedType = sniffMimeTypeFromBytes(bytes);
@@ -281,6 +396,20 @@ export async function validateImageFile(
     );
   }
 
+  // Header-only dimension pre-check BEFORE decoding pixel buffers
+  const dims = getImageDimensions(bytes, sniffedType);
+  if (dims) {
+    if (dims.width < 1 || dims.height < 1) {
+      throw new ImageResizeError('INVALID_DIMENSIONS', 'Image has invalid or zero dimensions.');
+    }
+    if (dims.width * dims.height > maxPixels) {
+      throw new ImageResizeError(
+        'RESOLUTION_TOO_HIGH',
+        `Image resolution is too high (>50MP, ${Math.round((dims.width * dims.height) / 1_000_000)}MP). Please select a standard photo.`
+      );
+    }
+  }
+
   return sniffedType;
 }
 
@@ -292,11 +421,41 @@ interface DecodedSource {
 }
 
 /**
- * Decodes the image using createImageBitmap (with EXIF auto-rotation) or HTMLImageElement fallback.
+ * Decodes the image using createImageBitmap (with EXIF auto-rotation and optional hardware downscale)
+ * or HTMLImageElement fallback.
  */
-async function decodeImage(file: File): Promise<DecodedSource> {
-  // 1. Prefer createImageBitmap with imageOrientation: 'from-image'
+async function decodeImage(
+  file: File,
+  targetWidth?: number,
+  targetHeight?: number
+): Promise<DecodedSource> {
+  // 1. Prefer createImageBitmap with imageOrientation: 'from-image' and resize options if available
   if (typeof createImageBitmap === 'function') {
+    if (targetWidth && targetHeight) {
+      try {
+        const bitmap = await createImageBitmap(file, {
+          imageOrientation: 'from-image',
+          resizeWidth: targetWidth,
+          resizeHeight: targetHeight,
+          resizeQuality: 'high',
+        });
+        return {
+          source: bitmap,
+          width: bitmap.width,
+          height: bitmap.height,
+          cleanup: () => {
+            try {
+              bitmap.close();
+            } catch {
+              // Already closed
+            }
+          },
+        };
+      } catch {
+        // Fall back to standard createImageBitmap without resize options
+      }
+    }
+
     try {
       const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
       return {
@@ -470,13 +629,13 @@ export function blobToDataUrl(blob: Blob): Promise<string> {
 
 /**
  * Prepares an image for Food Snap upload:
- * 1. Validates magic bytes, mime, and file size.
- * 2. Decodes via createImageBitmap (EXIF auto-orientation) or HTMLImageElement.
+ * 1. Validates magic bytes, mime, file size, and header-only dimension guard.
+ * 2. Decodes via createImageBitmap (EXIF auto-orientation & downscale) or HTMLImageElement.
  * 3. Enforces decompression bomb resolution limits.
- * 4. Checks skip-reencoding condition (<= 1024, < 500KB, JPEG/WebP).
+ * 4. Checks skip-reencoding condition (<= 1024, < 500KB, JPEG/WebP, and verified NO EXIF/GPS metadata).
  * 5. Draws to canvas with high smoothing and white background for JPEG.
  * 6. Steps down quality if output exceeds soft target (1.5 MB).
- * 7. Enforces 4 MB hard cap and preserves original if re-encoding was larger.
+ * 7. Enforces 4 MB hard cap and returns verified output MIME type (with WebP fallback).
  */
 export async function prepareImageForUpload(
   file: File,
@@ -491,11 +650,23 @@ export async function prepareImageForUpload(
   const maxPixels = opts.maxPixels ?? DEFAULT_MAX_PIXELS;
   const skipThresholdBytes = opts.skipThresholdBytes ?? DEFAULT_SKIP_RE_ENCODE_BYTES;
 
-  // 1. Validate file headers and magic bytes
-  const sniffedMime = await validateImageFile(file, maxRawBytes);
+  // 1. Read early header slice for binary checks and dimension inspection
+  const headerSlice = file.slice(0, 65536);
+  const headerBuf = await headerSlice.arrayBuffer();
+  const headerBytes = new Uint8Array(headerBuf);
 
-  // 2. Decode image
-  const decoded = await decodeImage(file);
+  // Validates file headers, magic bytes, and early dimension guard
+  const sniffedMime = await validateImageFile(file, maxRawBytes, maxPixels);
+
+  // Pre-calculate target dimensions if header dimensions are found
+  const headerDims = getImageDimensions(headerBytes, sniffedMime);
+  let precalcTarget: { width: number; height: number } | undefined;
+  if (headerDims && headerDims.width > 0 && headerDims.height > 0) {
+    precalcTarget = calculateTargetDimensions(headerDims.width, headerDims.height, maxEdge);
+  }
+
+  // 2. Decode image (with optional hardware downscale if supported)
+  const decoded = await decodeImage(file, precalcTarget?.width, precalcTarget?.height);
 
   try {
     const originalWidth = decoded.width;
@@ -509,13 +680,17 @@ export async function prepareImageForUpload(
       );
     }
 
-    // 4. Skip re-encoding rule: already within dimensions & under ~500KB & is JPEG/WebP
+    // 4. Safe skip re-encoding rule:
+    // Only skip when JPEG/WebP, <= maxEdge, under byte threshold, AND header scan proves NO EXIF orientation and NO GPS/APP1 segment!
     const isAlreadyCompatibleFormat = sniffedMime === 'image/jpeg' || sniffedMime === 'image/webp';
+    const hasMetadata = hasExifOrMetadata(headerBytes, sniffedMime);
+
     if (
       originalWidth <= maxEdge &&
       originalHeight <= maxEdge &&
       file.size < skipThresholdBytes &&
-      isAlreadyCompatibleFormat
+      isAlreadyCompatibleFormat &&
+      !hasMetadata
     ) {
       let dataUrl: string | undefined;
       if (opts.generateDataUrl) {
@@ -556,11 +731,23 @@ export async function prepareImageForUpload(
     const minQuality = 0.52;
     const qualityStep = 0.10;
 
-    let outputBlob = await canvasToBlob(canvas, outputMime, currentQuality);
+    let targetMime: string = outputMime;
+    let outputBlob = await canvasToBlob(canvas, targetMime, currentQuality);
+
+    // Fall back to clean white-background JPEG if canvas cannot encode WebP (browser fallback to PNG)
+    if (targetMime === 'image/webp' && outputBlob.type !== 'image/webp') {
+      targetMime = 'image/jpeg';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, targetWidth, targetHeight);
+      ctx.drawImage(decoded.source, 0, 0, targetWidth, targetHeight);
+      outputBlob = await canvasToBlob(canvas, targetMime, currentQuality);
+    }
+
+    const actualMime = outputBlob.type || targetMime;
 
     while (outputBlob.size > softTargetBytes && currentQuality - qualityStep >= minQuality - 0.001) {
       currentQuality = Math.max(minQuality, Math.round((currentQuality - qualityStep) * 100) / 100);
-      outputBlob = await canvasToBlob(canvas, outputMime, currentQuality);
+      outputBlob = await canvasToBlob(canvas, actualMime, currentQuality);
     }
 
     // 7. Enforce hard 4 MB cap
@@ -571,15 +758,17 @@ export async function prepareImageForUpload(
       );
     }
 
-    // If compressed result is larger than original AND original was already valid and under cap, prefer original
     let finalBlob: Blob = outputBlob;
-    let finalMime: string = outputMime;
+    let finalMime: string = outputBlob.type || actualMime;
+
+    // Prefer original only if smaller AND compliant AND has no unbaked EXIF/GPS metadata
     if (
       outputBlob.size > file.size &&
       file.size <= maxAllowedBytes &&
       originalWidth <= maxEdge &&
       originalHeight <= maxEdge &&
-      isAlreadyCompatibleFormat
+      isAlreadyCompatibleFormat &&
+      !hasMetadata
     ) {
       finalBlob = file;
       finalMime = sniffedMime;
