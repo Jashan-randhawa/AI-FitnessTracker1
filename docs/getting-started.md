@@ -35,7 +35,7 @@ LOG_LEVEL=info
 MONGODB_URI=mongodb://127.0.0.1:27017/fittrack
 
 # Security
-JWT_SECRET=your_super_secret_random_jwt_key
+JWT_SECRET=<generate_with_openssl_rand_base64_48>
 JWT_EXPIRES_IN=30d
 JWT_ACCESS_EXPIRES_IN=15m
 REFRESH_TOKEN_SAMESITE=lax

@@ -30,7 +30,7 @@ In your server `.env` file:
 
 ```ini
 # Brevo API Key from https://app.brevo.com (Settings → SMTP & API → API Keys)
-BREVO_API_KEY=xkeysib-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+BREVO_API_KEY=<your_brevo_api_key_from_app_brevo_com>
 
 # Verified sender address
 EMAIL_FROM="AI Fitness Tracker <no-reply@yourdomain.com>"
