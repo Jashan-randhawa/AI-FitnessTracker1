@@ -4,7 +4,7 @@
 
 ### Intelligent Health, Nutrition & Fitness Operating System
 
-[![Version](https://img.shields.io/badge/Version-v2.6.0-emerald?style=for-the-badge)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases)
+[![Version](https://img.shields.io/badge/Version-v2.7.0-emerald?style=for-the-badge)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases)
 [![CI](https://github.com/Jashan-randhawa/AI-FitnessTracker1/actions/workflows/ci.yml/badge.svg)](https://github.com/Jashan-randhawa/AI-FitnessTracker1/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Jashan-randhawa/8daef1b188f84235576ad3707b7aa0ea/raw/tests.json&style=for-the-badge)](docs/testing.md)
 [![GitHub Packages](https://img.shields.io/badge/GitHub_Packages-7_Published-2ea44f?style=for-the-badge&logo=github)](docs/packages.md)

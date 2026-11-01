@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+---
+
+## [[2.7.0](https://github.com/Jashan-randhawa/AI-FitnessTracker1/releases/tag/v2.7.0)] — 2026-11-01
+
 ### 🔄 Offline Sync Queue & Write Idempotency Architecture
 - **Shared Idempotency Middleware (`middleware/idempotency.js`)**: Applied to `POST /api/waterlogs`, `/api/weightlogs`, `/api/foodlogs`, and `/api/activitylogs`. Supports `Idempotency-Key`, `X-Idempotency-Key`, and `body.data.idempotencyKey` / `body.idempotencyKey` (8-128 chars). Performs atomic claims using unique index `{ user, key }` to prevent race conditions.
 - **Durable Retention & Index Migration (`scripts/migrate-idempotency-index.js`)**: Extended `IdempotencyKey` schema with `requestHash`, `status`, `statusCode`, `route`, and `expiresAt` with 7-day TTL index (`IDEMPOTENCY_TTL_HOURS`, default 168). Added idempotent pre-deploy migration script to safely drop old 5-minute `createdAt` TTL index and sync model indexes.
@@ -203,3 +207,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Authentication**: JWT stateless authentication, bcrypt password hashing, and Google OAuth 2.0 integration.
 - **Media & Workouts**: Video library powered by RapidAPI YouTube search proxy and curated Punjabi gym pump playlists.
 - **Data Export**: Initial PDF and PNG progress card downloads via jsPDF and html2canvas.
+
