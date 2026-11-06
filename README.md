@@ -30,6 +30,24 @@
 - 🔐 **Hardened Security & Privacy:** Single-flight Refresh Token Rotation (RTR), CSRF/origin checks, rolling 5-password history, secret scrubber, and zero-leakage tarballs.
 - 📦 **Decoupled Architecture:** 7 modular TypeScript packages published on GitHub Packages for UI components, calculation utilities, and AI guards.
 
+## 🏗️ Architecture at a Glance
+
+```mermaid
+flowchart LR
+    Client["React 19 + Vite SPA"] -->|REST / JWT| Server["Express 5 API"]
+    Server -->|SSE /api/events| Client
+    Client -->|Weather & AQI| Meteo["Open-Meteo"]
+    Server --> DB[("MongoDB Atlas")]
+    Server -.->|Optional cache & rate limits| Redis[("Redis")]
+    Server --> LLM["OpenRouter / Gemini AI"]
+    Server --> Mail["Brevo Email"]
+    Server --> YT["YouTube Search"]
+```
+
+See [`docs/architecture.md`](docs/architecture.md) for the full topology and AI, offline-sync, and budget flows.
+
+---
+
 ## 📋 Prerequisites
 
 - **Node.js:** `>= 20.0.0` (Node 22 LTS recommended)
